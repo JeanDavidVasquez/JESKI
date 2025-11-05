@@ -66,6 +66,7 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
 
 <img width="1000" height="782" alt="diagrama_caso_uso_identificar_necesidad" src="https://github.com/user-attachments/assets/98a05c10-d152-4098-8dfc-d95f282cdbe9" />
 
+## Especificación (Identificar Necesidad)
 <table>
   <tr>
     <th>Nombre</th>
@@ -103,6 +104,7 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
 
 <img width="1072" height="930" alt="diagrama_caso_uso_busqueda_proveedor" src="https://github.com/user-attachments/assets/84f6cd6d-7d85-4b01-9c36-a9bcdbbfed34" />
 
+## Especificación (Búsqueda de Proveedor)
 <table>
   <tr>
     <th>Nombre</th>
@@ -160,6 +162,7 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
 
 <img width="793" height="555" alt="digrama_caso_uso_cotizacion" src="https://github.com/user-attachments/assets/8c66fd92-dfce-4e80-bc9c-3c1517f6362c" />
 
+## Especificación (Cotización)
 <table>
   <tr>
     <th>Nombre</th>
@@ -222,6 +225,7 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
 
 <img width="773" height="558" alt="diagrama_caso_uso_epi" src="https://github.com/user-attachments/assets/cd4d90e1-499c-463f-8b06-07aa50860d38" />
 
+## Especificación (EPI)
 <table>
   <tr>
     <th>Nombre</th>
