@@ -90,6 +90,8 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
       - Necesidad devuelve las fechas al Usuario.<br>
       - Usuario define tipo de proyecto en Necesidad.<br>
       - Necesidad devuelve el tipo de proyecto al Usuario.<br>
+      - Usuario define una sugerencia de Proveedor a Necesidad.<br>
+      - Usuario busca clase en Necesidad.<br>
       - Usuario busca clase en Necesidad.<br>
       - Necesidad devuelve información de la clase al Usuario.<br>
       - Usuario adjunta aspectos técnicos en Necesidad.<br>
