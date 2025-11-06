@@ -102,7 +102,7 @@ Representa el **límite del sistema modelado**, ilustrado mediante un **rectáng
 
 ## 2. Diagrama de Caso de Uso (Búsqueda de Proveedor)
 
-<img width="1059" height="906" alt="diagrama_caso_uso_busqueda_proveedor" src="https://github.com/user-attachments/assets/f350bc0a-9cd0-4f37-885c-427fa980924f" />
+<img width="1052" height="900" alt="diagrama_caso_uso_busqueda_proveedor" src="https://github.com/user-attachments/assets/62596c69-cfe6-402e-b820-71ad6296e662" />
 
 
 ## Especificación (Búsqueda de Proveedor)
