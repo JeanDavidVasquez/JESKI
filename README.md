@@ -113,5 +113,4 @@ Hemos diseñado la experiencia de usuario (UX/UI) de esta plataforma en Figma. P
 
 Puedes descargar la guía detallada con los pasos para navegar el prototipo desde el siguiente enlace:
 
-[📄 **Descargar Guía de Navegación del Prototipo**]([GUIA INDURAMA.pdf](https://github.com/user-attachments/files/23499830/GUIA.INDURAMA.pdf)
-
+[📄 **Descargar Guía de Navegación del Prototipo**](https://github.com/user-attachments/files/23499830/GUIA.INDURAMA.pdf)
