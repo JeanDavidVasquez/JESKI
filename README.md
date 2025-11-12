@@ -102,16 +102,15 @@ El diseño de la experiencia de usuario (UX/UI) de la plataforma unificada fue d
 <table>
     <tr>
         <td align="center">
-            <img src="<img width="658" height="712" alt="qr" src="https://github.com/user-attachments/assets/dda2dd67-0c88-4b26-b57b-90de71c72f92" />
-" width="250" alt="Código QR del Prototipo Figma">
+            <img src="https://github.com/user-attachments/assets/dda2dd67-0c88-4b26-b57b-90de71c72f92" width="250" alt="Código QR del Prototipo Figma">
             <br>
             <small>Escanea para acceder al prototipo</small>
         </td>
-        <td align="center">
-            <h3>Guía de Acceso</h3>
-            <p>Descarga la guía con los pasos para navegar el prototipo.</p>
-            <a href="[Práctica Guiada.pdf](https://github.com/user-attachments/files/23499735/Practica.Guiada.pdf)
-">📄 Descargar Guía de Navegación</a>
-        </td>
     </tr>
 </table>
+
+### Guía de Acceso
+
+Puedes descargar la guía detallada con los pasos para navegar el prototipo desde el siguiente enlace:
+
+[📄 **Descargar Guía de Navegación del Prototipo**](https://github.com/user-attachments/files/23499735/Practica.Guiada.pdf)
