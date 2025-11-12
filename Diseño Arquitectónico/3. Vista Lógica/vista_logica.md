@@ -1,5 +1,3 @@
----
-
 ## Diagrama de Clases
 
 ### "Plataforma Unificada de Gestión de Proveedores"
