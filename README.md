@@ -97,7 +97,7 @@ El sistema permitirá:
 
 ## Prototipo Figma 
 
-El diseño de la experiencia de usuario (UX/UI) de la plataforma unificada fue desarrollado en Figma. A continuación, puedes acceder al prototipo navegable escaneando el código QR o consultando la guía de apertura en PDF.
+Hemos diseñado la experiencia de usuario (UX/UI) de esta plataforma en Figma. Puedes explorar el prototipo navegable escaneando el código QR a continuación o revisando nuestra guía de acceso en PDF.
 
 <table>
     <tr>
