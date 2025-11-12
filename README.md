@@ -95,10 +95,23 @@ El sistema permitirá:
 
 ---
 
-## Objetivos del Proyecto  
-- Crear un sistema accesible desde cualquier lugar que permita **gestionar la red de proveedores** de Indurama de forma eficiente.  
-- Implementar una **solución en la nube** que centralice y automatice los procesos de evaluación, cotización e incorporación de proveedores.  
-- Proporcionar una **app móvil** para que los colaboradores puedan **registrar, consultar y validar** información de proveedores en tiempo real.
+## Prototipo Figma 🎨
 
+El diseño de la experiencia de usuario (UX/UI) de la plataforma unificada fue desarrollado en Figma. A continuación, puedes acceder al prototipo navegable escaneando el código QR o consultando la guía de apertura en PDF.
 
-
+<table>
+    <tr>
+        <td align="center">
+            <img src="<img width="658" height="712" alt="qr" src="https://github.com/user-attachments/assets/dda2dd67-0c88-4b26-b57b-90de71c72f92" />
+" width="250" alt="Código QR del Prototipo Figma">
+            <br>
+            <small>Escanea para acceder al prototipo</small>
+        </td>
+        <td align="center">
+            <h3>Guía de Acceso</h3>
+            <p>Descarga la guía con los pasos para navegar el prototipo.</p>
+            <a href="[Práctica Guiada.pdf](https://github.com/user-attachments/files/23499735/Practica.Guiada.pdf)
+">📄 Descargar Guía de Navegación</a>
+        </td>
+    </tr>
+</table>
