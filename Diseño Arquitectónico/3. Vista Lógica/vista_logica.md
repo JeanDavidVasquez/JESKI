@@ -28,6 +28,9 @@ Nuestro diagrama de clases sigue la notación estándar UML, destacando:
 
 ---
 
+### Diccionario de Clases
+[**Enlace para el diccionario de clases**](https://docs.google.com/spreadsheets/d/1T2Y_uCvz0BG-SExoEJAmILGt5xq603W5j9QSF35ILrA/edit?usp=sharing)
+
 ### Foto del Diagrama de Clases
 
 <img width="2692" height="2460" alt="Diagrama en blanco" src="https://github.com/user-attachments/assets/5e591fab-5bb3-47f8-9959-9ff92d6f635f" />
