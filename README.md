@@ -72,7 +72,16 @@ Convertirnos en una **empresa líder en el desarrollo de software en la nube**, 
 # Reto: Gestión de Proveedores – Indurama
 
 ## Problemática  
-Indurama enfrenta el reto de gestionar eficazmente su red de proveedores, asegurando que los procesos de identificación, evaluación, cotización y registro sean eficientes y colaborativos. Actualmente, la dispersión de información, la limitada visibilidad en tiempo real y la falta de automatización generan **riesgos de retrasos**, **ineficiencias en la evaluación** y **problemas de integración entre departamentos**.
+Indurama enfrenta un desafío crítico en la **eficiencia y agilidad** de su cadena de suministro, originado en su actual proceso de gestión de proveedores.
+
+La problemática central radica en la **ausencia de una plataforma tecnológica unificada (Web y Móvil)** que brinde soporte integral a los procesos de identificación, evaluación, cotización y registro de su red de proveedores.
+
+### Puntos de Dolor Clave:
+
+* **Silos de Información y Falta de Trazabilidad:** La información de proveedores está dispersa, dificultando la colaboración entre departamentos (Compras, Calidad, Finanzas) y creando serios **problemas de integración**.
+* **Visibilidad Nula en Tiempo Real:** Existe una incapacidad para monitorear el ciclo de vida completo de un proveedor, lo que deriva en **procesos manuales lentos** y propensos a errores.
+* **Brecha de Accesibilidad (Web/Móvil):** La gerencia carece de *dashboards* centralizados para la toma de **decisiones estratégicas (Web)**, mientras que los equipos en campo no pueden registrar o validar datos en tiempo real **(Móvil)**.
+* **Impacto en el Negocio:** Esta desconexión operativa genera **riesgos directos de retrasos** en la adquisición de materiales, **aumenta los costos operativos** y limita la capacidad de Indurama para tomar **decisiones de abastecimiento ágiles**, limitando su competitividad.
 
 ---
 
