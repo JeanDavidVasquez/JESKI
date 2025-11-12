@@ -30,4 +30,5 @@ Nuestro diagrama de clases sigue la notación estándar UML, destacando:
 
 ### Foto del Diagrama de Clases
 
-![Diagrama de Clases de la Plataforma Unificada de Gestión de Proveedores](https://github.com/user-attachments/assets/abab864c-34d5-47e3-a3e4-d2691b923af2)
+<img width="2692" height="2460" alt="Diagrama en blanco" src="https://github.com/user-attachments/assets/5e591fab-5bb3-47f8-9959-9ff92d6f635f" />
+
