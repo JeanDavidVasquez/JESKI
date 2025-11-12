@@ -101,7 +101,7 @@ Hemos diseñado la experiencia de usuario (UX/UI) de esta plataforma en Figma. P
 
 ### Acceso Directo al Prototipo
 
-[▶️ **Ver Prototipo Interactivo de Figma**](https://www.figma.com/proto/dbYilff7VbIO9PZq7TNrCU/INDURAMA?node-id=7-185&p=f&t=BbIOkJFB7PGRaNUD-1&scaling=min-zoom&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=7%3A185)
+[**Ver Prototipo Interactivo de Figma**](https://www.figma.com/proto/dbYilff7VbIO9PZq7TNrCU/INDURAMA?node-id=7-185&p=f&t=BbIOkJFB7PGRaNUD-1&scaling=min-zoom&content-scaling=fixed&page-id=0%3A1&starting-point-node-id=7%3A185)
 
 <table>
     <tr>
