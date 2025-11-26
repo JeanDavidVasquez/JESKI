@@ -69,14 +69,14 @@ Desarrollar soluciones tecnológicas innovadoras que integren **eficiencia, esca
 
 Convertirnos en una **empresa líder en el desarrollo de software en la nube**, destacando por la **creatividad, compromiso e innovación** de nuestras aplicaciones, tanto a nivel nacional como internacional.
 
-# Reto: Gestión de Proveedores – Indurama
+# Proyecto: Gestión de Proveedores – Indurama
 
 ## Problemática  
 Indurama enfrenta un desafío crítico en la **eficiencia y agilidad** de su cadena de suministro, originado en su actual proceso de gestión de proveedores.
 
 La problemática central radica en la **ausencia de una plataforma tecnológica unificada (Web y Móvil)** que brinde soporte integral a los procesos de identificación, evaluación, cotización y registro de su red de proveedores.
 
-### Puntos de Dolor Clave:
+### Puntos Clave:
 
 * **Silos de Información y Falta de Trazabilidad:** La información de proveedores está dispersa, dificultando la colaboración entre departamentos (Compras, Calidad, Finanzas) y creando serios **problemas de integración**.
 * **Visibilidad Nula en Tiempo Real:** Existe una incapacidad para monitorear el ciclo de vida completo de un proveedor, lo que deriva en **procesos manuales lentos** y propensos a errores.
@@ -86,7 +86,7 @@ La problemática central radica en la **ausencia de una plataforma tecnológica 
 ---
 
 ## Solución Propuesta  
-Desarrollar una **aplicación móvil** para la gestión integral de proveedores en Indurama, empleando **servicios en la nube** para un control centralizado y un registro en tiempo real.  
+Desarrollar una **aplicación web y móvil** para la gestión integral de proveedores en Indurama, empleando **servicios en la nube** para un control centralizado y un registro en tiempo real.  
 El sistema permitirá:  
 - Identificar, evaluar y registrar proveedores de forma estructurada.  
 - Monitorear el ciclo de vida de los proveedores: desde la búsqueda hasta la aprobación.  
