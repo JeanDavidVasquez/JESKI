@@ -33,6 +33,6 @@ Nuestro diagrama de clases sigue la notación estándar UML, destacando:
 
 ### Foto del Diagrama de Clases
 
-<img width="2692" height="2460" alt="Diagrama en blanco" src="https://github.com/user-attachments/assets/b176f6c8-2c8e-49e0-882f-fbe4a52d8bdc" />
+<img width="2692" height="2460" alt="Diagrama en blanco" src="https://github.com/user-attachments/assets/aa80fd26-53c3-44d3-b112-43118d78152a" />
 
 
