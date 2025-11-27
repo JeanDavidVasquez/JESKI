@@ -3,6 +3,25 @@
 > *Innovando el futuro, un código a la vez.*
 
 ---
+## **Descripción del Proyecto**
+
+**JISKES Tech** es una empresa de desarrollo de software dedicada a crear **soluciones digitales personalizadas**, diseñadas para responder de manera precisa a las necesidades de cada cliente.
+
+Nuestro enfoque se centra en la **calidad, la innovación y la excelencia técnica**, asegurando que cada producto desarrollado sea **escalable, seguro** y contribuya activamente a la **transformación digital** y al **crecimiento tecnológico** de quienes confían en nosotros.
+
+---
+
+## **Misión**
+
+Desarrollar soluciones tecnológicas innovadoras que integren **eficiencia, escalabilidad y un diseño centrado en el usuario**, impulsando el avance digital mediante productos **confiables, sostenibles y de alta calidad**.
+
+---
+
+## **Visión**
+
+Convertirnos en una **empresa líder en el desarrollo de software en la nube**, destacando por la **creatividad, compromiso e innovación** de nuestras aplicaciones, tanto a nivel nacional como internacional.
+
+---
 
 ## **Integrantes del Equipo**
 
@@ -51,25 +70,8 @@
 </table>
 
 ---
-## **Descripción del Proyecto**
 
-**JISKES Tech** es una empresa de desarrollo de software dedicada a crear **soluciones digitales personalizadas**, diseñadas para responder de manera precisa a las necesidades de cada cliente.
-
-Nuestro enfoque se centra en la **calidad, la innovación y la excelencia técnica**, asegurando que cada producto desarrollado sea **escalable, seguro** y contribuya activamente a la **transformación digital** y al **crecimiento tecnológico** de quienes confían en nosotros.
-
----
-
-## **Misión**
-
-Desarrollar soluciones tecnológicas innovadoras que integren **eficiencia, escalabilidad y un diseño centrado en el usuario**, impulsando el avance digital mediante productos **confiables, sostenibles y de alta calidad**.
-
----
-
-## **Visión**
-
-Convertirnos en una **empresa líder en el desarrollo de software en la nube**, destacando por la **creatividad, compromiso e innovación** de nuestras aplicaciones, tanto a nivel nacional como internacional.
-
-# Proyecto: Gestión de Proveedores – Indurama
+# Gestión de Proveedores – Indurama
 
 ## Problemática  
 Indurama enfrenta un desafío crítico en la **eficiencia y agilidad** de su cadena de suministro, originado en su actual proceso de gestión de proveedores.
