@@ -89,7 +89,7 @@ La problemática central radica en la **ausencia de una plataforma tecnológica 
 
 ## Solución Propuesta  
 Desarrollar una **aplicación web y móvil** para la gestión integral de proveedores en Indurama, empleando **servicios en la nube** para un control centralizado y un registro en tiempo real.  
-El sistema permitirá:  
+La aplicación permitirá:  
 - Identificar, evaluar y registrar proveedores de forma estructurada.  
 - Monitorear el ciclo de vida de los proveedores: desde la búsqueda hasta la aprobación.  
 - Facilitar la colaboración entre áreas y departamentos mediante acceso móvil y remoto.  
