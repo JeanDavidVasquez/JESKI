@@ -1,0 +1,26 @@
+// Exportaciones de pantallas
+export { SplashScreen } from './SplashScreen';
+export { LoginScreen } from './LoginScreen';
+export { RegisterScreen } from './RegisterScreen';
+export { RequestsScreen } from './RequestsScreen';
+export { NewRequestScreen } from './NewRequestScreen';
+export { HistoryScreen } from './HistoryScreen';
+export { RequestDetailScreen } from './RequestDetailScreen';
+export { ProfileScreen } from './ProfileScreen';
+export { SupplierWelcomeScreen } from './SupplierWelcomeScreen';
+export { SupplierEvaluationScreen } from './SupplierEvaluationScreen';
+export { SupplierCreationScreen } from './SupplierCreationScreen';
+export { QualityQuestionnaireScreen } from './QualityQuestionnaireScreen';
+export { SupplyQuestionnaireScreen } from './SupplyQuestionnaireScreen';
+export { PhotoEvidenceScreen } from './PhotoEvidenceScreen';
+export { default as ManagerDashboardScreen } from './ManagerDashboardScreen';
+export { ManagerRequestsScreen } from './ManagerRequestsScreen';
+export { RequestReviewScreen } from './RequestReviewScreen';
+export { default as SupplierDetailScreen } from './SupplierDetailScreen';
+export { DashboardScreen } from './DashboardScreen';
+export { SupplierListScreen } from './SupplierListScreen';
+export { SupplierInviteScreen } from './SupplierInviteScreen';
+export { SupplierSearchScreen } from './SupplierSearchScreen';
+export { default as SupplierTechnicalSheetScreen } from './SupplierTechnicalSheetScreen';
+export { default as AuditScreen } from './AuditScreen';
+export { ManagerProfileScreen } from './ManagerProfileScreen';

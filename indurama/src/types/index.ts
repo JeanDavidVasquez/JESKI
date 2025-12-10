@@ -1,0 +1,290 @@
+/**
+ * Interfaz base para entidades con propiedades comunes
+ */
+export interface BaseEntity {
+  id: string;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+/**
+ * Interfaz para datos de usuario/empleado
+ */
+export interface User extends BaseEntity {
+  email: string;
+  firstName: string;
+  lastName: string;
+  phoneNumber?: string;
+  role: UserRole;
+  isActive: boolean;
+  profileImageUrl?: string;
+}
+
+/**
+ * Roles de usuario en el sistema
+ */
+export enum UserRole {
+  ADMIN = 'admin',           // Administrador del sistema
+  SOLICITANTE = 'solicitante', // Usuario que hace solicitudes
+  APROBADOR = 'aprobador',    // Usuario que aprueba solicitudes
+  GESTOR = 'gestor',         // Gestor que administra el sistema
+  PROVEEDOR = 'proveedor'    // Proveedor que completa evaluaciones
+}
+
+/**
+ * Interfaz para datos de proveedor
+ */
+export interface Supplier extends BaseEntity {
+  businessName: string;
+  contactPerson: string;
+  email: string;
+  phoneNumber: string;
+  address: Address;
+  taxId: string; // RUC o documento tributario
+  category: SupplierCategory;
+  status: SupplierStatus;
+  rating: number; // Calificación del proveedor (1-5)
+  notes?: string;
+  contractStartDate?: Date;
+  contractEndDate?: Date;
+  products: Product[];
+  documents: Document[];
+}
+
+/**
+ * Categorías de proveedores
+ */
+export enum SupplierCategory {
+  MATERIALS = 'materials',
+  SERVICES = 'services',
+  EQUIPMENT = 'equipment',
+  TECHNOLOGY = 'technology',
+  LOGISTICS = 'logistics',
+  CONSULTING = 'consulting'
+}
+
+/**
+ * Estados de proveedor
+ */
+export enum SupplierStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  PENDING_APPROVAL = 'pending_approval',
+  SUSPENDED = 'suspended'
+}
+
+/**
+ * Interfaz para dirección
+ */
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+/**
+ * Interfaz para productos/servicios del proveedor
+ */
+export interface Product extends BaseEntity {
+  name: string;
+  description: string;
+  category: string;
+  unitPrice: number;
+  currency: string;
+  minimumQuantity?: number;
+  leadTime?: number; // Tiempo de entrega en días
+  isAvailable: boolean;
+}
+
+/**
+ * Interfaz para documentos del proveedor
+ */
+export interface Document extends BaseEntity {
+  name: string;
+  type: DocumentType;
+  url: string;
+  expirationDate?: Date;
+  isRequired: boolean;
+  isVerified: boolean;
+}
+
+/**
+ * Tipos de documentos
+ */
+export enum DocumentType {
+  TAX_CERTIFICATE = 'tax_certificate',
+  BUSINESS_LICENSE = 'business_license',
+  INSURANCE_POLICY = 'insurance_policy',
+  QUALITY_CERTIFICATE = 'quality_certificate',
+  CONTRACT = 'contract',
+  OTHER = 'other'
+}
+
+/**
+ * Interfaz para evaluaciones de proveedores
+ */
+export interface SupplierEvaluation extends BaseEntity {
+  supplierId: string;
+  evaluatorId: string;
+  period: string; // Ej: "2024-Q1"
+  qualityScore: number; // 1-5
+  deliveryScore: number; // 1-5
+  serviceScore: number; // 1-5
+  priceScore: number; // 1-5
+  overallScore: number; // Promedio calculado
+  comments?: string;
+  improvementAreas?: string[];
+}
+
+/**
+ * Interfaz para contratos
+ */
+export interface Contract extends BaseEntity {
+  supplierId: string;
+  contractNumber: string;
+  startDate: Date;
+  endDate: Date;
+  value: number;
+  currency: string;
+  terms: string;
+  status: ContractStatus;
+  renewalOptions?: string;
+}
+
+/**
+ * Estados de contrato
+ */
+export enum ContractStatus {
+  ACTIVE = 'active',
+  EXPIRED = 'expired',
+  TERMINATED = 'terminated',
+  PENDING = 'pending'
+}
+
+/**
+ * Interfaz para datos de autenticación
+ */
+export interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+/**
+ * Interfaz para respuestas de API
+ */
+export interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+  errorCode?: string;
+}
+
+/**
+ * Interfaz para filtros de búsqueda de proveedores
+ */
+export interface SupplierFilters {
+  category?: SupplierCategory;
+  status?: SupplierStatus;
+  rating?: number;
+  searchText?: string;
+}
+
+/**
+ * Interfaz para estadísticas del dashboard
+ */
+export interface DashboardStats {
+  totalSuppliers: number;
+  activeSuppliers: number;
+  pendingApprovals: number;
+  averageRating: number;
+  contractsExpiringThisMonth: number;
+  recentEvaluations: SupplierEvaluation[];
+}
+
+/**
+ * Estados de solicitud
+ */
+export enum RequestStatus {
+  DRAFT = 'draft',
+  SUBMITTED = 'submitted',
+  IN_REVIEW = 'in_review',
+  APPROVED = 'approved',
+  REJECTED = 'rejected',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  CANCELLED = 'cancelled'
+}
+
+/**
+ * Prioridades de solicitud
+ */
+export enum RequestPriority {
+  LOW = 'low',
+  MEDIUM = 'medium',
+  HIGH = 'high',
+  URGENT = 'urgent'
+}
+
+/**
+ * Categorías de solicitud
+ */
+export enum RequestCategory {
+  MATERIALS = 'materials',
+  EQUIPMENT = 'equipment',
+  SERVICES = 'services',
+  MAINTENANCE = 'maintenance',
+  SUPPLIES = 'supplies',
+  OTHER = 'other'
+}
+
+/**
+ * Interfaz para solicitudes
+ */
+export interface Request extends BaseEntity {
+  code: string; // Código único de la solicitud (ej: SOL-2025-001)
+  title: string;
+  description: string;
+  category: RequestCategory;
+  priority: RequestPriority;
+  status: RequestStatus;
+  requestedBy: string; // ID del usuario solicitante
+  assignedTo?: string; // ID del usuario asignado
+  approvedBy?: string; // ID del usuario que aprobó
+  dueDate?: Date;
+  estimatedCost?: number;
+  actualCost?: number;
+  notes?: string;
+  attachments?: string[]; // URLs de archivos adjuntos
+  items?: RequestItem[]; // Elementos específicos de la solicitud
+  timeline?: RequestTimelineEvent[]; // Historial de eventos
+}
+
+/**
+ * Elementos/items de una solicitud
+ */
+export interface RequestItem {
+  id: string;
+  name: string;
+  description?: string;
+  quantity: number;
+  unit: string; // kg, pcs, m2, etc.
+  estimatedUnitPrice?: number;
+  supplier?: string; // ID del proveedor sugerido
+}
+
+/**
+ * Eventos del timeline de solicitudes
+ */
+export interface RequestTimelineEvent {
+  id: string;
+  type: 'created' | 'submitted' | 'approved' | 'rejected' | 'assigned' | 'completed' | 'comment';
+  description: string;
+  createdBy: string; // ID del usuario
+  createdAt: Date;
+  metadata?: Record<string, any>; // Datos adicionales del evento
+}
