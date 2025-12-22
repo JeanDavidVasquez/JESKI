@@ -17,7 +17,8 @@ Los diagramas de secuencia son una herramienta de modelado en la Ingeniería de 
 
 ### Diagrama 1: Identificar Necesidad
 
-![Diagramas Secuencia 1](https://github.com/user-attachments/assets/9da92193-dcc8-476a-a083-33c806ce6104)
+<img width="987" height="1189" alt="image" src="https://github.com/user-attachments/assets/439492cd-06ce-4b1d-93de-321ea447ea84" />
+
 
 **Explicación:**
 Este diagrama describe el flujo inicial donde el **Solicitante** genera un requerimiento de abastecimiento. El **Sistema Indurama** actúa como intermediario para validar y procesar los datos. Los pasos detallados son:
@@ -30,7 +31,8 @@ Este diagrama describe el flujo inicial donde el **Solicitante** genera un reque
 
 ### Diagrama 2: Búsqueda de Proveedor
 
-![Diagramas Secuencia 2](https://github.com/user-attachments/assets/0d8e9fd9-c449-4451-8d7d-15eb8fcbde21)
+<img width="1808" height="1892" alt="image" src="https://github.com/user-attachments/assets/46a58cf5-b4b8-499e-b112-f3d224a2fa2c" />
+
 
 **Explicación:**
 Este diagrama detalla el proceso de gestión de proveedores nuevos. El **Gestor** procesa una sugerencia (derivada de una necesidad) y gestiona el alta del proveedor en el sistema. El flujo es:
@@ -46,7 +48,8 @@ Este diagrama detalla el proceso de gestión de proveedores nuevos. El **Gestor*
 
 ### Diagrama 3: Cotización
 
-![Diagramas Secuencia 3](https://github.com/user-attachments/assets/b0ca5a19-917b-40d1-8544-5467613e5b11)
+<img width="1361" height="1357" alt="image" src="https://github.com/user-attachments/assets/0cc65a66-7431-4018-9c6f-4f451d802e06" />
+
 
 **Explicación:**
 Este diagrama modela la fase de negociación y selección de ofertas. El **Gestor** solicita precios y el **Proveedor** responde a través de la entidad **Cotizacion**. Los pasos son:
@@ -60,7 +63,8 @@ Este diagrama modela la fase de negociación y selección de ofertas. El **Gesto
 
 ### Diagrama 4: Evaluación de Proveedor (EPI)
 
-![Diagramas Secuencia 4](https://github.com/user-attachments/assets/9094e4a4-9510-4afb-81b3-8154cdf2a014)
+<img width="1629" height="1667" alt="image" src="https://github.com/user-attachments/assets/5ea068c1-18ac-46e9-8db0-2720ad5e450c" />
+
 
 **Explicación:**
 Este diagrama representa el proceso de auditoría y calificación de desempeño (Evaluación de Proveedor Interno). El **Gestor** califica al **Proveedor** interactuando con las entidades `EvaluacionProveedor`, `ResultadoCriterio` y `Retroalimentacion`. El flujo lógico es:
