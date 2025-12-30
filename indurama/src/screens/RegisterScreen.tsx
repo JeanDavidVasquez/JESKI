@@ -16,7 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AppContainer, AppText, AppInput, AppButton } from '../components';
 import { theme } from '../styles/theme';
 import { AuthService } from '../services';
-import { User } from '../types';
+import { User, UserRole } from '../types';
 
 const { width, height } = Dimensions.get('window');
 const isWeb = Platform.OS === 'web';
@@ -37,9 +37,16 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 }) => {
   const [firstName, setFirstName] = useState('');
   const [surname, setSurname] = useState('');
+  const [department, setDepartment] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
+
+  // New Fields for Supplier
+  const [isSupplier, setIsSupplier] = useState(false);
+  const [companyName, setCompanyName] = useState('');
+  const [phone, setPhone] = useState('');
+
   const [loading, setLoading] = useState(false);
 
   const handleRegister = async () => {
@@ -48,20 +55,37 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       return;
     }
 
-    if (!firstName || !surname || !email || !password) {
-      Alert.alert('Error', 'Todos los campos son obligatorios');
+    if (!email || !password) {
+      Alert.alert('Error', 'Todos los campos básicos son obligatorios');
+      return;
+    }
+
+    if (!isSupplier && (!firstName || !surname)) {
+      Alert.alert('Error', 'Nombre y Apellido son obligatorios');
+      return;
+    }
+
+    if (isSupplier && !companyName) {
+      Alert.alert('Error', 'El nombre de la empresa es obligatorio para proveedores');
       return;
     }
 
     setLoading(true);
     try {
-      const result = await AuthService.signUp(email, password, firstName, surname);
+      // Determine Role and Additional Data
+      const role = isSupplier ? UserRole.PROVEEDOR : UserRole.SOLICITANTE;
+      const additionalData = isSupplier ? { companyName, phone } : { department };
+
+      const finalFirstName = isSupplier ? companyName : firstName;
+      const finalSurname = isSupplier ? '(Empresa)' : surname;
+
+      const result = await AuthService.signUp(email, password, finalFirstName, finalSurname, role, additionalData);
 
       if (result.success && result.data) {
-        Alert.alert('Éxito', result.message || 'Registro exitoso', [
+        Alert.alert('Éxito', isSupplier ? 'Cuenta de proveedor creada. Completa tu perfil.' : 'Registro exitoso', [
           {
             text: 'Continuar',
-            onPress: () => onRegister?.(result.data!) // Pasar el usuario al callback
+            onPress: () => onRegister?.(result.data!)
           }
         ]);
       } else {
@@ -94,7 +118,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             {/* Header Section */}
             <View style={styles.headerSection}>
               <Text style={styles.registerTitle}>
-                REGISTER
+                REGISTRO
               </Text>
 
               <Text style={styles.subtitle}>
@@ -102,68 +126,134 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               </Text>
             </View>
 
+            {/* Account Type Toggle */}
+            <View style={styles.toggleContainer}>
+              <TouchableOpacity
+                style={[styles.toggleButton, !isSupplier && styles.toggleButtonActive]}
+                onPress={() => setIsSupplier(false)}
+              >
+                <Text style={[styles.toggleText, !isSupplier && styles.toggleTextActive]}>Personal</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.toggleButton, isSupplier && styles.toggleButtonActive]}
+                onPress={() => setIsSupplier(true)}
+              >
+                <Text style={[styles.toggleText, isSupplier && styles.toggleTextActive]}>Empresa / Proveedor</Text>
+              </TouchableOpacity>
+            </View>
+
             {/* Form Section */}
             <View style={styles.formContainer}>
-              {/* First Name and Surname in same row */}
-              <View style={styles.nameRow}>
-                <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <TextInput
-                    style={styles.directInput}
-                    placeholder="First Name"
-                    value={firstName}
-                    onChangeText={setFirstName}
-                    autoCapitalize="words"
-                    placeholderTextColor="#999999"
-                  />
-                </View>
 
-                <View style={[styles.inputContainer, styles.halfWidth]}>
-                  <TextInput
-                    style={styles.directInput}
-                    placeholder="Surname"
-                    value={surname}
-                    onChangeText={setSurname}
-                    autoCapitalize="words"
-                    placeholderTextColor="#999999"
-                  />
-                </View>
-              </View>
+              {/* Supplier Specific Fields */}
+              {isSupplier && (
+                <>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Nombre de la Empresa</Text>
+                    <TextInput
+                      style={styles.directInput}
+                      placeholder="Razón Social o Comercial"
+                      value={companyName}
+                      onChangeText={setCompanyName}
+                      autoCapitalize="words"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Teléfono de Contacto</Text>
+                    <TextInput
+                      style={styles.directInput}
+                      placeholder="+593 ..."
+                      value={phone}
+                      onChangeText={setPhone}
+                      keyboardType="phone-pad"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </>
+              )}
+
+              {/* First Name and Surname - Only for Personal */}
+              {!isSupplier && (
+                <>
+                  <View style={styles.nameRow}>
+                    <View style={[styles.inputContainer, styles.halfWidth]}>
+                      <Text style={styles.inputLabel}>Nombre</Text>
+                      <TextInput
+                        style={styles.directInput}
+                        placeholder="Nombre"
+                        value={firstName}
+                        onChangeText={setFirstName}
+                        autoCapitalize="words"
+                        placeholderTextColor="#999"
+                      />
+                    </View>
+
+                    <View style={[styles.inputContainer, styles.halfWidth]}>
+                      <Text style={styles.inputLabel}>Apellido</Text>
+                      <TextInput
+                        style={styles.directInput}
+                        placeholder="Apellido"
+                        value={surname}
+                        onChangeText={setSurname}
+                        autoCapitalize="words"
+                        placeholderTextColor="#999"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.inputContainer}>
+                    <Text style={styles.inputLabel}>Departamento</Text>
+                    <TextInput
+                      style={styles.directInput}
+                      placeholder="Ej: Producción, Logística, etc."
+                      value={department}
+                      onChangeText={setDepartment}
+                      autoCapitalize="words"
+                      placeholderTextColor="#999"
+                    />
+                  </View>
+                </>
+              )}
 
               {/* Email */}
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Correo Electrónico</Text>
                 <TextInput
                   style={styles.directInput}
-                  placeholder="Email"
+                  placeholder="ejemplo@correo.com"
                   value={email}
                   onChangeText={setEmail}
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  placeholderTextColor="#999999"
+                  placeholderTextColor="#999"
                 />
               </View>
 
               {/* Password */}
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Contraseña</Text>
                 <TextInput
                   style={styles.directInput}
-                  placeholder="Password (Don't put a real one)"
+                  placeholder="********"
                   value={password}
                   onChangeText={setPassword}
                   secureTextEntry={true}
-                  placeholderTextColor="#999999"
+                  placeholderTextColor="#999"
                 />
               </View>
 
               {/* Confirm Password */}
               <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirmar Contraseña</Text>
                 <TextInput
                   style={styles.directInput}
-                  placeholder="Confirm Password (Don't put a real one)"
+                  placeholder="********"
                   value={confirmPassword}
                   onChangeText={setConfirmPassword}
                   secureTextEntry={true}
-                  placeholderTextColor="#999999"
+                  placeholderTextColor="#999"
                 />
               </View>
 
@@ -173,19 +263,19 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 disabled={loading}
               >
                 <Text style={styles.submitButtonText}>
-                  {loading ? 'Cargando...' : 'Submit'}
+                  {loading ? 'Creando cuenta...' : (isSupplier ? 'Registrar Empresa' : 'Registrarme')}
                 </Text>
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.loginLink} onPress={onNavigateToLogin}>
                 <Text
                   style={{
-                    fontSize: 16,
+                    fontSize: 14,
                     color: '#666666',
                     textAlign: 'center'
                   }}
                 >
-                  ¿Ya tienes cuenta? Inicia sesión aquí
+                  ¿Ya tienes cuenta? <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>Inicia sesión</Text>
                 </Text>
               </TouchableOpacity>
             </View>
@@ -337,4 +427,40 @@ const styles = StyleSheet.create({
     color: theme.colors.primary,
     textAlign: 'center',
   },
+  toggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 4,
+    marginBottom: 20,
+    width: '100%',
+    maxWidth: 400,
+    alignSelf: 'center',
+    borderWidth: 1,
+    borderColor: '#e0e0e0'
+  },
+  toggleButton: {
+    flex: 1,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  toggleButtonActive: {
+    backgroundColor: theme.colors.primary,
+  },
+  toggleText: {
+    fontSize: 14,
+    color: '#666',
+    fontWeight: '600'
+  },
+  toggleTextActive: {
+    color: '#fff'
+  },
+  inputLabel: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '600',
+    marginBottom: 6,
+    marginLeft: 4
+  }
 });

@@ -12,6 +12,7 @@ export type MainStackParamList = {
   SupplierList: undefined;
   SupplierDetail: { supplierId: string };
   SupplierForm: { supplierId?: string };
+  UserManagement: undefined;
   Profile: undefined;
 };
 

@@ -13,6 +13,8 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../styles/theme';
+import { db } from '../services/firebaseConfig';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 
 interface SupplierInviteScreenProps {
   onNavigateBack?: () => void;
@@ -31,17 +33,41 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
   const [message, setMessage] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
-  const handleSendInvite = () => {
-    // Aquí iría la lógica para enviar la invitación
-    console.log('Enviando invitación...', {
-      companyName,
-      email,
-      contactName,
-      phone,
-      category,
-      message
-    });
-    setShowSuccessModal(true);
+  // const [loading, setLoading] = useState(false); // Already defined? No, I defined it in the bad block. I need to keep 'loading'.
+
+  const [loading, setLoading] = useState(false);
+
+  const handleSendInvite = async () => {
+    if (!companyName || !email) {
+      alert('Por favor complete Nombre de Empresa y Email');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      // Create "Invited" User in Firestore so it appears in Supplier List
+      await addDoc(collection(db, 'users'), {
+        email: email.trim(),
+        firstName: contactName,
+        lastName: '', // Single name in this form
+        role: 'proveedor', // Matches UserRole.PROVEEDOR
+        companyName: companyName,
+        phone,
+        category,
+        status: 'INVITED',
+        isActive: true,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      console.log('Supplier invited and created in Firestore');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error creating invite:', error);
+      alert('Error al enviar invitación');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleCloseModal = () => {

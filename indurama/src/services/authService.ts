@@ -5,14 +5,15 @@ import {
   updateProfile,
   User as FirebaseUser,
 } from 'firebase/auth';
-import { 
-  doc, 
-  setDoc, 
-  getDoc, 
-  serverTimestamp 
+import {
+  doc,
+  setDoc,
+  getDoc,
+  updateDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { auth, db } from './firebaseConfig';
-import { User, UserRole, ApiResponse } from '../types';
+import { User, UserRole, UserStatus, ApiResponse } from '../types';
 
 /**
  * Servicio de autenticación para la aplicación Indurama
@@ -33,6 +34,7 @@ export class AuthService {
           firstName: 'Juan',
           lastName: 'Pérez',
           role: UserRole.SOLICITANTE,
+          status: UserStatus.ACTIVE,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -43,6 +45,7 @@ export class AuthService {
           firstName: 'María',
           lastName: 'García',
           role: UserRole.APROBADOR,
+          status: UserStatus.ACTIVE,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -53,6 +56,7 @@ export class AuthService {
           firstName: 'Carlos',
           lastName: 'Ruiz',
           role: UserRole.ADMIN,
+          status: UserStatus.ACTIVE,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -63,6 +67,7 @@ export class AuthService {
           firstName: 'Ana',
           lastName: 'Soto',
           role: UserRole.PROVEEDOR,
+          status: UserStatus.ACTIVE,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -73,6 +78,7 @@ export class AuthService {
           firstName: 'Roberto',
           lastName: 'Mendez',
           role: UserRole.GESTOR,
+          status: UserStatus.ACTIVE,
           isActive: true,
           createdAt: new Date(),
           updatedAt: new Date()
@@ -101,19 +107,37 @@ export class AuthService {
       // Autenticación con Firebase para otras cuentas
       const userCredential = await signInWithEmailAndPassword(auth, sanitizedEmail, password);
       const firebaseUser = userCredential.user;
-      
-      // Datos básicos del usuario desde Firebase Auth (sin Firestore temporalmente)
+
+      // Intentar obtener datos extendidos desde Firestore
+      let firestoreData = {};
+      try {
+        const userDocRef = doc(db, 'users', firebaseUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+        if (userDocSnap.exists()) {
+          firestoreData = userDocSnap.data();
+        }
+      } catch (firestoreError) {
+        console.warn('Error al obtener datos de Firestore:', firestoreError);
+      }
+
+      // Combinar datos de Auth y Firestore
+      // Priorizar Firestore para el rol
       const userData: User = {
         id: firebaseUser.uid,
         email: firebaseUser.email || email,
-        firstName: firebaseUser.displayName?.split(' ')[0] || 'Usuario',
-        lastName: firebaseUser.displayName?.split(' ')[1] || '',
-        role: UserRole.SOLICITANTE, // Rol por defecto
-        isActive: true,
-        createdAt: new Date(),
+        firstName: (firestoreData as any).firstName || firebaseUser.displayName?.split(' ')[0] || 'Usuario',
+        lastName: (firestoreData as any).lastName || firebaseUser.displayName?.split(' ')[1] || '',
+        role: (firestoreData as any).role || UserRole.SOLICITANTE,
+        status: (firestoreData as any).status || UserStatus.ACTIVE,
+        isActive: (firestoreData as any).isActive !== undefined ? (firestoreData as any).isActive : true,
+        companyName: (firestoreData as any).companyName,
+        phone: (firestoreData as any).phone,
+        department: (firestoreData as any).department,
+        position: (firestoreData as any).position,
+        createdAt: ((firestoreData as any).createdAt?.toDate && (firestoreData as any).createdAt.toDate()) || new Date(),
         updatedAt: new Date()
       };
-      
+
       return {
         success: true,
         data: userData,
@@ -137,27 +161,63 @@ export class AuthService {
     password: string,
     firstName: string,
     lastName: string,
-    role: UserRole = UserRole.SOLICITANTE
+    role: UserRole = UserRole.SOLICITANTE,
+    additionalData?: { companyName?: string; phone?: string; category?: string;[key: string]: any }
   ): Promise<ApiResponse<User>> {
     try {
       // Crear usuario en Firebase Auth
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const firebaseUser = userCredential.user;
-      
+
       // Actualizar el perfil con el nombre
       await updateProfile(firebaseUser, {
         displayName: `${firstName} ${lastName}`
       });
 
+      // --- LOGIC TO MERGE INVITED USER DATA ---
+      let extraData = {};
+      try {
+        const { collection, query, where, getDocs, deleteDoc } = require('firebase/firestore');
+        const q = query(collection(db, 'users'), where('email', '==', email));
+        const querySnapshot = await getDocs(q);
+
+        if (!querySnapshot.empty) {
+          const inviteDoc = querySnapshot.docs[0];
+          const inviteData = inviteDoc.data();
+          console.log('Found invited user data:', inviteData);
+          extraData = {
+            companyName: inviteData.companyName || '',
+            category: inviteData.category || '',
+            phone: inviteData.phone || '',
+            role: inviteData.role || role // Keep invited role
+          };
+          // Delete the temporary invite doc to avoid duplicates
+          await deleteDoc(inviteDoc.ref);
+        }
+      } catch (e) {
+        console.log('Error checking for invites:', e);
+      }
+      // ----------------------------------------
+
       // Crear documento del usuario en Firestore
+      const initialStatus = role === UserRole.PROVEEDOR ? UserStatus.ACTIVE : UserStatus.ACTIVE; // Auto-activate for demo? Or PENDING? 
+      // Let's set it to ACTIVE if they were invited, otherwise PENDING? 
+      // For now, let's stick to default behavior but if extraData exists, maybe they are already 'reviewed'?
+      // Let's keep it simple:
+
       const userData: Omit<User, 'id'> = {
         email,
         firstName,
         lastName,
-        role,
+        role: (extraData as any).role || role,
+        status: initialStatus,
+        isActive: initialStatus === UserStatus.ACTIVE,
         createdAt: new Date(),
         updatedAt: new Date(),
-        isActive: true
+        ...extraData, // Merge invite data
+        ...additionalData // Merge form data (higher priority if we want, or lower. Usually invite data wins? Let's assume Invite wins for CompanyName if set, but mobile fields fill gaps. Actually extraData is fetched from DB, so it's truth).
+        // Let's allow form data to overwrite invite data ONLY if invite data is empty?
+        // Simpler: spread additionalData first, then extraData.
       };
 
       await setDoc(doc(db, 'users', firebaseUser.uid), {
@@ -201,11 +261,27 @@ export class AuthService {
   }
 
   /**
+   * Actualiza los datos del usuario
+   */
+  static async updateUser(userId: string, data: Partial<User>): Promise<void> {
+    try {
+      const userRef = doc(db, 'users', userId);
+      await updateDoc(userRef, {
+        ...data,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error actualizando usuario:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Obtiene los datos del usuario desde Firestore
    */
   static async getUserData(userId: string): Promise<User> {
     const userDoc = await getDoc(doc(db, 'users', userId));
-    
+
     if (!userDoc.exists()) {
       throw new Error('Usuario no encontrado');
     }
@@ -217,7 +293,12 @@ export class AuthService {
       firstName: data.firstName,
       lastName: data.lastName,
       role: data.role,
+      status: data.status || (data.isActive ? UserStatus.ACTIVE : UserStatus.DISABLED),
       isActive: data.isActive,
+      companyName: data.companyName,
+      phone: data.phone,
+      department: data.department,
+      position: data.position,
       createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
       updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
     };

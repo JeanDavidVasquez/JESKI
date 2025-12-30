@@ -1,13 +1,53 @@
 import React, { useState } from 'react';
 import { View, StyleSheet } from 'react-native';
+
+import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { AuthService } from '../services';
 import { LoginScreen, RegisterScreen, RequestsScreen, NewRequestScreen, HistoryScreen, DashboardScreen, SupplierWelcomeScreen, SupplierEvaluationScreen, SupplierCreationScreen, QualityQuestionnaireScreen, SupplyQuestionnaireScreen, PhotoEvidenceScreen, ManagerDashboardScreen, ManagerRequestsScreen, RequestReviewScreen, SupplierDetailScreen, SupplierListScreen, SupplierInviteScreen, SupplierSearchScreen, SupplierTechnicalSheetScreen, AuditScreen, ManagerProfileScreen } from '../screens';
 import { EPIConfigScreen } from '../screens/EPIConfigScreen';
+import { UserManagementScreen } from '../screens/UserManagementScreen';
 import { RequestDetailScreen } from '../screens/RequestDetailScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
-import { User, UserRole } from '../types';
+import { SolicitanteDashboardScreen } from '../screens/SolicitanteDashboardScreen';
+import { SolicitanteHistoryScreen } from '../screens/SolicitanteHistoryScreen';
+import { SolicitanteProfileScreen } from '../screens/SolicitanteProfileScreen';
+import { User, UserRole, Request } from '../types';
 import TermsConditionsScreen from '../screens/TermsConditionsScreen';
 
-type Screen = 'Login' | 'Register' | 'Dashboard' | 'Requests' | 'NewRequest' | 'History' | 'RequestDetail' | 'Profile' | 'SupplierWelcome' | 'SupplierEvaluation' | 'SupplierCreation' | 'QualityQuestionnaire' | 'SupplyQuestionnaire' | 'PhotoEvidence' | 'ManagerDashboard' | 'ManagerRequests' | 'RequestReview' | 'SupplierDetail' | 'SupplierList' | 'SupplierInvite' | 'SupplierSearch' | 'SupplierTechnicalSheet' | 'Audit' | 'ManagerProfile' | 'EPIConfig';
+export type Screen =
+  | 'Login'
+  | 'Register'
+  | 'Dashboard'
+  | 'Requests'
+  | 'NewRequest'
+  | 'History'
+  | 'RequestDetail'
+  | 'Profile'
+  | 'SupplierWelcome'
+  | 'SupplierEvaluation'
+  | 'SupplierCreation'
+  | 'QualityQuestionnaire'
+  | 'SupplyQuestionnaire'
+  | 'PhotoEvidence'
+  | 'ManagerDashboard'
+  | 'ManagerRequests'
+  | 'RequestReview'
+  | 'SupplierDetail'
+  | 'SupplierList'
+  | 'SupplierInvite'
+  | 'SupplierSearch'
+  | 'SupplierTechnicalSheet'
+  | 'Audit'
+  | 'ManagerProfile'
+  | 'EPIConfig'
+  | 'UserManagement'
+  | 'SolicitanteDashboard'
+  | 'SolicitanteHistory'
+  | 'SolicitanteProfile'
+  | 'ManagerSuppliers'
+  | 'PendingApproval'
+  | 'ValidateRequest';
 
 /**
  * Navegación temporal simple con manejo de roles
@@ -21,8 +61,66 @@ export const SimpleNavigator: React.FC = () => {
   const [reviewRequestId, setReviewRequestId] = useState<string | null>(null);
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [previousScreen, setPreviousScreen] = useState<Screen | null>(null);
+  const [editingRequest, setEditingRequest] = useState<Request | null>(null);
+
   // Estado para mostrar términos tras responsable EPI
-  const [showTerms, setShowTerms] = React.useState(false);
+  const [showTerms, setShowTerms] = useState(false);
+  const [epiResponsableData, setEpiResponsableData] = useState<{ fullName: string; email: string; position: string } | null>(null);
+
+  const logEpiSession = async (responsableData: { fullName: string; email: string; position: string }) => {
+    if (!currentUser) return;
+    try {
+      // Guardar en sub-colección 'contacts' del usuario
+      await addDoc(collection(db, 'users', currentUser.id, 'contacts'), {
+        userId: currentUser.id,
+        userEmail: currentUser.email,
+        companyName: currentUser.companyName || currentUser.firstName,
+        responsableName: responsableData.fullName,
+        responsableEmail: responsableData.email,
+        responsablePosition: responsableData.position,
+        termsAccepted: true,
+        loginTime: serverTimestamp(),
+        createdAt: serverTimestamp()
+      });
+      console.log('EPI Session Logged');
+    } catch (error) {
+      console.error('Error logging EPI session:', error);
+    }
+  };
+
+  const handleContinueSupplierWelcome = async (data: { fullName: string; email: string; position: string }) => {
+    setEpiResponsableData(data);
+
+    // Check if user already accepted terms
+    if (currentUser?.termsAccepted) {
+      await logEpiSession(data);
+      setCurrentScreen('SupplierEvaluation');
+    } else {
+      setShowTerms(true);
+    }
+  };
+
+  const handleAcceptTerms = async () => {
+    if (currentUser && epiResponsableData) {
+      await logEpiSession(epiResponsableData);
+
+      // Update User Profile to prevent showing terms again
+      try {
+        const userRef = doc(db, 'users', currentUser.id);
+        await updateDoc(userRef, {
+          termsAccepted: true,
+          updatedAt: serverTimestamp()
+        });
+        // Update local state to reflect change (optional but good practice)
+        setCurrentUser({ ...currentUser, termsAccepted: true });
+      } catch (error) {
+        console.error('Error updating user terms acceptance:', error);
+      }
+    }
+    setShowTerms(false);
+    setCurrentScreen('SupplierEvaluation');
+  };
+
   const navigateToEPIConfig = () => {
     setPreviousScreen(currentScreen);
     setCurrentScreen('EPIConfig');
@@ -35,6 +133,14 @@ export const SimpleNavigator: React.FC = () => {
   };
 
   const handleLogout = () => {
+    try {
+      // Sign out from Firebase
+      // We import dynamically or use the imported service
+      // Assuming AuthService is imported
+      AuthService.signOut();
+    } catch (e) {
+      console.error("Logout error", e);
+    }
     setCurrentScreen('Login');
     setCurrentUser(null);
     setSelectedRequestId(null);
@@ -100,38 +206,61 @@ export const SimpleNavigator: React.FC = () => {
   const navigateBackToSupplierList = () => setCurrentScreen('SupplierList');
   const navigateToSupplierSearch = () => setCurrentScreen('SupplierSearch');
   const navigateToManagerProfile = () => setCurrentScreen('ManagerProfile');
+  const navigateToUserManagement = () => {
+    setPreviousScreen('ManagerDashboard');
+    setCurrentScreen('UserManagement');
+  };
+
+  const handleNavigateToRequestDetail = (requestId: string) => {
+    setSelectedRequestId(requestId);
+    setCurrentScreen('RequestDetail');
+  };
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    console.log('User logged in:', user.email, 'Role:', user.role);
 
-    // Redireccionar según el rol del usuario
-    switch (user.role) {
-      case UserRole.SOLICITANTE:
-        setCurrentScreen('Requests');
-        break;
-      case UserRole.APROBADOR:
-        // Por ahora va al dashboard, más tarde crearemos la pantalla de aprobador
-        setCurrentScreen('Dashboard');
-        break;
-      case UserRole.GESTOR:
-        setCurrentScreen('ManagerDashboard');
-        break;
-      case UserRole.PROVEEDOR:
-        setCurrentScreen('SupplierWelcome');
-        break;
-      case UserRole.ADMIN:
-        setCurrentScreen('Dashboard');
-        break;
-      default:
-        setCurrentScreen('Requests');
+    // Redireccionar según el rol del usuario (Normalized)
+    const role = (user.role || '').toLowerCase();
+
+    if (role === 'proveedor') {
+      setCurrentScreen('SupplierWelcome');
+      return;
     }
+
+    if (role === 'gestor') {
+      setCurrentScreen('ManagerDashboard');
+      return;
+    }
+
+    if (role === 'admin') {
+      setCurrentScreen('Dashboard');
+      return;
+    }
+
+    if (role === 'aprobador') {
+      setCurrentScreen('Dashboard');
+      return;
+    }
+
+    // For SOLICITANTE: check approval status and route to Dashboard
+    if (role === 'solicitante') {
+      if (user.approved === false) {
+        alert('Tu cuenta está pendiente de aprobación por un gestor. Serás notificado cuando puedas acceder.');
+        setCurrentScreen('Login');
+        setCurrentUser(null);
+        return;
+      }
+      // Approved or no approval field (legacy users) - go to Dashboard
+      setCurrentScreen('SolicitanteDashboard');
+      return;
+    }
+
+    // Default fallback
+    setCurrentScreen('Requests');
   };
 
-  const handleContinueSupplierWelcome = () => setShowTerms(true);
-  const handleAcceptTerms = () => {
-    setShowTerms(false);
-    setCurrentScreen('SupplierEvaluation');
-  };
+
   const handleRejectTerms = () => {
     setShowTerms(false);
     setCurrentScreen('Login');
@@ -164,7 +293,32 @@ export const SimpleNavigator: React.FC = () => {
           />
         );
       case 'NewRequest':
-        return <NewRequestScreen onNavigateBack={navigateBackToRequests} />;
+        return (
+          <NewRequestScreen
+            initialRequest={editingRequest}
+            onNavigateBack={() => {
+              setEditingRequest(null);
+              if (currentUser?.role === UserRole.SOLICITANTE) {
+                setCurrentScreen('SolicitanteDashboard');
+              } else {
+                navigateBackToRequests();
+              }
+            }}
+            onNavigateToDashboard={() => {
+              setEditingRequest(null);
+              setCurrentScreen('SolicitanteDashboard');
+            }}
+            onNavigateToNewRequest={() => { }}
+            onNavigateToHistory={() => {
+              setEditingRequest(null);
+              setCurrentScreen('SolicitanteHistory');
+            }}
+            onNavigateToProfile={() => {
+              setEditingRequest(null);
+              setCurrentScreen('SolicitanteProfile');
+            }}
+          />
+        );
       case 'History':
         return (
           <HistoryScreen
@@ -177,8 +331,18 @@ export const SimpleNavigator: React.FC = () => {
       case 'RequestDetail':
         return (
           <RequestDetailScreen
-            onNavigateBack={navigateBackFromDetail}
-            requestId={selectedRequestId || undefined}
+            requestId={selectedRequestId!}
+            onBack={() => {
+              if (currentUser?.role === UserRole.SOLICITANTE) {
+                setCurrentScreen('SolicitanteDashboard');
+              } else {
+                navigateBackFromDetail();
+              }
+            }}
+            onNavigateToEdit={(request) => {
+              setEditingRequest(request);
+              setCurrentScreen('NewRequest');
+            }}
           />
         );
       case 'Profile':
@@ -191,6 +355,37 @@ export const SimpleNavigator: React.FC = () => {
             onLogout={handleLogout}
           />
         );
+
+      // SOLICITANTE Screens
+      case 'SolicitanteDashboard':
+        return (
+          <SolicitanteDashboardScreen
+            onNavigateToNewRequest={() => setCurrentScreen('NewRequest')}
+            onNavigateToHistory={() => setCurrentScreen('SolicitanteHistory')}
+            onNavigateToProfile={() => setCurrentScreen('SolicitanteProfile')}
+            onNavigateToRequestDetail={handleNavigateToRequestDetail}
+          />
+        );
+      case 'SolicitanteHistory':
+        return (
+          <SolicitanteHistoryScreen
+            onNavigateToDashboard={() => setCurrentScreen('SolicitanteDashboard')}
+            onNavigateToNewRequest={() => { setEditingRequest(null); setCurrentScreen('NewRequest'); }}
+            onNavigateToProfile={() => setCurrentScreen('SolicitanteProfile')}
+            onNavigateToRequestDetail={handleNavigateToRequestDetail}
+          />
+        );
+
+      case 'SolicitanteProfile':
+        return (
+          <SolicitanteProfileScreen
+            onNavigateToDashboard={() => setCurrentScreen('SolicitanteDashboard')}
+            onNavigateToNewRequest={() => setCurrentScreen('NewRequest')}
+            onNavigateToHistory={() => setCurrentScreen('SolicitanteHistory')}
+            onLogout={handleLogout}
+          />
+        );
+
       case 'SupplierWelcome':
         return showTerms ? (
           <TermsConditionsScreen onAccept={handleAcceptTerms} onReject={handleRejectTerms} />
@@ -220,6 +415,7 @@ export const SimpleNavigator: React.FC = () => {
       case 'QualityQuestionnaire':
         return (
           <QualityQuestionnaireScreen
+            supplierId={selectedSupplierId || ''}
             onNavigateBack={navigateBackToSupplierEvaluation}
             onComplete={navigateBackToSupplierEvaluation}
             onNavigateToSupplyQuestionnaire={navigateToSupplyQuestionnaire}
@@ -228,6 +424,7 @@ export const SimpleNavigator: React.FC = () => {
       case 'SupplyQuestionnaire':
         return (
           <SupplyQuestionnaireScreen
+            supplierId={selectedSupplierId || ''}
             onNavigateBack={navigateToQualityQuestionnaire}
             onComplete={navigateBackToSupplierEvaluation}
             onNavigateToPhotoEvidence={navigateToPhotoEvidence}
@@ -247,6 +444,12 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToSuppliers={navigateToSupplierList}
             onNavigateToProfile={navigateToManagerProfile}
             onNavigateToValidateRequest={navigateToRequestReview}
+            onNavigateToSearch={(requestId) => {
+              setReviewRequestId(requestId);
+              setPreviousScreen('ManagerDashboard'); // Set previous screen for correct back navigation
+              setCurrentScreen('SupplierSearch');
+            }}
+            onNavigateToUserManagement={navigateToUserManagement}
           />
         );
       case 'ManagerRequests':
@@ -255,6 +458,11 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateBack={navigateBackToManagerDashboard}
             onNavigateToDashboard={navigateBackToManagerDashboard}
             onNavigateToProveedores={navigateToSupplierList}
+            onNavigateToSearch={(requestId) => {
+              setReviewRequestId(requestId);
+              setPreviousScreen('ManagerRequests'); // Ensure we can go back
+              setCurrentScreen('SupplierSearch');
+            }}
             onNavigateToReview={navigateToRequestReview}
             onNavigateToProfile={navigateToManagerProfile}
             initialFilter={requestsFilter}
@@ -274,9 +482,14 @@ export const SimpleNavigator: React.FC = () => {
               }
             }}
             onNavigateToDashboard={navigateBackToManagerDashboard}
-            onNavigateToProveedores={() => setCurrentScreen('SupplierSearch')}
+            onNavigateToProveedores={() => {
+              setPreviousScreen('RequestReview');
+              setCurrentScreen('SupplierSearch');
+            }}
             onNavigateToSupplierDetail={navigateToSupplierDetail}
+            currentUser={currentUser}
             onApprove={(requestId, comment) => {
+              setPreviousScreen('RequestReview');
               setCurrentScreen('SupplierSearch');
             }}
             onReject={(requestId, comment) => {
@@ -320,7 +533,12 @@ export const SimpleNavigator: React.FC = () => {
       case 'SupplierSearch':
         return (
           <SupplierSearchScreen
-            onNavigateBack={navigateBackToRequestReview}
+            requestId={reviewRequestId || undefined}
+            onNavigateBack={() => {
+              // Go to RequestReview but DON'T change previousScreen
+              // This way, RequestReview can still go back to the original screen (Dashboard/Requests)
+              setCurrentScreen('RequestReview');
+            }}
             onContinueToQuotation={() => console.log('Continuar a cotización')}
             onNavigateToDetail={navigateToSupplierDetail}
             onNavigateToInvite={navigateToSupplierInvite}
@@ -373,12 +591,27 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToRequests={navigateToManagerRequests}
             onNavigateToSuppliers={navigateToSupplierList}
             onNavigateToEPIConfig={navigateToEPIConfig}
+            onNavigateToUserManagement={navigateToUserManagement}
             onLogout={handleLogout}
           />
         );
       case 'EPIConfig':
         return (
           <EPIConfigScreen
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerDashboard');
+              }
+            }}
+            onNavigateToProfile={() => setCurrentScreen('ManagerProfile')}
+          />
+        );
+      case 'UserManagement':
+        return (
+          <UserManagementScreen
             onNavigateBack={() => {
               if (previousScreen) {
                 setCurrentScreen(previousScreen);

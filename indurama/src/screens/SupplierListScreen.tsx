@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,15 @@ import {
   TextInput,
   Text,
   Image,
+  ActivityIndicator
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../styles/theme';
+import { ManagerBottomNav } from '../components/ManagerBottomNav';
+import { db } from '../services/firebaseConfig';
+import { collection, query, where, onSnapshot, orderBy } from 'firebase/firestore';
+import { EpiService } from '../services/epiService';
+import { User } from '../types';
 
 interface SupplierListScreenProps {
   onNavigateToDashboard?: () => void;
@@ -17,6 +23,14 @@ interface SupplierListScreenProps {
   onNavigateToProfile?: () => void;
   onNavigateToInvite?: () => void;
   onNavigateToDetail?: (supplierId: string) => void;
+}
+
+interface SupplierUI extends User {
+  evalStatus?: 'Invitado' | 'Progreso' | 'Pendiente' | 'Completado';
+  evalProgress?: number;
+  evalScore?: number;
+  evalColor?: string;
+  evalTextColor?: string;
 }
 
 export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
@@ -27,84 +41,92 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
   onNavigateToDetail,
 }) => {
   const [searchText, setSearchText] = useState('');
+  const [suppliers, setSuppliers] = useState<SupplierUI[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Datos de ejemplo basados en la imagen
-  const suppliers = [
-    {
-      id: '1',
-      name: 'Tornillos S.A.',
-      email: 'info@metalicas.com',
-      tags: ['Materia Prima'],
-      status: 'Invitado',
-      statusColor: '#E5E7EB', // Gray
-      statusTextColor: '#374151',
-      progress: 0,
-      type: 'progress',
-    },
-    {
-      id: '2',
-      name: 'Tornillos S.A.',
-      email: 'info@metalicas.com',
-      tags: ['Materia Prima'],
-      status: 'Progreso',
-      statusColor: '#BFDBFE', // Light Blue
-      statusTextColor: '#1E40AF',
-      progress: 60,
-      type: 'progress',
-    },
-    {
-      id: '3',
-      name: 'Tornillos S.A.',
-      email: 'info@metalicas.com',
-      tags: ['Materia Prima', 'Repuestos'],
-      status: 'Pendiente de Revisión',
-      statusColor: '#FFEDD5', // Light Orange
-      statusTextColor: '#9A3412',
-      score: 88,
-      scoreColor: '#F97316', // Orange
-      type: 'score',
-    },
-    {
-      id: '4',
-      name: 'Tornillos S.A.',
-      email: 'info@metalicas.com',
-      tags: ['Materia Prima', 'Repuestos'],
-      status: 'Completado',
-      statusColor: '#D1FAE5', // Light Green
-      statusTextColor: '#065F46',
-      score: 92,
-      scoreColor: '#10B981', // Green
-      type: 'score',
-    },
-  ];
+  useEffect(() => {
+    // Escuchar proveedores en tiempo real
+    const q = query(
+      collection(db, 'users'),
+      where('role', '==', 'proveedor')
+      // orderBy('createdAt', 'desc') // Requires index, remove if error
+    );
 
-  const renderBottomTab = (icon: any, label: string, isActive: boolean, onPress?: () => void) => (
-    <TouchableOpacity style={styles.tabItem} onPress={onPress}>
-      <Image 
-        source={icon} 
-        style={[
-          styles.tabIcon, 
-          { tintColor: isActive ? theme.colors.primary : '#9CA3AF' }
-        ]} 
-      />
-      <Text style={[
-        styles.tabLabel, 
-        { color: isActive ? theme.colors.primary : '#9CA3AF' }
-      ]}>
-        {label}
-      </Text>
-    </TouchableOpacity>
-  );
+    const unsubscribe = onSnapshot(q, async (snapshot) => {
+      const loadedSuppliers: SupplierUI[] = [];
+
+      for (const doc of snapshot.docs) {
+        const userData = doc.data() as User;
+        const supplier: SupplierUI = {
+          id: doc.id,
+          ...userData,
+          // Default status
+          evalStatus: 'Invitado',
+          evalColor: '#E5E7EB',
+          evalTextColor: '#374151',
+          evalProgress: 0
+        };
+
+        // Fetch evaluations for this supplier to update status
+        try {
+          const evals = await EpiService.getEvaluationsBySupplier(doc.id);
+          if (evals.length > 0) {
+            // Determine logic. For simplified UX:
+            // If has Quality & Supply -> Completed
+            // If has partially -> Progress
+            const hasQuality = evals.find(e => e.type === 'CALIDAD');
+            const hasSupply = evals.find(e => e.type === 'ABASTECIMIENTO');
+
+            if (hasQuality && hasSupply) {
+              supplier.evalStatus = 'Completado';
+              supplier.evalColor = '#D1FAE5';
+              supplier.evalTextColor = '#065F46';
+              // Avg score or sum?
+              const totalQ = hasQuality.totalScore;
+              const totalS = hasSupply.totalScore;
+              const maxQ = hasQuality.maxTotalScore;
+              const maxS = hasSupply.maxTotalScore;
+              const totalMax = maxQ + maxS;
+              const finalScore = totalMax > 0 ? Math.round(((totalQ + totalS) / totalMax) * 100) : 0;
+
+              supplier.evalScore = finalScore;
+            } else if (hasQuality || hasSupply) {
+              supplier.evalStatus = 'Progreso';
+              supplier.evalColor = '#BFDBFE';
+              supplier.evalTextColor = '#1E40AF';
+              supplier.evalProgress = hasQuality ? 50 : 50; // Simple logic
+            }
+          }
+        } catch (e) {
+          console.error(e);
+        }
+
+        loadedSuppliers.push(supplier);
+      }
+
+      setSuppliers(loadedSuppliers);
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const filteredSuppliers = suppliers.filter(s => {
+    const term = searchText.toLowerCase();
+    const name = (s.companyName || s.firstName + ' ' + s.lastName).toLowerCase();
+    const email = s.email.toLowerCase();
+    return name.includes(term) || email.includes(term);
+  });
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>PROVEEDORES</Text>
-        <Image 
-          source={require('../../assets/icono_indurama.png')} 
+        <Image
+          source={require('../../assets/icono_indurama.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -129,7 +151,7 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
             <Image source={require('../../assets/icons/plus.png')} style={styles.buttonIcon} />
             <Text style={styles.newButtonText}>Nuevo Proveedor</Text>
           </TouchableOpacity>
-          
+
           <TouchableOpacity style={styles.filterButton}>
             <Image source={require('../../assets/icons/filter.png')} style={[styles.buttonIcon, { tintColor: '#000' }]} />
             <Text style={styles.filterButtonText}>Filtros</Text>
@@ -137,75 +159,79 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
         </View>
 
         {/* List */}
-        <FlatList
-          data={suppliers}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => (
-            <TouchableOpacity 
-              style={styles.card}
-              onPress={() => onNavigateToDetail && onNavigateToDetail(item.id)}
-            >
-              {/* Card Header */}
-              <View style={styles.cardHeader}>
-                <View style={styles.iconContainer}>
-                  <Image source={require('../../assets/icons/home.png')} style={styles.buildingIcon} />
-                </View>
-                <View style={styles.cardInfo}>
-                  <Text style={styles.cardTitle}>{item.name}</Text>
-                  <Text style={styles.cardSubtitle}>{item.email}</Text>
-                </View>
-                <View style={[styles.statusBadge, { backgroundColor: item.statusColor }]}>
-                  <Text style={[styles.statusText, { color: item.statusTextColor }]}>{item.status}</Text>
-                </View>
-              </View>
-
-              {/* Tags */}
-              <View style={styles.tagsContainer}>
-                {item.tags.map((tag, index) => (
-                  <View key={index} style={styles.tag}>
-                    <Text style={styles.tagText}>{tag}</Text>
+        {loading ? (
+          <ActivityIndicator size="large" color="#003E85" style={{ marginTop: 20 }} />
+        ) : (
+          <FlatList
+            data={filteredSuppliers}
+            keyExtractor={(item) => item.id}
+            ListEmptyComponent={
+              <Text style={{ textAlign: 'center', color: '#999', marginTop: 20 }}>No hay proveedores registrados aún.</Text>
+            }
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={styles.card}
+                onPress={() => onNavigateToDetail && onNavigateToDetail(item.id)}
+              >
+                {/* Card Header */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.iconContainer}>
+                    <Image source={require('../../assets/icons/home.png')} style={styles.buildingIcon} />
                   </View>
-                ))}
-              </View>
+                  <View style={styles.cardInfo}>
+                    <Text style={styles.cardTitle}>{item.companyName || `${item.firstName} ${item.lastName}`}</Text>
+                    <Text style={styles.cardSubtitle}>{item.email}</Text>
+                  </View>
+                  <View style={[styles.statusBadge, { backgroundColor: item.evalColor }]}>
+                    <Text style={[styles.statusText, { color: item.evalTextColor }]}>{item.evalStatus}</Text>
+                  </View>
+                </View>
 
-              <View style={styles.divider} />
+                {/* Tags (Placeholder for now) */}
+                <View style={styles.tagsContainer}>
+                  <View style={styles.tag}>
+                    <Text style={styles.tagText}>{item.category || 'General'}</Text>
+                  </View>
+                </View>
 
-              {/* Bottom Section */}
-              {item.type === 'progress' ? (
-                <View style={styles.progressSection}>
-                  <Text style={styles.progressLabel}>Progreso de Evaluación</Text>
-                  <View style={styles.progressRow}>
-                    <View style={styles.progressBarBg}>
-                      <View style={[styles.progressBarFill, { width: `${item.progress}%` }]} />
+                <View style={styles.divider} />
+
+                {/* Bottom Section */}
+                {item.evalStatus === 'Progreso' || item.evalStatus === 'Invitado' ? (
+                  <View style={styles.progressSection}>
+                    <Text style={styles.progressLabel}>Progreso de Evaluación</Text>
+                    <View style={styles.progressRow}>
+                      <View style={styles.progressBarBg}>
+                        <View style={[styles.progressBarFill, { width: `${item.evalProgress}%` }]} />
+                      </View>
+                      <Text style={styles.progressText}>{item.evalProgress}%</Text>
                     </View>
-                    <Text style={styles.progressText}>{item.progress}%</Text>
                   </View>
-                </View>
-              ) : (
-                <View style={styles.scoreSection}>
-                  <View style={styles.tagsContainer}>
-                     {/* Empty view to push score to right if needed, or just use flex-end */}
+                ) : (
+                  <View style={styles.scoreSection}>
+                    <View style={styles.tagsContainer} />
+                    <View style={styles.scoreContainer}>
+                      <Text style={styles.scoreLabel}>Puntuación</Text>
+                      <Text style={[styles.scoreValue, { color: '#059669' }]}>{item.evalScore || 0}/100</Text>
+                    </View>
                   </View>
-                  <View style={styles.scoreContainer}>
-                    <Text style={styles.scoreLabel}>Puntuación</Text>
-                    <Text style={[styles.scoreValue, { color: item.scoreColor }]}>{item.score}</Text>
-                  </View>
-                </View>
-              )}
-            </TouchableOpacity>
-          )}
-          contentContainerStyle={styles.listContent}
-          showsVerticalScrollIndicator={false}
-        />
+                )}
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.listContent}
+            showsVerticalScrollIndicator={false}
+          />
+        )}
       </View>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        {renderBottomTab(require('../../assets/icons/home.png'), 'Dashboard', false, onNavigateToDashboard)}
-        {renderBottomTab(require('../../assets/icons/document.png'), 'Solicitudes', false, onNavigateToRequests)}
-        {renderBottomTab(require('../../assets/icons/users.png'), 'Proveedores', true)}
-        {renderBottomTab(require('../../assets/icons/profile.png'), 'Perfil', false, onNavigateToProfile)}
-      </View>
+      <ManagerBottomNav
+        currentScreen="Suppliers"
+        onNavigateToDashboard={() => onNavigateToDashboard && onNavigateToDashboard()}
+        onNavigateToRequests={() => onNavigateToRequests && onNavigateToRequests()}
+        onNavigateToSuppliers={() => { }}
+        onNavigateToProfile={() => onNavigateToProfile && onNavigateToProfile()}
+      />
     </View>
   );
 };

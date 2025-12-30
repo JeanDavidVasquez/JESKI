@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,15 @@ import {
   Text,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../styles/theme';
+import { ManagerBottomNav } from '../components/ManagerBottomNav';
+import { useAuth } from '../hooks/useAuth';
+import { collection, query, where, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
 
 interface ManagerProfileScreenProps {
   onNavigateBack?: () => void;
@@ -17,7 +23,14 @@ interface ManagerProfileScreenProps {
   onNavigateToRequests?: () => void;
   onNavigateToSuppliers?: () => void;
   onNavigateToEPIConfig?: () => void;
+  onNavigateToUserManagement?: () => void;
   onLogout?: () => void;
+}
+
+interface Stats {
+  pending: number;
+  audits: number;
+  suppliers: number;
 }
 
 export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
@@ -26,77 +39,155 @@ export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
   onNavigateToRequests,
   onNavigateToSuppliers,
   onNavigateToEPIConfig,
+  onNavigateToUserManagement,
   onLogout,
 }) => {
+  const { user } = useAuth();
+  const [stats, setStats] = useState<Stats>({ pending: 0, audits: 0, suppliers: 0 });
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchStats = async () => {
+      try {
+        setLoading(true);
+
+        // Fetch ALL requests and filter for pending ones
+        // (pending, in_progress, rectification_required, etc.)
+        const requestsSnapshot = await getDocs(collection(db, 'requests'));
+        const allRequests = requestsSnapshot.docs.map(doc => doc.data());
+
+        // Count requests that are NOT completed, rejected, or cancelled
+        const pendingCount = allRequests.filter(req =>
+          req.status !== 'completed' &&
+          req.status !== 'rejected' &&
+          req.status !== 'cancelled'
+        ).length;
+
+        // Fetch suppliers count
+        const suppliersQuery = query(
+          collection(db, 'users'),
+          where('role', '==', 'proveedor')
+        );
+        const suppliersSnapshot = await getDocs(suppliersQuery);
+        const suppliersCount = suppliersSnapshot.size;
+
+        // For now, audits is set to 0 (can be implemented later)
+        const auditsCount = 0;
+
+        setStats({
+          pending: pendingCount,
+          audits: auditsCount,
+          suppliers: suppliersCount,
+        });
+      } catch (error) {
+        console.error('Error fetching stats:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchStats();
+  }, []);
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header with Background */}
-      <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Mi Perfil</Text>
-          <TouchableOpacity style={styles.settingsButton}>
-            <Image
-              source={require('../../assets/icons/profile.png')}
-              style={styles.settingsIcon}
-              resizeMode="contain"
-            />
-          </TouchableOpacity>
-        </View>
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {/* Profile Avatar */}
+      <ScrollView contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+        {/* Blue Header */}
+        <View style={styles.headerContainer}>
+          <View style={styles.headerTop}>
+            <Text style={styles.headerTitle}>Mi Perfil</Text>
+          </View>
+        </View>
+
+        {/* Avatar & Name */}
         <View style={styles.profileSection}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={require('../../assets/icons/profile.png')}
-              style={styles.avatar}
-              resizeMode="contain"
-            />
+          <View style={styles.avatarContainerNew}>
+            <View style={styles.avatarNew}>
+              <Ionicons name="person" size={50} color="#FFF" />
+            </View>
           </View>
-          
-          <Text style={styles.userName}>Carlos Mendez</Text>
-          <Text style={styles.userRole}>Gestor</Text>
-          <Text style={styles.userLocation}>• Matriz</Text>
+
+          <Text style={styles.userName}>
+            {user ? `${user.firstName} ${user.lastName || ''}`.trim() : 'Usuario'}
+          </Text>
+          <Text style={styles.userRole}>
+            {user?.role === 'gestor' ? 'Gestor' : user?.role || 'Rol no asignado'}
+          </Text>
+
+          {/* Stats Card */}
+          {loading ? (
+            <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 20 }} />
+          ) : (
+            <View style={styles.statsCard}>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: '#000' }]}>{stats.pending}</Text>
+                <Text style={styles.statLabelNew}>PENDIENTES</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: '#6B7280' }]}>{stats.audits}</Text>
+                <Text style={styles.statLabelNew}>AUDITORÍAS</Text>
+              </View>
+              <View style={styles.statItem}>
+                <Text style={[styles.statValue, { color: '#4CAF50' }]}>{stats.suppliers}</Text>
+                <Text style={styles.statLabelNew}>PROVEEDORES</Text>
+              </View>
+            </View>
+          )}
         </View>
 
-        {/* Stats Cards */}
-        <View style={styles.statsContainer}>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.statNumberBlack]}>8</Text>
-            <Text style={styles.statLabel}>PENDIENTES</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.statNumberGray]}>15</Text>
-            <Text style={styles.statLabel}>AUDITORÍAS</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={[styles.statNumber, styles.statNumberGreen]}>124</Text>
-            <Text style={styles.statLabel}>PROVEEDORES</Text>
+        {/* Datos Laborales */}
+        <View style={styles.sectionContainer}>
+          <Text style={styles.sectionHeader}>DATOS LABORALES</Text>
+          <View style={styles.laboralCard}>
+            <View style={styles.dataRow}>
+              <Ionicons name="mail" size={18} color="#003E85" />
+              <Text style={styles.dataLabel}>Email:</Text>
+              <Text style={styles.dataValue}>{user?.email || 'N/A'}</Text>
+            </View>
+            <View style={styles.dataRow}>
+              <Ionicons name="briefcase" size={18} color="#003E85" />
+              <Text style={styles.dataLabel}>Departamento:</Text>
+              <Text style={styles.dataValue}>{user?.department || user?.companyName || 'N/A'}</Text>
+            </View>
           </View>
         </View>
 
         {/* Admin Section */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>ADMINISTRACIÓN DEL SISTEMA</Text>
-          
-        <TouchableOpacity style={styles.menuItem} onPress={onNavigateToEPIConfig}>
-          <View style={styles.menuItemLeft}>
+
+          <TouchableOpacity style={styles.menuItem} onPress={onNavigateToEPIConfig}>
+            <View style={styles.menuItemLeft}>
+              <Image
+                source={require('../../assets/icons/document.png')}
+                style={styles.menuIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.menuItemText}>Configurar Cuestionario EPI</Text>
+            </View>
             <Image
-              source={require('../../assets/icons/document.png')}
-              style={styles.menuIcon}
+              source={require('../../assets/icons/edit.png')}
+              style={styles.menuArrow}
               resizeMode="contain"
             />
-            <Text style={styles.menuItemText}>Configurar Cuestionario EPI</Text>
-          </View>
-          <Image
-            source={require('../../assets/icons/edit.png')}
-            style={styles.menuArrow}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.menuItem} onPress={onNavigateToUserManagement}>
+            <View style={styles.menuItemLeft}>
+              <Image
+                source={require('../../assets/icons/users.png')}
+                style={styles.menuIcon}
+                resizeMode="contain"
+              />
+              <Text style={styles.menuItemText}>Gestionar Usuarios</Text>
+            </View>
+            <Image
+              source={require('../../assets/icons/edit.png')}
+              style={styles.menuArrow}
+              resizeMode="contain"
+            />
+          </TouchableOpacity>
         </View>
 
         {/* Settings Section */}
@@ -133,52 +224,13 @@ export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
       </ScrollView>
 
       {/* Bottom Navigation */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={onNavigateToDashboard}
-        >
-          <Image
-            source={require('../../assets/icons/home.png')}
-            style={styles.navIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.navText}>Dashboard</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={onNavigateToRequests}
-        >
-          <Image
-            source={require('../../assets/icons/document.png')}
-            style={styles.navIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.navText}>Solicitudes</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity 
-          style={styles.navItem}
-          onPress={onNavigateToSuppliers}
-        >
-          <Image
-            source={require('../../assets/icons/search.png')}
-            style={styles.navIcon}
-            resizeMode="contain"
-          />
-          <Text style={styles.navText}>Proveedores</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.navItem}>
-          <Image
-            source={require('../../assets/icons/profile.png')}
-            style={[styles.navIcon, styles.activeNavIcon]}
-            resizeMode="contain"
-          />
-          <Text style={[styles.navText, styles.activeNavText]}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+      <ManagerBottomNav
+        currentScreen="Profile"
+        onNavigateToDashboard={() => onNavigateToDashboard && onNavigateToDashboard()}
+        onNavigateToRequests={() => onNavigateToRequests && onNavigateToRequests()}
+        onNavigateToSuppliers={() => onNavigateToSuppliers && onNavigateToSuppliers()}
+        onNavigateToProfile={() => { }}
+      />
     </View>
   );
 };
@@ -186,107 +238,132 @@ export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F9FAFB',
+    backgroundColor: '#F5F5F5',
   },
-  header: {
-    backgroundColor: theme.colors.primary,
-    paddingTop: Platform.OS === 'ios' ? 50 : 40,
+  // New Modern Header
+  headerContainer: {
+    backgroundColor: '#003E85',
+    height: 180,
+    borderBottomLeftRadius: 30,
+    borderBottomRightRadius: 30,
+    paddingTop: 50,
     paddingHorizontal: 20,
-    paddingBottom: 120,
   },
-  headerContent: {
+  headerTop: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
+    fontSize: 24,
+    fontWeight: 'bold',
     color: '#FFFFFF',
   },
-  settingsButton: {
-    padding: 8,
-  },
-  settingsIcon: {
-    width: 26,
-    height: 26,
-    tintColor: '#FFFFFF',
-  },
-  content: {
-    flex: 1,
-    marginTop: -90,
-  },
+  // Profile Section
   profileSection: {
     alignItems: 'center',
-    marginBottom: 24,
+    paddingHorizontal: 20,
+    marginTop: -60,
   },
-  avatarContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#D1D5DB',
+  avatarContainerNew: {
+    marginBottom: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  avatarNew: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#BDBDBD',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 16,
     borderWidth: 4,
     borderColor: '#FFFFFF',
   },
-  avatar: {
-    width: 60,
-    height: 60,
-    tintColor: '#FFFFFF',
-  },
   userName: {
     fontSize: 22,
-    fontWeight: '700',
-    color: '#1F2937',
+    fontWeight: 'bold',
+    color: '#212121',
     marginBottom: 4,
   },
   userRole: {
-    fontSize: 15,
-    color: '#6B7280',
-    marginBottom: 2,
-  },
-  userLocation: {
     fontSize: 14,
-    color: '#9CA3AF',
+    color: '#757575',
+    marginBottom: 20,
   },
-  statsContainer: {
+  // Stats Card (unified)
+  statsCard: {
     flexDirection: 'row',
-    paddingHorizontal: 20,
-    marginBottom: 28,
-    gap: 12,
-  },
-  statCard: {
-    flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 12,
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+    marginTop: 20,
+  },
+  statItem: {
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#F3F4F6',
+    flex: 1,
   },
-  statNumber: {
+  statValue: {
     fontSize: 28,
-    fontWeight: '700',
-    marginBottom: 4,
+    fontWeight: 'bold',
   },
-  statNumberBlack: {
-    color: '#1F2937',
-  },
-  statNumberGray: {
-    color: '#6B7280',
-  },
-  statNumberGreen: {
-    color: '#10B981',
-  },
-  statLabel: {
+  statLabelNew: {
     fontSize: 10,
+    color: '#757575',
+    marginTop: 4,
     fontWeight: '600',
-    color: '#6B7280',
     letterSpacing: 0.5,
   },
+  // Datos Laborales Section
+  sectionContainer: {
+    paddingHorizontal: 20,
+    marginTop: 20,
+  },
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#757575',
+    marginBottom: 10,
+    letterSpacing: 0.5,
+  },
+  laboralCard: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  dataRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 10,
+  },
+  dataLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#424242',
+    marginRight: 8,
+  },
+  dataValue: {
+    fontSize: 14,
+    color: '#757575',
+    flex: 1,
+  },
+  // Keep old styles for menus
   section: {
     paddingHorizontal: 20,
     marginBottom: 24,
@@ -368,41 +445,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '500',
     color: '#EF4444',
-  },
-  bottomNavigation: {
-    backgroundColor: '#FFFFFF',
-    flexDirection: 'row',
-    paddingVertical: 12,
-    paddingHorizontal: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F3F4F6',
-    ...Platform.select({
-      ios: {
-        paddingBottom: 34,
-      },
-    }),
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    paddingVertical: 8,
-  },
-  navIcon: {
-    width: 24,
-    height: 24,
-    tintColor: '#9CA3AF',
-    marginBottom: 4,
-  },
-  activeNavIcon: {
-    tintColor: theme.colors.primary,
-  },
-  navText: {
-    fontSize: 11,
-    color: '#9CA3AF',
-    fontWeight: '500',
-  },
-  activeNavText: {
-    color: theme.colors.primary,
-    fontWeight: '600',
   },
 });

@@ -1,157 +1,713 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, ScrollView, Platform, Image, TextInput, Alert, ActivityIndicator, KeyboardAvoidingView } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { EpiService } from '../services/epiService';
+import { EpiConfig, EpiCategory } from '../types/epi';
 
-export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void }> = ({ onNavigateBack }) => {
-  const [activeTab, setActiveTab] = React.useState<'calidad' | 'abastecimiento'>('calidad');
+export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigateToProfile?: () => void }> = ({ onNavigateBack, onNavigateToProfile }) => {
+  const [activeTab, setActiveTab] = useState<EpiCategory>('calidad');
+  const [config, setConfig] = useState<EpiConfig | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [hasChanges, setHasChanges] = useState(false);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    loadConfig();
+  }, []);
+
+  const loadConfig = async () => {
+    try {
+      setLoading(true);
+      const data = await EpiService.getEpiConfig();
+      setConfig(data);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudo cargar la configuración. Verifique su conexión.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const next = new Set(prev);
+      if (next.has(sectionId)) {
+        next.delete(sectionId);
+      } else {
+        next.add(sectionId);
+      }
+      return next;
+    });
+  };
+
+  const handleSave = async () => {
+    if (!config) return;
+
+    const validation = EpiService.validateWeights(config);
+    if (!validation.isValid) {
+      Alert.alert('Error de Validación', validation.messages.join('\n'));
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await EpiService.saveEpiConfig(config);
+      setHasChanges(false);
+      Alert.alert(
+        'Configuración Guardada',
+        'Los cambios se han guardado exitosamente en la base de datos.',
+        [
+          {
+            text: 'Ir al Perfil',
+            onPress: () => {
+              if (onNavigateToProfile) onNavigateToProfile();
+              else if (onNavigateBack) onNavigateBack();
+            }
+          }
+        ]
+      );
+    } catch (error) {
+      Alert.alert('Error', 'No se pudo guardar la configuración');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleRestore = () => {
+    Alert.alert(
+      'Restaurar Cambios',
+      '¿Estás seguro de descartar los cambios no guardados?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Restaurar',
+          style: 'destructive',
+          onPress: () => {
+            loadConfig();
+            setHasChanges(false);
+          }
+        }
+      ]
+    );
+  };
+
+  const updateSectionWeight = (sectionId: string, text: string) => {
+    if (!config) return;
+    const value = parseInt(text) || 0;
+
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const sections = newConfig[activeTab].sections.map(s =>
+        s.id === sectionId ? { ...s, weight: value } : s
+      );
+      newConfig[activeTab].sections = sections;
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const addSection = () => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const newId = Date.now().toString();
+      newConfig[activeTab].sections.push({
+        id: newId,
+        title: 'Nueva Sección',
+        weight: 0,
+        questions: []
+      });
+      // Auto expand new section
+      setExpandedSections(prevSet => new Set(prevSet).add(newId));
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const addQuestion = (sectionId: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const sectionIndex = newConfig[activeTab].sections.findIndex(s => s.id === sectionId);
+      if (sectionIndex !== -1) {
+        newConfig[activeTab].sections[sectionIndex].questions.push({
+          id: Date.now().toString(),
+          text: '',
+          weight: 0,
+          isNew: true
+        });
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const updateQuestionText = (sectionId: string, questionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) {
+        const question = section.questions.find(q => q.id === questionId);
+        if (question) question.text = text;
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const updateQuestionWeight = (sectionId: string, questionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) {
+        const question = section.questions.find(q => q.id === questionId);
+        if (question) question.weight = parseInt(text) || 0;
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const updateQuestionEvidence = (sectionId: string, questionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) {
+        const question = section.questions.find(q => q.id === questionId);
+        if (question) question.evidence = text;
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const deleteSection = (sectionId: string) => {
+    Alert.alert(
+      'Eliminar Sección',
+      '¿Estás seguro de eliminar esta sección y todas sus preguntas?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            setConfig(prev => {
+              if (!prev) return null;
+              const newConfig = { ...prev };
+              newConfig[activeTab].sections = newConfig[activeTab].sections.filter(s => s.id !== sectionId);
+              return newConfig;
+            });
+            setHasChanges(true);
+          }
+        }
+      ]
+    );
+  };
+
+  const deleteQuestion = (sectionId: string, questionId: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) {
+        section.questions = section.questions.filter(q => q.id !== questionId);
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const updateSectionTitle = (sectionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) section.title = text;
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  if (loading) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <ActivityIndicator size="large" color="#003E85" />
+      </View>
+    );
+  }
+
+  if (!config) {
+    return (
+      <View style={[styles.container, styles.centerContent]}>
+        <Text style={{ color: '#EF4444', marginBottom: 16 }}>No se pudo cargar la configuración.</Text>
+        <TouchableOpacity
+          style={{ paddingHorizontal: 24, paddingVertical: 12, backgroundColor: '#fff', borderRadius: 8, borderWidth: 1, borderColor: '#D1D5DB' }}
+          onPress={loadConfig}
+        >
+          <Text style={{ color: '#374151', fontWeight: 'bold' }}>Reintentar</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+
+  const currentSections = config[activeTab].sections;
+  const totalWeight = currentSections.reduce((sum, s) => sum + s.weight, 0);
+  const isWeightCorrect = Math.abs(totalWeight - 100) < 0.1;
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
-          <Image source={require('../../assets/icons/arrow-left.png')} style={styles.backIcon} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Configuración EPI</Text>
-        <Image source={require('../../assets/icono_indurama.png')} style={styles.logo} />
-      </View>
-      <View style={styles.subHeader}>
-        <Text style={styles.subHeaderTitle}>Gestión de Pesos</Text>
-        <View style={styles.totalCalidadBox}>
-            <View style={styles.totalCalidadLeft}>
-            <Text style={styles.totalCalidadLabel}>TOTAL CALIDAD</Text>
-            <Text style={styles.totalCalidadDesc}>Suma de Secciones 1-6</Text>
-            </View>
-            <View style={styles.totalCalidadRight}>
-            <Text style={styles.totalCalidadValue}>100%</Text>
-            <View style={styles.totalCalidadCheck}><Text style={{color:'#fff'}}>✓</Text></View>
-            </View>
-      </View>
-      </View>
-      
-      <View style={styles.tabs}>
-        <TouchableOpacity style={[styles.tab, activeTab==='calidad'&&styles.tabActive]} onPress={()=>setActiveTab('calidad')}><Text style={[styles.tabText,activeTab==='calidad'&&styles.tabTextActive]}>CALIDAD</Text></TouchableOpacity>
-        <TouchableOpacity style={[styles.tab, activeTab==='abastecimiento'&&styles.tabActive]} onPress={()=>setActiveTab('abastecimiento')}><Text style={[styles.tabText,activeTab==='abastecimiento'&&styles.tabTextActive]}>ABASTECIMIENTO</Text></TouchableOpacity>
-      </View>
-      <ScrollView style={styles.content}>
-        {activeTab==='calidad'? (
-          <View>
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionCircle}><Text style={styles.sectionCircleText}>1</Text></View>
-                <View style={{flex:1}}>
-                  <Text style={styles.sectionTitle}>Objetivos y Liderazgo</Text>
-                  <Text style={styles.sectionSubtitle}>3 Preguntas Existentes</Text>
-                </View>
-                <View style={styles.sectionPercent}><Text style={styles.sectionPercentText}>15%</Text></View>
-              </View>
-              <View style={styles.questionBox}><Text style={styles.questionText}>Objetivos estratégicos definidos y monitoreados</Text><View style={styles.questionInput}><Text style={styles.questionInputText}>33</Text></View></View>
-              <View style={styles.questionBox}><Text style={styles.questionText}>Estrategia de Mejora Continua vinculada</Text><View style={styles.questionInput}><Text style={styles.questionInputText}>33</Text></View></View>
-              <View style={styles.newQuestionRow}><Text style={styles.newLabel}>New</Text><View style={styles.newInput}><Text style={styles.newInputText}>Nueva pregunta (Requisito)</Text></View><View style={styles.newPercent}><Text style={styles.newPercentText}>%</Text></View></View>
-              <View style={styles.evidenceBox}><Text style={styles.evidenceText}>Evidencias esperadas</Text><TouchableOpacity style={styles.addButton}><Text style={styles.addButtonText}>+</Text></TouchableOpacity></View>
-            </View>
-            {["Gestión de Calidad","Desarrollo de Nuevos","Gestión de Materiales","Control de Procesos","Acciones Correctivas"].map((title,i)=>(
-              <View key={i} style={styles.sectionCardSimple}>
-                <View style={styles.sectionHeaderSimple}>
-                  <View style={styles.sectionCircle}><Text style={styles.sectionCircleText}>{i+2}</Text></View>
-                  <Text style={styles.sectionTitleSimple}>{title}</Text>
-                  <View style={styles.sectionPercent}><Text style={styles.sectionPercentText}>15%</Text></View>
-                </View>
-              </View>
-            ))}
-            <TouchableOpacity style={styles.createSectionButton}><Text style={styles.createSectionText}>Crear Nueva Sección en Calidad</Text></TouchableOpacity>
+
+      {/* --- NEW BLUE HEADER BLOCK START --- */}
+      <View style={styles.blueHeaderContainer}>
+        {/* Top Navbar */}
+        <View style={styles.topNav}>
+          <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
+            <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
+          </TouchableOpacity>
+          <View style={styles.logoContainer}>
+            <Image source={require('../../assets/icono_indurama.png')} style={styles.logo} />
           </View>
-        ) : (
+        </View>
+
+        {/* Titles */}
+        <View style={styles.headerTitles}>
+          <Text style={styles.headerTitleMain}>Configuración EPI</Text>
+          <Text style={styles.headerSubtitle}>Gestión de Pesos</Text>
+        </View>
+
+        {/* Total Summary Card */}
+        <View style={styles.summaryCard}>
           <View>
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <View style={styles.sectionCircle}><Text style={styles.sectionCircleText}>1</Text></View>
-                <View style={{flex:1}}>
-                  <Text style={styles.sectionTitle}>Resp. Social y Ambiente</Text>
-                </View>
-                <View style={styles.sectionPercent}><Text style={styles.sectionPercentText}>15%</Text></View>
-              </View>
-              </View>
-            <View style={styles.sectionCardSimple}>
-              <View style={styles.sectionHeaderSimple}>
-                <View style={styles.sectionCircle}><Text style={styles.sectionCircleText}>2</Text></View>
-                <Text style={styles.sectionTitleSimple}>Abastecimiento</Text>
-                <View style={styles.sectionPercent}><Text style={styles.sectionPercentText}>15%</Text></View>
-                
-              </View>
-              <View style={styles.questionBox}><Text style={styles.questionText}>8.1 Contrato de Calidad Firmado</Text><View style={styles.questionInput}><Text style={styles.questionInputText}>10</Text></View></View>
-              <View style={styles.newQuestionRow}><Text style={styles.newLabel}>New</Text><View style={styles.newInput}><Text style={styles.newInputText}>8.1 Contrato de Calidad Firmado</Text></View><TouchableOpacity style={styles.addButton}><Text style={styles.addButtonText}>+</Text></TouchableOpacity></View>
-            
-            </View>
-            <TouchableOpacity style={styles.createSectionButton}><Text style={styles.createSectionText}>Crear Nueva Sección en Abastecimiento</Text></TouchableOpacity>
+            <Text style={styles.summaryLabel}>TOTAL {activeTab.toUpperCase()}</Text>
+            <Text style={styles.summarySubLabel}>Suma de Secciones</Text>
           </View>
-        )}
-        <View style={styles.bottomActions}>
-          <TouchableOpacity style={styles.restoreButton}><Text style={styles.restoreText}>Restaurar</Text></TouchableOpacity>
-          <TouchableOpacity style={styles.saveButton}>
-            <MaterialCommunityIcons name="lock" size={22} color="#fff" />
-            <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+          <View style={styles.summaryRight}>
+            <Text style={[styles.summaryPercent, !isWeightCorrect && styles.summaryPercentError]}>
+              {Math.round(totalWeight)}%
+            </Text>
+            <View style={[styles.summaryCheck, !isWeightCorrect && styles.summaryCheckError]}>
+              <MaterialCommunityIcons name={isWeightCorrect ? "check" : "alert-circle"} size={16} color="#fff" />
+            </View>
+          </View>
+        </View>
+
+        {/* Tabs */}
+        <View style={styles.tabsContainer}>
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'calidad' && styles.tabItemActive]}
+            onPress={() => setActiveTab('calidad')}
+          >
+            <Text style={[styles.tabText, activeTab === 'calidad' && styles.tabTextActive]}>CALIDAD</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.tabItem, activeTab === 'abastecimiento' && styles.tabItemActive]}
+            onPress={() => setActiveTab('abastecimiento')}
+          >
+            <Text style={[styles.tabText, activeTab === 'abastecimiento' && styles.tabTextActive]}>ABASTECIMIENTO</Text>
           </TouchableOpacity>
         </View>
-      </ScrollView>
+      </View>
+      {/* --- NEW BLUE HEADER BLOCK END --- */}
+
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+      >
+        <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 100 }}>
+          {currentSections.map((section, i) => {
+            const isExpanded = expandedSections.has(section.id);
+            const questionCount = section.questions.filter(q => !q.isNew).length;
+
+            return (
+              <View key={section.id} style={styles.sectionCard}>
+                {/* Header Clickable for Accordion */}
+                <TouchableOpacity
+                  activeOpacity={0.7}
+                  onPress={() => toggleSection(section.id)}
+                  style={styles.sectionHeader}
+                >
+                  <View style={styles.sectionCircle}>
+                    <Text style={styles.sectionCircleText}>{i + 1}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.sectionTitleStatic}>{section.title}</Text>
+                    <Text style={styles.sectionSubtitle}>{questionCount} Preguntas Existentes</Text>
+                  </View>
+
+                  {/* Weight Pill always visible and Editable */}
+                  <View style={styles.sectionPercentPill}>
+                    <TextInput
+                      style={styles.sectionPercentInput}
+                      value={section.weight.toString()}
+                      onChangeText={(text) => updateSectionWeight(section.id, text)}
+                      keyboardType="numeric"
+                      maxLength={3}
+                      placeholder="0"
+                    />
+                    <Text style={styles.sectionPercentSymbol}>%</Text>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Expanded Content */}
+                {isExpanded && (
+                  <View style={styles.expandedContent}>
+                    {/* Editable Title only when expanded */}
+                    <TextInput
+                      style={styles.sectionTitleInput}
+                      value={section.title}
+                      onChangeText={(text) => updateSectionTitle(section.id, text)}
+                      placeholder="Editar Título"
+                    />
+
+                    {/* Existing Questions List */}
+                    {section.questions.filter(q => !q.isNew).map((question) => (
+                      <View key={question.id} style={styles.questionRow}>
+                        <View style={styles.questionNumberBox}>
+                          <Text style={styles.questionNumber}>{i + 1}.{section.questions.indexOf(question) + 1}</Text>
+                        </View>
+                        <TextInput
+                          style={styles.questionTextInput}
+                          value={question.text}
+                          onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                          placeholder="Texto de la pregunta..."
+                          multiline
+                        />
+                        <View style={styles.questionWeightPill}>
+                          <TextInput
+                            style={styles.questionWeightInput}
+                            value={question.weight.toString()}
+                            onChangeText={(text) => updateQuestionWeight(section.id, question.id, text)}
+                            keyboardType="numeric"
+                            maxLength={3}
+                          />
+                        </View>
+
+                        <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)} style={{ marginLeft: 8 }}>
+                          <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+
+                    {/* New Questions Rendered Here */}
+                    {section.questions.filter(q => q.isNew).map((question) => (
+                      <View key={question.id} style={styles.newQuestionCard}>
+                        {/* Header of New Card */}
+                        <View style={styles.newQuestionHeader}>
+                          <View style={styles.newBadge}>
+                            <Text style={styles.newBadgeText}>New</Text>
+                          </View>
+                          <TextInput
+                            style={styles.newQuestionInput}
+                            value={question.text}
+                            onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                            placeholder="Nueva pregunta (Requisito)"
+                            placeholderTextColor="#9CA3AF"
+                          />
+                          <View style={styles.newWeightBox}>
+                            <TextInput
+                              style={styles.questionWeightInput}
+                              value={question.weight.toString()}
+                              onChangeText={(text) => updateQuestionWeight(section.id, question.id, text)}
+                              keyboardType="numeric"
+                              maxLength={3}
+                            />
+                            <Text style={styles.percentSymbol}>%</Text>
+                          </View>
+                          <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)} style={{ marginLeft: 8 }}>
+                            <MaterialCommunityIcons name="close-circle" size={24} color="#EF4444" />
+                          </TouchableOpacity>
+                        </View>
+
+                        {/* Evidence Input */}
+                        <View style={styles.evidenceInputContainer}>
+                          <TextInput
+                            style={styles.evidenceInput}
+                            placeholder="Evidencias esperadas / Documentos requeridos"
+                            placeholderTextColor="#9CA3AF"
+                            value={question.evidence || ''}
+                            onChangeText={(text) => updateQuestionEvidence(section.id, question.id, text)}
+                          />
+                        </View>
+                      </View>
+                    ))}
+
+                    {/* Add Button Area */}
+                    <TouchableOpacity
+                      style={styles.addQuestionDashedButton}
+                      onPress={() => addQuestion(section.id)}
+                    >
+                      <Text style={styles.addQuestionDashedText}>+ Agregar Pregunta</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.deleteSectionButton}
+                      onPress={() => deleteSection(section.id)}
+                    >
+                      <Text style={styles.deleteSectionText}>Eliminar Sección</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
+            );
+          })}
+
+          <TouchableOpacity
+            style={styles.createSectionButton}
+            onPress={addSection}
+          >
+            <Text style={styles.createSectionText}>Crear Nueva Sección</Text>
+          </TouchableOpacity>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      <View style={styles.bottomActions}>
+        <TouchableOpacity
+          style={[styles.restoreButton, !hasChanges && styles.disabledButton]}
+          onPress={handleRestore}
+          disabled={!hasChanges}
+        >
+          <Text style={[styles.restoreText, !hasChanges && styles.disabledText]}>Restaurar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.saveButton, saving && styles.disabledButton]}
+          onPress={handleSave}
+          disabled={saving}
+        >
+          {saving ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <>
+              <MaterialCommunityIcons name="content-save" size={22} color="#fff" />
+              <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+            </>
+          )}
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F4F6FA' },
-  header: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#003E85', paddingTop: Platform.OS === 'ios' ? 50 : 30, paddingHorizontal: 20, paddingBottom: 10, justifyContent: 'space-between' },
+  container: { flex: 1, backgroundColor: '#FFFFFF' },
+  centerContent: { justifyContent: 'center', alignItems: 'center' },
+  blueHeaderContainer: {
+    backgroundColor: '#004CA3',
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    borderBottomLeftRadius: 0,
+    borderBottomRightRadius: 0,
+  },
+  topNav: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    marginBottom: 10
+  },
   backButton: { padding: 8 },
-  backIcon: { width: 24, height: 24, tintColor: '#fff' },
-  headerTitle: { color: '#fff', fontSize: 22, fontWeight: 'bold', flex: 1, textAlign: 'center' },
-  logo: { width: 48, height: 48 },
-  subHeader: { backgroundColor: '#003E85', paddingHorizontal: 20, paddingBottom: 10 },
-  subHeaderTitle: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  totalCalidadBox: { flexDirection: 'row', backgroundColor: 'rgba(126, 150, 176, 0.27)', borderRadius: 12, margin: 20, padding: 16, alignItems: 'center', justifyContent: 'space-between', shadowColor: 'rgba(126, 150, 176, 0.27)', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
-  totalCalidadLeft: {},
-  totalCalidadLabel: { color: '#fff', fontWeight: 'bold', fontSize: 13 },
-  totalCalidadDesc: { color: '#E0E7EF', fontSize: 12 },
-  totalCalidadRight: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  totalCalidadValue: { color: '#10B981', fontWeight: 'bold', fontSize: 28 },
-  totalCalidadCheck: { backgroundColor: '#10B981', borderRadius: 16, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', marginLeft: 8 },
-  tabs: { flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: '#E5E7EB', marginHorizontal: 20 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 12, borderBottomWidth: 2, borderBottomColor: 'transparent' },
-  tabText: { fontSize: 16, color: '#6B7280', fontWeight: '600' },
-  content: { flex: 1, padding: 20 },
-  sectionHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  sectionCircleText: { color: '#003E85', fontWeight: 'bold', fontSize: 16 },
-  sectionSubtitle: { fontSize: 13, color: '#6B7280' },
-  questionText: { flex: 1, color: '#1F2937', fontSize: 14 },
-  newQuestionRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  newLabel: { backgroundColor: '#003E85', color: '#fff', fontWeight: 'bold', fontSize: 12, borderRadius: 6, paddingHorizontal: 8, paddingVertical: 2, marginRight: 8 },
-  newInputText: { color: '#6B7280', fontSize: 14 },
-  evidenceText: { flex: 1, color: '#6B7280', fontSize: 13 },
-  sectionHeaderSimple: { flexDirection: 'row', alignItems: 'center' },
-  bottomActions: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, marginBottom: 24 },
-  sectionCard: { backgroundColor: '#fff', borderRadius: 16, padding: 18, marginBottom: 18, borderWidth: 2, borderColor: 'rgba(0, 0, 0, 0.14)', shadowColor: '#111316ff', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
-  sectionCardSimple: { backgroundColor: '#fff', borderRadius: 16, padding: 18, marginBottom: 12, borderWidth: 1, borderColor: '#E5E7EB', shadowColor: '#E5E7EB', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.04, shadowRadius: 6, elevation: 1 },
-  sectionCircle: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#DBEAFE', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
-  sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#2563EB' },
-  sectionTitleSimple: { flex: 1, fontSize: 15, fontWeight: 'bold', color: '#60646dff', marginLeft: 8 },
-  sectionPercent: { backgroundColor: '#F8F9FB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#E5E7EB' },
-  sectionPercentText: { color: '#2563EB', fontWeight: 'bold', fontSize: 15 },
-  questionBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FB', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  questionInput: { backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, minWidth: 40, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB' },
-  questionInputText: { color: '#2563EB', fontWeight: 'bold', fontSize: 15 },
-  newInput: { flex: 1, backgroundColor: '#F8F9FB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: '#E5E7EB' },
-  newPercent: { backgroundColor: '#fff', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 6, marginLeft: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  newPercentText: { color: '#2563EB', fontWeight: 'bold', fontSize: 15 },
-  evidenceBox: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#F8F9FB', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  addButton: { backgroundColor: '#2563EB', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 6, alignItems: 'center', justifyContent: 'center' },
-  addButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
-  createSectionButton: { borderWidth: 2, borderColor: 'rgba(0, 62, 133, 0.83)', borderRadius: 8, padding: 14, alignItems: 'center', marginTop: 8, marginBottom: 24, backgroundColor: '#fff', borderStyle: 'dashed' },
-  createSectionText: { color: 'rgba(0, 62, 133, 0.83)', fontWeight: 'bold', fontSize: 15 },
-  restoreButton: { backgroundColor: '#fff', borderRadius: 8, padding: 16, alignItems: 'center', borderWidth: 1, borderColor: '#E5E7EB', flex: 1, marginRight: 12 },
-  restoreText: { color: '#111', fontWeight: 'bold', fontSize: 16 },
-  saveButton: { backgroundColor: '#111', borderRadius: 8, padding: 16, alignItems: 'center', flex: 2, flexDirection: 'row', justifyContent: 'center', gap: 8 },
-  saveButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-  tabActive: { borderBottomColor: '#2563EB' },
-  tabTextActive: { color: '#2563EB', fontWeight: 'bold' },
+  logoContainer: {},
+  logo: { width: 100, height: 30, resizeMode: 'contain', tintColor: '#fff' }, // Adjust tint if logo is an image that supports it, or remove tint if it's a colored PNG
+
+  headerTitles: { alignItems: 'center', marginBottom: 20 },
+  headerTitleMain: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
+  headerSubtitle: { fontSize: 14, color: '#A0C4FF', marginTop: 4 },
+
+  summaryCard: {
+    backgroundColor: 'rgba(255,255,255,0.15)', // Glassy look or specific color like #366896
+    marginHorizontal: 20,
+    borderRadius: 16,
+    padding: 16,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20
+  },
+  summaryLabel: { color: '#fff', fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' },
+  summarySubLabel: { color: '#E0E7FF', fontSize: 12 },
+  summaryRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  summaryPercent: { fontSize: 32, fontWeight: 'bold', color: '#4ADE80' }, // Green text
+  summaryPercentError: { color: '#F87171' },
+  summaryCheck: {
+    width: 24, height: 24, borderRadius: 12, backgroundColor: '#22C55E',
+    alignItems: 'center', justifyContent: 'center'
+  },
+  summaryCheckError: { backgroundColor: '#EF4444' },
+
+  tabsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    paddingHorizontal: 0,
+    width: '100%'
+  },
+  tabItem: {
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 3,
+    borderBottomColor: 'transparent'
+  },
+  tabItemActive: { borderBottomColor: '#38BDF8' }, // Light blue indicator
+  tabText: { color: '#93C5FD', fontWeight: '600', fontSize: 14 },
+  tabTextActive: { color: '#fff', fontWeight: 'bold' },
+
+  content: { padding: 20 },
+
+  sectionCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+    // Shadow for card feel
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 2,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff'
+  },
+  sectionCircle: {
+    width: 40, height: 40, borderRadius: 20,
+    borderWidth: 2, borderColor: '#003E85',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 12
+  },
+  sectionCircleText: { fontSize: 18, fontWeight: 'bold', color: '#003E85' },
+  sectionTitleStatic: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
+  sectionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+  sectionPercentPill: {
+    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#E5E7EB',
+    paddingHorizontal: 12, paddingVertical: 6,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    minWidth: 60,
+    justifyContent: 'center'
+  },
+  sectionPercentInput: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    textAlign: 'right',
+    padding: 0,
+    minWidth: 20
+  },
+  sectionPercentSymbol: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginLeft: 2
+  },
+
+  expandedContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    backgroundColor: '#fff'
+  },
+  sectionTitleInput: {
+    fontSize: 16, fontWeight: 'bold', color: '#1F2937',
+    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
+    paddingVertical: 8, marginBottom: 16
+  },
+
+  questionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12
+  },
+  questionNumberBox: {
+    width: 24, height: 24, backgroundColor: '#E5E7EB', borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginRight: 8
+  },
+  questionNumber: { fontSize: 10, fontWeight: 'bold', color: '#6B7280' },
+  questionTextInput: { flex: 1, fontSize: 13, color: '#374151' },
+  questionWeightPill: {
+    borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, minWidth: 40
+  },
+  questionWeightInput: { textAlign: 'center', color: '#2563EB', fontWeight: 'bold' },
+
+  // NEW QUESTION CARD STYLES
+  newQuestionCard: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#3B82F6',
+    borderStyle: 'dashed',
+    padding: 16,
+    marginTop: 8
+  },
+  newQuestionHeader: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 12
+  },
+  newBadge: {
+    backgroundColor: '#BFDBFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8
+  },
+  newBadgeText: { color: '#1E40AF', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  newQuestionInput: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8
+  },
+  newWeightBox: {
+    backgroundColor: '#fff', borderRadius: 6, width: 44, height: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 2
+  },
+  percentSymbol: { color: '#9CA3AF', fontSize: 10, marginLeft: 1 },
+
+  evidenceInputContainer: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
+  },
+  evidenceInput: {
+    flex: 1, backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8
+  },
+  addStartButton: {
+    width: 36, height: 36, borderRadius: 8, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center'
+  },
+  plusText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
+
+  addQuestionDashedButton: {
+    marginTop: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 8, alignItems: 'center'
+  },
+  addQuestionDashedText: { color: '#6B7280', fontSize: 13 },
+
+  deleteSectionButton: {
+    marginTop: 20, alignSelf: 'flex-start'
+  },
+  deleteSectionText: { color: '#EF4444', fontSize: 13, fontWeight: '500' },
+
+  createSectionButton: {
+    borderWidth: 1, borderColor: '#9CA3AF', borderRadius: 8, padding: 16, borderStyle: 'dashed', alignItems: 'center', marginBottom: 30
+  },
+  createSectionText: { color: '#4B5563', fontWeight: 'bold' },
+
+  bottomActions: {
+    position: 'absolute', bottom: 0, left: 0, right: 0,
+    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB',
+    padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
+    flexDirection: 'row', justifyContent: 'space-between', gap: 16
+  },
+  restoreButton: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
+  restoreText: { color: '#374151', fontWeight: 'bold' },
+  saveButton: { flex: 2, backgroundColor: '#003E85', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', paddingVertical: 14, borderRadius: 8, gap: 8 },
+  saveButtonText: { color: '#fff', fontWeight: 'bold' },
+  disabledButton: { opacity: 0.5 },
+  disabledText: { color: '#9CA3AF' }
 });
 
 export default EPIConfigScreen;

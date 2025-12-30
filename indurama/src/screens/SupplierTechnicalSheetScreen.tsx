@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -7,9 +7,13 @@ import {
   Text,
   Image,
   TextInput,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../styles/theme';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { loadAllSupplierData, getInternalManagement } from '../services/supplierDataService';
 
 interface SupplierTechnicalSheetScreenProps {
   supplierId: string;
@@ -20,7 +24,59 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
   supplierId,
   onNavigateBack,
 }) => {
+  const [loading, setLoading] = useState(true);
+  const [supplierData, setSupplierData] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([1, 2, 3, 4]));
+
+  useEffect(() => {
+    const loadSupplierData = async () => {
+      try {
+        setLoading(true);
+
+        // Load from subcollections
+        const [supplierInfo, internalInfo, userDoc] = await Promise.all([
+          loadAllSupplierData(supplierId),
+          getInternalManagement(supplierId),
+          getDoc(doc(db, 'users', supplierId))
+        ]);
+
+        // Merge all data
+        const userData = userDoc.exists() ? userDoc.data() : {};
+
+        setSupplierData({
+          // Basic user data
+          companyName: userData.companyName || '',
+          email: userData.email || '',
+          category: userData.category || '',
+
+          // Company Profile
+          ...supplierInfo.companyProfile,
+
+          // Contacts (flatten)
+          generalManagerName: supplierInfo.contacts?.generalManager?.name,
+          generalManagerEmail: supplierInfo.contacts?.generalManager?.email,
+          commercialContactName: supplierInfo.contacts?.commercial?.name,
+          commercialContactEmail: supplierInfo.contacts?.commercial?.email,
+          qualityContactName: supplierInfo.contacts?.quality?.name,
+          qualityContactEmail: supplierInfo.contacts?.quality?.email,
+
+          // Banking
+          ...supplierInfo.banking,
+
+          // Credit
+          ...supplierInfo.credit,
+
+          // Internal Management
+          ...internalInfo
+        });
+      } catch (error) {
+        console.error('Error loading supplier data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadSupplierData();
+  }, [supplierId]);
 
   const toggleSection = (section: number) => {
     const newSet = new Set(expandedSections);
@@ -32,16 +88,25 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
     setExpandedSections(newSet);
   };
 
+  if (loading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color={theme.colors.primary} />
+        <Text style={{ marginTop: 12, color: '#6B7280' }}>Cargando datos...</Text>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
           <Image source={require('../../assets/icons/arrow-left.png')} style={styles.backIcon} />
         </TouchableOpacity>
-        
+
         <View style={styles.headerContent}>
           <Text style={styles.headerTitle}>Ficha Técnica</Text>
           <Text style={styles.headerSubtitle}>Datos Maestros del Proveedor</Text>
@@ -55,22 +120,21 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Supplier Header Card */}
         <View style={styles.supplierCard}>
-          <Text style={styles.supplierName}>Tornillos S.A.</Text>
-          <Text style={styles.supplierLocation}>Fabricante Local • Ecuador</Text>
-          
+          <Text style={styles.supplierName}>{supplierData?.companyName || 'Sin nombre'}</Text>
+          <Text style={styles.supplierLocation}>
+            {supplierData?.category || 'Proveedor'} • {supplierData?.country || 'N/A'}
+          </Text>
+
           <View style={styles.supplierIds}>
             <View style={styles.idBadge}>
-              <Text style={styles.idLabel}>ID: 019002314001</Text>
-            </View>
-            <View style={styles.idBadge}>
-              <Text style={styles.idLabel}>SAP: 200391</Text>
+              <Text style={styles.idLabel}>ID: {supplierData?.taxId || supplierData?.ruc || 'N/A'}</Text>
             </View>
           </View>
         </View>
 
         {/* 1. Información General */}
         <View style={styles.sectionCard}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => toggleSection(1)}
           >
@@ -80,64 +144,73 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               </View>
               <Text style={styles.sectionTitle}>Información General</Text>
             </View>
-            <Image 
-              source={require('../../assets/icons/chevron-down.png')} 
-              style={[styles.chevronIcon, expandedSections.has(1) && styles.chevronIconUp]} 
+            <Image
+              source={require('../../assets/icons/chevron-down.png')}
+              style={[styles.chevronIcon, expandedSections.has(1) && styles.chevronIconUp]}
             />
           </TouchableOpacity>
-          
+
           {expandedSections.has(1) && (
             <View style={styles.sectionContent}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>DIRECCIÓN FISCAL</Text>
-                <Text style={styles.infoValue}>Av. de las Américas 4-55, Parque Industrial, Cuenca</Text>
+                <Text style={styles.infoValue}>{supplierData?.fiscalAddress || supplierData?.address || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>TELÉFONO CENTRAL</Text>
-                <Text style={styles.infoValueLink}>+593 7 288 9900</Text>
+                <Text style={styles.infoValueLink}>{supplierData?.centralPhone || supplierData?.phone || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>SITIO WEB</Text>
-                <Text style={styles.infoValueLink}>www.tornillos.ec</Text>
+                <Text style={styles.infoValueLink}>{supplierData?.website || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.infoRowHeader}>
                 <Text style={styles.infoLabel}>GESTIÓN INTERNA INDURAMA</Text>
                 <TouchableOpacity>
                   <Text style={styles.editLink}>Editar</Text>
                 </TouchableOpacity>
               </View>
-              
-              <View style={styles.infoGrid}>
-                <View style={styles.infoGridItem}>
-                  <Text style={styles.infoLabel}>EJECUTIVO</Text>
-                  <Text style={styles.infoValue}>Carlos Mendez</Text>
+
+              {!supplierData?.induramaExecutive && !supplierData?.epiAuditor ? (
+                <View style={styles.warningCard}>
+                  <Image source={require('../../assets/icons/clock.png')} style={styles.warningIcon} />
+                  <Text style={styles.warningText}>Debe asignar un evaluador para esta empresa</Text>
                 </View>
-                <View style={styles.infoGridItem}>
-                  <Text style={styles.infoLabel}>AUDITOR EPI</Text>
-                  <Text style={styles.infoValue}>Ana López</Text>
-                </View>
-              </View>
-              
-              <View style={styles.infoGrid}>
-                <View style={styles.infoGridItem}>
-                  <Text style={styles.infoLabel}>TIPO AUDITORÍA</Text>
-                  <Text style={styles.infoValue}>Inicial</Text>
-                </View>
-                <View style={styles.infoGridItem}>
-                  <Text style={styles.infoLabel}>FECHA EVAL.</Text>
-                  <Text style={styles.infoValue}>22/Nov/2025</Text>
-                </View>
-              </View>
+              ) : (
+                <>
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoGridItem}>
+                      <Text style={styles.infoLabel}>EJECUTIVO</Text>
+                      <Text style={styles.infoValue}>{supplierData?.induramaExecutive || 'No asignado'}</Text>
+                    </View>
+                    <View style={styles.infoGridItem}>
+                      <Text style={styles.infoLabel}>AUDITOR EPI</Text>
+                      <Text style={styles.infoValue}>{supplierData?.epiAuditor || 'No asignado'}</Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.infoGrid}>
+                    <View style={styles.infoGridItem}>
+                      <Text style={styles.infoLabel}>TIPO AUDITORÍA</Text>
+                      <Text style={styles.infoValue}>{supplierData?.auditType || 'No especificado'}</Text>
+                    </View>
+                    <View style={styles.infoGridItem}>
+                      <Text style={styles.infoLabel}>FECHA EVAL.</Text>
+                      <Text style={styles.infoValue}>{supplierData?.evalDate || 'No especificado'}</Text>
+                    </View>
+                  </View>
+                </>
+              )}
             </View>
           )}
         </View>
 
         {/* 2. Perfil Operativo */}
         <View style={styles.sectionCard}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => toggleSection(2)}
           >
@@ -147,19 +220,19 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               </View>
               <Text style={styles.sectionTitle}>Perfil Operativo</Text>
             </View>
-            <Image 
-              source={require('../../assets/icons/chevron-down.png')} 
-              style={[styles.chevronIcon, expandedSections.has(2) && styles.chevronIconUp]} 
+            <Image
+              source={require('../../assets/icons/chevron-down.png')}
+              style={[styles.chevronIcon, expandedSections.has(2) && styles.chevronIconUp]}
             />
           </TouchableOpacity>
-          
+
           {expandedSections.has(2) && (
             <View style={styles.sectionContent}>
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>PRODUCTOS QUE FABRICA</Text>
                 <Text style={styles.infoValue}>Pernos industriales, Tuercas de seguridad, Arandelas de presión, Varillas roscadas.</Text>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>MATERIAS PRIMAS</Text>
@@ -170,7 +243,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
                   <Text style={styles.infoValue}>Acería del Ecuador, Importadora Andina</Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>CAPACIDAD</Text>
@@ -181,7 +254,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
                   <Text style={styles.infoValue}>2 Turnos</Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>EMPLEADOS</Text>
@@ -192,7 +265,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
                   <Text style={styles.infoValue}>2,500 m²</Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>VENTAS ANUALES (USD)</Text>
               </View>
@@ -210,12 +283,12 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
                   <Text style={styles.salesValue}>$1.8M</Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>PRINCIPALES CLIENTES</Text>
                 <Text style={styles.infoValue}>General Motors, Mabe, Indurama (15%)</Text>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>PATENTES</Text>
@@ -232,7 +305,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
 
         {/* 3. Contactos y Certif. */}
         <View style={styles.sectionCard}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => toggleSection(3)}
           >
@@ -242,60 +315,53 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               </View>
               <Text style={styles.sectionTitle}>Contactos y Certif.</Text>
             </View>
-            <Image 
-              source={require('../../assets/icons/chevron-down.png')} 
-              style={[styles.chevronIcon, expandedSections.has(3) && styles.chevronIconUp]} 
+            <Image
+              source={require('../../assets/icons/chevron-down.png')}
+              style={[styles.chevronIcon, expandedSections.has(3) && styles.chevronIconUp]}
             />
           </TouchableOpacity>
-          
+
           {expandedSections.has(3) && (
             <View style={styles.sectionContent}>
-              <View style={styles.contactCard}>
-                <Image source={require('../../assets/icons/profile.png')} style={styles.contactIcon} />
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactLabel}>GERENTE GENERAL</Text>
-                  <Text style={styles.contactName}>Roberto Gomez</Text>
-                  <Text style={styles.contactEmail}>rgomez@tornillos.com</Text>
-                </View>
-              </View>
-              
-              <View style={styles.contactCard}>
-                <Image source={require('../../assets/icons/home.png')} style={styles.contactIcon} />
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactLabel}>COMERCIAL / VENTAS</Text>
-                  <Text style={styles.contactName}>Maria Paz</Text>
-                  <Text style={styles.contactEmail}>ventas@tornillos.com</Text>
-                </View>
-              </View>
-              
-              <View style={styles.contactCard}>
-                <Image source={require('../../assets/icons/key.png')} style={styles.contactIcon} />
-                <View style={styles.contactInfo}>
-                  <Text style={styles.contactLabel}>CALIDAD / TÉCNICO</Text>
-                  <Text style={styles.contactName}>Ana Torres</Text>
-                  <Text style={styles.contactEmail}>calidad@tornillos.com</Text>
-                </View>
-              </View>
-              
-              <View style={styles.certCard}>
-                <View style={styles.certLeft}>
-                  <Image source={require('../../assets/icons/check.png')} style={styles.certIcon} />
-                  <View>
-                    <Text style={styles.certTitle}>ISO 9001:2015</Text>
-                    <Text style={styles.certDate}>Vence: Dic 2026</Text>
+              {supplierData?.generalManagerName && (
+                <View style={styles.contactCard}>
+                  <Image source={require('../../assets/icons/profile.png')} style={styles.contactIcon} />
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactLabel}>GERENTE GENERAL</Text>
+                    <Text style={styles.contactName}>{supplierData.generalManagerName}</Text>
+                    <Text style={styles.contactEmail}>{supplierData.generalManagerEmail || 'N/A'}</Text>
                   </View>
                 </View>
-                <TouchableOpacity>
-                  <Text style={styles.certLink}>Ver</Text>
-                </TouchableOpacity>
-              </View>
+              )}
+
+              {supplierData?.commercialContactName && (
+                <View style={styles.contactCard}>
+                  <Image source={require('../../assets/icons/home.png')} style={styles.contactIcon} />
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactLabel}>COMERCIAL / VENTAS</Text>
+                    <Text style={styles.contactName}>{supplierData.commercialContactName}</Text>
+                    <Text style={styles.contactEmail}>{supplierData.commercialContactEmail || 'N/A'}</Text>
+                  </View>
+                </View>
+              )}
+
+              {supplierData?.qualityContactName && (
+                <View style={styles.contactCard}>
+                  <Image source={require('../../assets/icons/key.png')} style={styles.contactIcon} />
+                  <View style={styles.contactInfo}>
+                    <Text style={styles.contactLabel}>CALIDAD / TÉCNICO</Text>
+                    <Text style={styles.contactName}>{supplierData.qualityContactName}</Text>
+                    <Text style={styles.contactEmail}>{supplierData.qualityContactEmail || 'N/A'}</Text>
+                  </View>
+                </View>
+              )}
             </View>
           )}
         </View>
 
         {/* 4. Datos Bancarios */}
         <View style={styles.sectionCard}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.sectionHeader}
             onPress={() => toggleSection(4)}
           >
@@ -305,62 +371,58 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               </View>
               <Text style={styles.sectionTitle}>Datos Bancarios</Text>
             </View>
-            <Image 
-              source={require('../../assets/icons/chevron-down.png')} 
-              style={[styles.chevronIcon, expandedSections.has(4) && styles.chevronIconUp]} 
+            <Image
+              source={require('../../assets/icons/chevron-down.png')}
+              style={[styles.chevronIcon, expandedSections.has(4) && styles.chevronIconUp]}
             />
           </TouchableOpacity>
-          
+
           {expandedSections.has(4) && (
             <View style={styles.sectionContent}>
-              <View style={styles.warningCard}>
-                <Image source={require('../../assets/icons/clock.png')} style={styles.warningIcon} />
-                <Text style={styles.warningText}>Crédito Otorgado: 30 Días (Político: 60)</Text>
-              </View>
-              
+              {supplierData?.creditDays && (
+                <View style={styles.warningCard}>
+                  <Image source={require('../../assets/icons/clock.png')} style={styles.warningIcon} />
+                  <Text style={styles.warningText}>Crédito Otorgado: {supplierData.creditDays} Días</Text>
+                </View>
+              )}
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>MODO DE PAGO</Text>
-                <Text style={styles.infoValue}>Transferencia Bancaria</Text>
+                <Text style={styles.infoValue}>{supplierData?.paymentMethod || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.infoRow}>
                 <Text style={styles.infoLabel}>BANCO</Text>
-                <Text style={styles.infoValue}>Banco de Guayaquil</Text>
+                <Text style={styles.infoValue}>{supplierData?.bankName || 'No especificado'}</Text>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>CUENTA</Text>
-                  <Text style={styles.infoValue}>1234567890</Text>
+                  <Text style={styles.infoValue}>{supplierData?.accountNumber || 'N/A'}</Text>
                 </View>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>TIPO</Text>
-                  <Text style={styles.infoValue}>Corriente</Text>
+                  <Text style={styles.infoValue}>{supplierData?.accountType || 'N/A'}</Text>
                 </View>
               </View>
-              
+
               <View style={styles.infoGrid}>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>SWIFT</Text>
-                  <Text style={styles.infoValue}>GUAYECU</Text>
+                  <Text style={styles.infoValue}>{supplierData?.bicSwift || 'N/A'}</Text>
                 </View>
                 <View style={styles.infoGridItem}>
                   <Text style={styles.infoLabel}>IBAN</Text>
-                  <Text style={styles.infoValue}>N/A</Text>
+                  <Text style={styles.infoValue}>{supplierData?.iban || 'N/A'}</Text>
                 </View>
               </View>
-              
-              <TouchableOpacity style={styles.downloadButton}>
-                <Image source={require('../../assets/icons/document.png')} style={styles.downloadIcon} />
-                <Text style={styles.downloadText}>Certificado Bancario</Text>
-                <Text style={styles.downloadLink}>Descargar</Text>
-              </TouchableOpacity>
             </View>
           )}
         </View>
 
         <View style={{ height: 80 }} />
-      </ScrollView>
+      </ScrollView >
 
       <View style={styles.footerContainer}>
         <TouchableOpacity style={styles.editMasterButton}>
@@ -368,7 +430,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
           <Text style={styles.editMasterText}>Editar Datos Maestros</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </View >
   );
 };
 

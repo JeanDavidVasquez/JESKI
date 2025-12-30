@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -11,6 +11,10 @@ import {
   TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../hooks/useAuth';
+import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { loadAllSupplierData } from '../services/supplierDataService';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -27,26 +31,35 @@ interface SupplierCreationScreenProps {
 /**
  * Pantalla de Creación de Proveedor con formulario por pestañas
  */
-export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({ 
+export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   onNavigateBack,
   onComplete
 }) => {
+  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('General');
+  const [loading, setLoading] = useState(false);
+
   const [formData, setFormData] = useState({
     // General
     companyName: '',
     ruc: '',
     civilStatus: '',
-    address: '',
+    address: '', // fiscalAddress
     postalCode: '',
     city: '',
     country: '',
-    phone: '',
-    contactName: '',
-    contactPhone: '',
-    contactEmail: '',
-    retentionEmail: '',
-    
+    phone: '', // centralPhone
+    website: '',
+
+    // Contacts
+    generalManagerName: '',
+    generalManagerEmail: '',
+    commercialContactName: '',
+    commercialContactEmail: '',
+    qualityContactName: '',
+    qualityContactEmail: '',
+    retentionEmail: '', // Keeping this as it was in original, useful for billing
+
     // Bancaria
     bankName: '',
     bankAddress: '',
@@ -54,50 +67,159 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     bicSwift: '',
     iban: '',
     accountType: '',
-    
+
     // Credito
     creditDays: '',
     deliveryDays: '',
-    ibanCredit: '',
+    ibanCredit: '', // Maybe 'paymentMethod' better?
     paymentMethod: ''
   });
 
-  const handleGoBack = () => {
-    if (onNavigateBack) {
-      onNavigateBack();
-    } else {
-      console.log('Función de navegación de regreso no disponible');
+  // Calculate Progress
+  const calculateProgress = () => {
+    // Implement simple count of filled fields
+    const totalFields = Object.keys(formData).length;
+    const filledFields = Object.values(formData).filter(v => v !== '').length;
+    return Math.round((filledFields / totalFields) * 100);
+  };
+
+  useEffect(() => {
+    const loadUserData = async () => {
+      if (!user?.id) return;
+      try {
+        // Load from subcollections
+        const supplierData = await loadAllSupplierData(user.id);
+
+        setFormData(prev => ({
+          ...prev,
+          // Company Profile
+          companyName: supplierData.companyProfile?.fiscalAddress?.split(',')[0] || user.companyName || '',
+          address: supplierData.companyProfile?.fiscalAddress || '',
+          phone: supplierData.companyProfile?.centralPhone || '',
+          website: supplierData.companyProfile?.website || '',
+          city: supplierData.companyProfile?.city || '',
+          country: supplierData.companyProfile?.country || '',
+          postalCode: supplierData.companyProfile?.postalCode || '',
+          ruc: supplierData.companyProfile?.ruc || '',
+
+          // Contacts
+          generalManagerName: supplierData.contacts?.generalManager?.name || '',
+          generalManagerEmail: supplierData.contacts?.generalManager?.email || '',
+          commercialContactName: supplierData.contacts?.commercial?.name || '',
+          commercialContactEmail: supplierData.contacts?.commercial?.email || '',
+          qualityContactName: supplierData.contacts?.quality?.name || '',
+          qualityContactEmail: supplierData.contacts?.quality?.email || '',
+
+          // Banking
+          bankName: supplierData.banking?.bankName || '',
+          bankAddress: supplierData.banking?.bankAddress || '',
+          accountNumber: supplierData.banking?.accountNumber || '',
+          bicSwift: supplierData.banking?.bicSwift || '',
+          iban: supplierData.banking?.iban || '',
+          accountType: supplierData.banking?.accountType || '',
+
+          // Credit
+          creditDays: supplierData.credit?.creditDays || '',
+          deliveryDays: supplierData.credit?.deliveryDays || '',
+          paymentMethod: supplierData.credit?.paymentMethod || '',
+          retentionEmail: supplierData.credit?.retentionEmail || ''
+        }));
+      } catch (error) {
+        console.error('Error loading supplier data:', error);
+      }
+    };
+    loadUserData();
+  }, [user]);
+
+  const saveProgress = async () => {
+    if (!user?.id) return;
+    try {
+      setLoading(true);
+
+      // Import saveAllSupplierData
+      const { saveAllSupplierData } = await import('../services/supplierDataService');
+
+      // Save to subcollections
+      await saveAllSupplierData(user.id, {
+        companyProfile: {
+          fiscalAddress: formData.address,
+          centralPhone: formData.phone,
+          website: formData.website,
+          city: formData.city,
+          country: formData.country,
+          postalCode: formData.postalCode,
+          ruc: formData.ruc
+        },
+        contacts: {
+          generalManager: formData.generalManagerName ? {
+            name: formData.generalManagerName,
+            email: formData.generalManagerEmail
+          } : undefined,
+          commercial: formData.commercialContactName ? {
+            name: formData.commercialContactName,
+            email: formData.commercialContactEmail
+          } : undefined,
+          quality: formData.qualityContactName ? {
+            name: formData.qualityContactName,
+            email: formData.qualityContactEmail
+          } : undefined
+        },
+        banking: formData.bankName ? {
+          bankName: formData.bankName,
+          bankAddress: formData.bankAddress,
+          accountNumber: formData.accountNumber,
+          accountType: formData.accountType,
+          bicSwift: formData.bicSwift,
+          iban: formData.iban
+        } : undefined,
+        credit: {
+          creditDays: formData.creditDays,
+          deliveryDays: formData.deliveryDays,
+          paymentMethod: formData.paymentMethod,
+          retentionEmail: formData.retentionEmail
+        }
+      });
+
+      // Also update company name in main user document
+      await updateDoc(doc(db, 'users', user.id), {
+        companyName: formData.companyName,
+        updatedAt: serverTimestamp()
+      });
+
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      alert('Error al guardar progreso');
+    } finally {
+      setLoading(false);
     }
   };
 
-  const handleComplete = () => {
-    if (onComplete) {
-      onComplete();
-    } else {
-      console.log('Formulario completado');
-    }
+  const handleGoBack = () => {
+    if (onNavigateBack) onNavigateBack();
   };
 
   const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: value
-    }));
+    setFormData(prev => ({ ...prev, [field]: value }));
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    await saveProgress();
     if (activeTab === 'General') {
       setActiveTab('Bancaria');
     } else if (activeTab === 'Bancaria') {
       setActiveTab('Credito');
     } else {
-      handleComplete();
+      if (onComplete) onComplete();
     }
   };
 
+  // UI Render Helpers... 
+  // (We need to insert the rest of the file logic or keep it but I replaced lines 30-146 which covered most logic)
+
+  // Render Tab Button Helper (Keep or Re-implement)
   const renderTabButton = (tab: TabType, label: string, iconName: string) => {
     const isActive = activeTab === tab;
-    
+
     let iconSource;
     switch (iconName) {
       case 'document':
@@ -119,7 +241,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         style={[styles.tabButton, isActive && styles.tabButtonActive]}
         onPress={() => setActiveTab(tab)}
       >
-        <Image 
+        <Image
           source={iconSource}
           style={[styles.tabIcon, { tintColor: isActive ? '#FFFFFF' : '#B0D4FF' }]}
           resizeMode="contain"
@@ -131,10 +253,20 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     );
   };
 
+  // Next: renderTab functions need to be updated in subsequent steps.
+  // For now I replaced up to renderTabButton. 
+  // The original ended at line 146 which was inside renderGeneralTab? 
+  // No, line 134 was renderGeneralTab start.
+  // So I am chopping off the start of renderGeneralTab. 
+  // I must be careful.
+
+  // My ReplacementContent ends with renderTabButton.
+  // I will make sure I don't break the file structure.
+
   const renderGeneralTab = () => (
     <View style={styles.formContainer}>
       <Text style={styles.sectionTitle}>Información General</Text>
-      
+
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Nombre de la Empresa</Text>
         <TextInput
@@ -147,7 +279,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>RUC</Text>
+        <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
         <TextInput
           style={styles.textInput}
           placeholder="01900..."
@@ -158,22 +290,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Estado Civil (si es persona natural)</Text>
-        <TouchableOpacity style={styles.dropdownInput}>
-          <Text style={styles.dropdownText}>No aplica</Text>
-          <Image 
-            source={require('../../assets/icons/chevron-down.png')}
-            style={[styles.dropdownIcon, { transform: [{ rotate: '0deg' }] }]}
-            resizeMode="contain"
-          />
-        </TouchableOpacity>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Dirección</Text>
+        <Text style={styles.inputLabel}>Dirección Fiscal</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Av. de las Américas"
+          placeholder="Av. de las Américas 4-55, Parque Industrial"
           placeholderTextColor="#999999"
           value={formData.address}
           onChangeText={(value) => updateFormData('address', value)}
@@ -214,10 +334,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Teléfono</Text>
+        <Text style={styles.inputLabel}>Teléfono Central</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="074..."
+          placeholder="+593 7 288 9900"
           placeholderTextColor="#999999"
           value={formData.phone}
           onChangeText={(value) => updateFormData('phone', value)}
@@ -226,42 +346,81 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Nombre del Contacto</Text>
+        <Text style={styles.inputLabel}>Sitio Web</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Juan Pérez"
+          placeholder="www.empresa.com"
           placeholderTextColor="#999999"
-          value={formData.contactName}
-          onChangeText={(value) => updateFormData('contactName', value)}
+          value={formData.website}
+          onChangeText={(value) => updateFormData('website', value)}
+          autoCapitalize="none"
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Teléfono de Contacto</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="099..."
-          placeholderTextColor="#999999"
-          value={formData.contactPhone}
-          onChangeText={(value) => updateFormData('contactPhone', value)}
-          keyboardType="phone-pad"
-        />
-      </View>
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Contactos Clave</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Correo/e-mail del Contacto</Text>
+      <View style={styles.contactSection}>
+        <Text style={styles.contactLabel}>GERENTE GENERAL</Text>
+        <TextInput
+          style={[styles.textInput, { marginBottom: 8 }]}
+          placeholder="Nombre Completo"
+          placeholderTextColor="#999999"
+          value={formData.generalManagerName}
+          onChangeText={(value) => updateFormData('generalManagerName', value)}
+        />
         <TextInput
           style={styles.textInput}
-          placeholder="contacto@empresa.com"
+          placeholder="Email"
           placeholderTextColor="#999999"
-          value={formData.contactEmail}
-          onChangeText={(value) => updateFormData('contactEmail', value)}
+          value={formData.generalManagerEmail}
+          onChangeText={(value) => updateFormData('generalManagerEmail', value)}
           keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
+
+      <View style={styles.contactSection}>
+        <Text style={styles.contactLabel}>COMERCIAL / VENTAS</Text>
+        <TextInput
+          style={[styles.textInput, { marginBottom: 8 }]}
+          placeholder="Nombre Completo"
+          placeholderTextColor="#999999"
+          value={formData.commercialContactName}
+          onChangeText={(value) => updateFormData('commercialContactName', value)}
+        />
+        <TextInput
+          style={styles.textInput}
+          placeholder="Email"
+          placeholderTextColor="#999999"
+          value={formData.commercialContactEmail}
+          onChangeText={(value) => updateFormData('commercialContactEmail', value)}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
+
+      <View style={styles.contactSection}>
+        <Text style={styles.contactLabel}>CALIDAD / TÉCNICO</Text>
+        <TextInput
+          style={[styles.textInput, { marginBottom: 8 }]}
+          placeholder="Nombre Completo"
+          placeholderTextColor="#999999"
+          value={formData.qualityContactName}
+          onChangeText={(value) => updateFormData('qualityContactName', value)}
+        />
+        <TextInput
+          style={styles.textInput}
+          placeholder="Email"
+          placeholderTextColor="#999999"
+          value={formData.qualityContactEmail}
+          onChangeText={(value) => updateFormData('qualityContactEmail', value)}
+          keyboardType="email-address"
+          autoCapitalize="none"
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Correo para Retenciones</Text>
+        <Text style={styles.inputLabel}>Correo para Retenciones (Facturación)</Text>
         <TextInput
           style={styles.textInput}
           placeholder="retenciones@empresa.com"
@@ -269,6 +428,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           value={formData.retentionEmail}
           onChangeText={(value) => updateFormData('retentionEmail', value)}
           keyboardType="email-address"
+          autoCapitalize="none"
         />
       </View>
     </View>
@@ -277,7 +437,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   const renderBancariaTab = () => (
     <View style={styles.formContainer}>
       <Text style={styles.sectionTitle}>Información Bancaria (para Pagos)</Text>
-      
+
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Nombre del Banco</Text>
         <TextInput
@@ -349,7 +509,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   const renderCreditoTab = () => (
     <View style={styles.formContainer}>
       <Text style={styles.sectionTitle}>Condiciones de Crédito</Text>
-      
+
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Días de Crédito</Text>
         <TextInput
@@ -412,31 +572,31 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
   const getButtonText = () => {
     if (activeTab === 'Credito') {
-      return 'Guardar y Marcar como Completado';
+      return 'Guardar y Completar';
     }
-    return 'Siguiente';
+    return 'Guardar y Continuar';
   };
 
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Image 
+          <Image
             source={require('../../assets/icons/arrow-left.png')}
             style={styles.backIcon}
             resizeMode="contain"
           />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>1. Creación de Proveedor</Text>
         </View>
-        
+
         <TouchableOpacity style={styles.menuButton}>
-          <Image 
+          <Image
             source={require('../../assets/icons/plus.png')}
             style={styles.menuIcon}
             resizeMode="contain"
@@ -456,10 +616,23 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         {renderContent()}
       </ScrollView>
 
-      {/* Bottom Button */}
+      {/* Bottom Buttons */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.nextButton} onPress={handleNext}>
-          <Text style={styles.nextButtonText}>{getButtonText()}</Text>
+        <TouchableOpacity
+          style={styles.cancelButton}
+          onPress={handleGoBack}
+        >
+          <Text style={styles.cancelButtonText}>Cancelar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.nextButton}
+          onPress={handleNext}
+          disabled={loading}
+        >
+          <Text style={styles.nextButtonText}>
+            {loading ? 'Guardando...' : getButtonText()}
+          </Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -611,13 +784,45 @@ const styles = StyleSheet.create({
     tintColor: '#999999',
     transform: [{ rotate: '90deg' }],
   },
+  contactSection: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 10,
+    padding: 16,
+    marginBottom: 16,
+  },
+  contactLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#6B7280',
+    marginBottom: 12,
+    letterSpacing: 0.5,
+  },
   bottomContainer: {
     backgroundColor: '#FFFFFF',
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: '#E5E7EB',
+    flexDirection: 'row',
+    gap: 12,
+  },
+  cancelButton: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    paddingVertical: 16,
+    borderRadius: 8,
+    borderWidth: 1.5,
+    borderColor: '#D1D5DB',
+    alignItems: 'center',
+  },
+  cancelButtonText: {
+    color: '#6B7280',
+    fontSize: 16,
+    fontWeight: '600',
   },
   nextButton: {
+    flex: 1,
     backgroundColor: '#003E85',
     paddingVertical: 16,
     borderRadius: 8,

@@ -8,9 +8,13 @@ import {
   Image,
   ScrollView,
   FlatList,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../styles/theme';
+import { getSuppliersList, SupplierSummary } from '../services/supplierDataService';
+import { getRequestById } from '../services/requestService';
+import { Request } from '../types';
 
 interface SupplierSearchScreenProps {
   requestId?: string;
@@ -30,41 +34,32 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
   const [searchText, setSearchText] = useState('');
   const [activeTab, setActiveTab] = useState<'disponibles' | 'seleccionados'>('disponibles');
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
+  const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [request, setRequest] = useState<Request | null>(null);
 
-  // Datos de ejemplo
-  const suppliers = [
-    {
-      id: '1',
-      name: 'TecnoPartes S.A.',
-      location: 'Quito, Ecuador',
-      tags: ['Materia Prima', 'Repuestos'],
-      score: 95,
-      email: 'contacto@tecnopartes.com',
-      phone: '+593 2 123 4567',
-      certifications: ['ISO 9001', 'ISO 14001'],
-    },
-    {
-      id: '2',
-      name: 'AceroAndino Cía. Ltda',
-      location: 'Cuenca, Ecuador',
-      tags: ['Metales'],
-      score: 78,
-      email: 'contacto@tecnopartes.com',
-      phone: '+593 2 123 4567',
-      certifications: [],
-      requiresAction: 'Plan Acción Requerido',
-    },
-    {
-      id: '3',
-      name: 'AceroAndino Cía. Ltda',
-      location: 'Cuenca, Ecuador',
-      tags: ['Metales'],
-      email: 'contacto@tecnopartes.com',
-      phone: '+593 2 123 4567',
-      certifications: [],
-      status: 'Invitado',
-    },
-  ];
+  React.useEffect(() => {
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        // Parallel fetch
+        const [suppliersData, requestData] = await Promise.all([
+          getSuppliersList(),
+          requestId ? getRequestById(requestId) : Promise.resolve(null)
+        ]);
+
+        setSuppliers(suppliersData);
+        if (requestData) {
+          setRequest(requestData);
+        }
+      } catch (error) {
+        console.error('Failed to fetch data', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, [requestId]);
 
   const handleSelectSupplier = (supplierId: string) => {
     if (selectedSuppliers.includes(supplierId)) {
@@ -77,7 +72,22 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
   const availableSuppliers = suppliers.filter(s => !selectedSuppliers.includes(s.id));
   const selectedSuppliersData = suppliers.filter(s => selectedSuppliers.includes(s.id));
 
-  const filteredSuppliers = activeTab === 'disponibles' ? availableSuppliers : selectedSuppliersData;
+  // Apply search filter
+  const searchFilteredSuppliers = (list: SupplierSummary[]) => {
+    if (!searchText.trim()) return list;
+
+    const searchLower = searchText.toLowerCase();
+    return list.filter(s =>
+      s.name.toLowerCase().includes(searchLower) ||
+      s.location.toLowerCase().includes(searchLower) ||
+      s.email.toLowerCase().includes(searchLower) ||
+      (s.tags && s.tags.some(tag => tag.toLowerCase().includes(searchLower)))
+    );
+  };
+
+  const filteredSuppliers = activeTab === 'disponibles'
+    ? searchFilteredSuppliers(availableSuppliers)
+    : searchFilteredSuppliers(selectedSuppliersData);
 
   return (
     <View style={styles.container}>
@@ -92,7 +102,9 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
               style={styles.backIcon}
             />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>{requestId || 'SOL-2025-042'}</Text>
+          <View>
+            <Text style={styles.headerTitle}>{request?.code || requestId || 'SOLICITUD'}</Text>
+          </View>
         </View>
         <Image
           source={require('../../assets/icono_indurama.png')}
@@ -101,33 +113,28 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
         />
       </View>
 
-      <View style={styles.content}>
-        {/* Title and Description */}
-        <Text style={styles.title}>BÚSQUEDA PROVEEDORES</Text>
-        <Text style={styles.description}>
-          Gestione el banco de proveedores y seleccione candidatos para cotización
+      <ScrollView contentContainerStyle={styles.content}>
+        <Text style={styles.mainTitle}>BÚSQUEDA PROVEEDORES</Text>
+        <Text style={styles.subTitle}>
+          {request?.description || 'Gestione el banco de proveedores y seleccione candidatos para cotización'}
         </Text>
 
         {/* Progress Steps */}
         <View style={styles.stepsContainer}>
           <View style={styles.stepItem}>
-            <View style={[styles.stepCircle, styles.stepComplete]}>
-              <Image source={require('../../assets/icons/check.png')} style={styles.checkIcon} />
+            <View style={styles.stepCircle}>
+              <Text style={styles.stepNumber}>1</Text>
             </View>
             <Text style={styles.stepLabel}>Identificar{'\n'}Necesidad</Text>
           </View>
-
           <View style={styles.stepLine} />
-
           <View style={styles.stepItem}>
             <View style={[styles.stepCircle, styles.stepActive]}>
-              <Text style={styles.stepNumber}>2</Text>
+              <Text style={[styles.stepNumber, styles.stepTextActive]}>2</Text>
             </View>
-            <Text style={[styles.stepLabel, styles.stepActiveLabel]}>Búsqueda</Text>
+            <Text style={[styles.stepLabel, styles.stepLabelActive]}>Búsqueda</Text>
           </View>
-
           <View style={styles.stepLine} />
-
           <View style={styles.stepItem}>
             <View style={styles.stepCircle}>
               <Text style={styles.stepNumber}>3</Text>
@@ -149,7 +156,10 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
             />
           </View>
 
-          <TouchableOpacity style={styles.filterButton}>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => alert('Filtros avanzados - Próximamente')}
+          >
             <Image source={require('../../assets/icons/filter.png')} style={styles.filterIcon} />
           </TouchableOpacity>
         </View>
@@ -216,15 +226,15 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
 
               {/* Tags */}
               <View style={styles.tagsContainer}>
-                {item.tags.map((tag, index) => (
+                {item.tags && item.tags.map((tag, index) => (
                   <View key={index} style={styles.tag}>
                     <Text style={styles.tagText}>{tag}</Text>
                   </View>
                 ))}
-                {item.requiresAction && (
-                  <View style={styles.tagWarning}>
-                    <Text style={styles.tagWarningText}>{item.requiresAction}</Text>
-                  </View>
+                {item.status && ( // changed from requiresAction to generic status usage if needed, or remove
+                  // item.requiresAction logic was custom, SupplierSummary has generic 'status'
+                  // For now, let's just show tag if it exists in tags
+                  null
                 )}
               </View>
 
@@ -236,7 +246,7 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
                 </View>
                 <View style={styles.contactRow}>
                   <Image source={require('../../assets/icons/profile.png')} style={styles.contactIcon} />
-                  <Text style={styles.contactText}>{item.phone}</Text>
+                  <Text style={styles.contactText}>{item.phone || 'N/A'}</Text>
                 </View>
               </View>
 
@@ -245,7 +255,7 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
                 <View style={styles.certificationsContainer}>
                   <Text style={styles.certLabel}>Certificaciones</Text>
                   <View style={styles.certTags}>
-                    {item.certifications.length > 0 ? (
+                    {item.certifications && item.certifications.length > 0 ? (
                       item.certifications.map((cert, index) => (
                         <View key={index} style={styles.certTag}>
                           <Text style={styles.certTagText}>{cert}</Text>
@@ -279,7 +289,7 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
                         <Text style={styles.removeButtonText}>Quitar de lista</Text>
                       </TouchableOpacity>
                     </>
-                  ) : item.score !== undefined && item.score >= 90 ? (
+                  ) : item.score !== undefined && item.score >= 0 ? (
                     <>
                       <TouchableOpacity
                         style={styles.infoButton}
@@ -306,7 +316,7 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
                         </Text>
                       </TouchableOpacity>
                     </>
-                  ) : item.requiresAction ? (
+                  ) : item.score !== undefined && item.score >= 0 ? (
                     <>
                       <TouchableOpacity
                         style={styles.infoButton}
@@ -337,7 +347,9 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
         />
-      </View>
+
+        <View style={styles.bottomSpacing} />
+      </ScrollView>
 
       {/* Bottom Button */}
       <View style={styles.bottomContainer}>
@@ -384,10 +396,10 @@ const styles = StyleSheet.create({
     width: 100,
     height: 30,
   },
-  content: {
-    flex: 1,
-    paddingHorizontal: 20,
-  },
+  content: { padding: 20 },
+  mainTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+  subTitle: { fontSize: 14, color: '#666', marginBottom: 20 },
+  bottomSpacing: { height: 100 },
   title: {
     fontSize: 18,
     fontWeight: 'bold',
@@ -399,60 +411,15 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginBottom: 16,
   },
-  stepsContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 20,
-    paddingVertical: 16,
-  },
-  stepItem: {
-    alignItems: 'center',
-  },
-  stepCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    borderWidth: 2,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF',
-    marginBottom: 8,
-  },
-  stepComplete: {
-    backgroundColor: theme.colors.primary,
-    borderColor: theme.colors.primary,
-  },
-  stepActive: {
-    borderColor: theme.colors.primary,
-  },
-  checkIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#FFF',
-  },
-  stepNumber: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#9CA3AF',
-  },
-  stepLabel: {
-    fontSize: 11,
-    color: '#6B7280',
-    textAlign: 'center',
-  },
-  stepActiveLabel: {
-    color: theme.colors.primary,
-    fontWeight: '600',
-  },
-  stepLine: {
-    width: 40,
-    height: 2,
-    backgroundColor: '#D1D5DB',
-    marginHorizontal: 8,
-    marginBottom: 32,
-  },
+  stepsContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 },
+  stepItem: { alignItems: 'center', width: 80 },
+  stepCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#00BFFF', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF', marginBottom: 5 },
+  stepActive: { backgroundColor: '#E0F7FF' },
+  stepNumber: { color: '#00BFFF', fontWeight: 'bold', fontSize: 16 },
+  stepTextActive: { color: '#003E85' },
+  stepLabel: { fontSize: 10, textAlign: 'center', color: '#666' },
+  stepLabelActive: { color: '#003E85', fontWeight: 'bold' },
+  stepLine: { height: 1, backgroundColor: '#00BFFF', flex: 1, marginTop: -20 },
   searchRow: {
     flexDirection: 'row',
     gap: 8,
@@ -537,6 +504,9 @@ const styles = StyleSheet.create({
   },
   tabTextActive: {
     color: theme.colors.primary,
+  },
+  contentContainer: {
+    padding: 20,
   },
   listContent: {
     paddingBottom: 20,
@@ -818,5 +788,11 @@ const styles = StyleSheet.create({
     color: '#FFF',
     fontSize: 14,
     fontWeight: '600',
+  },
+  subDescription: {
+    fontSize: 13,
+    color: '#4B5563',
+    marginBottom: 20,
+    fontStyle: 'italic'
   },
 });

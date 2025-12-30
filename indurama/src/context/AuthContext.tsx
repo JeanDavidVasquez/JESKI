@@ -6,10 +6,11 @@ import { User, AuthState, ApiResponse } from '../types';
 /**
  * Tipos para el contexto de autenticación
  */
-interface AuthContextType extends AuthState {
+export interface AuthContextType extends AuthState {
   signIn: (email: string, password: string) => Promise<ApiResponse<User>>;
   signUp: (email: string, password: string, firstName: string, lastName: string) => Promise<ApiResponse<User>>;
   signOut: () => Promise<ApiResponse<void>>;
+  updateProfile: (data: Partial<User>) => Promise<ApiResponse<void>>;
   clearError: () => void;
 }
 
@@ -81,7 +82,7 @@ const initialState: AuthState = {
 /**
  * Contexto de autenticación
  */
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+export const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 /**
  * Proveedor del contexto de autenticación
@@ -119,13 +120,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const result = await AuthService.signIn(email, password);
-      
+
       if (result.success && result.data) {
         dispatch({ type: 'AUTH_SUCCESS', payload: result.data });
       } else {
         dispatch({ type: 'AUTH_ERROR', payload: result.error || 'Error de autenticación' });
       }
-      
+
       return result;
     } catch (error) {
       const errorMessage = 'Error inesperado durante el inicio de sesión';
@@ -147,13 +148,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     try {
       const result = await AuthService.signUp(email, password, firstName, lastName);
-      
+
       if (result.success && result.data) {
         dispatch({ type: 'AUTH_SUCCESS', payload: result.data });
       } else {
         dispatch({ type: 'AUTH_ERROR', payload: result.error || 'Error de registro' });
       }
-      
+
       return result;
     } catch (error) {
       const errorMessage = 'Error inesperado durante el registro';
@@ -180,6 +181,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /**
+   * Actualiza el perfil del usuario
+   */
+  const updateProfile = async (data: Partial<User>): Promise<ApiResponse<void>> => {
+    // No activamos loading global para no parpadear toda la app, 
+    // pero actualizamos el estado al finalizar
+    try {
+      if (!state.user?.id) throw new Error('No hay sesión activa');
+
+      await AuthService.updateUser(state.user.id, data);
+
+      // Actualizar estado local
+      const updatedUser = { ...state.user, ...data };
+      dispatch({ type: 'AUTH_SUCCESS', payload: updatedUser });
+
+      return { success: true, message: 'Perfil actualizado' };
+    } catch (error: any) {
+      console.error('Update profile error:', error);
+      return { success: false, error: error.message || 'Error al actualizar perfil' };
+    }
+  };
+
+  /**
    * Función para limpiar errores
    */
   const clearError = () => {
@@ -191,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     signIn,
     signUp,
     signOut,
+    updateProfile,
     clearError,
   };
 
@@ -201,15 +225,5 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 };
 
-/**
- * Hook para usar el contexto de autenticación
- */
-export const useAuth = (): AuthContextType => {
-  const context = useContext(AuthContext);
-  
-  if (context === undefined) {
-    throw new Error('useAuth debe ser usado dentro de un AuthProvider');
-  }
-  
-  return context;
-};
+// El hook useAuth ha sido movido a src/hooks/useAuth.ts
+// para cumplir con la arquitectura de separación de capas.

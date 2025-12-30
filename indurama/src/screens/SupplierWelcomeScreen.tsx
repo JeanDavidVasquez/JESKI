@@ -17,13 +17,13 @@ const isMobile = width < 768;
 
 // Props para la pantalla
 interface SupplierWelcomeScreenProps {
-  onContinueToEvaluation?: () => void;
+  onContinueToEvaluation?: (data: { fullName: string; email: string; position: string }) => void;
 }
 
 /**
  * Pantalla de Bienvenida para el rol de Proveedor
  */
-export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({ 
+export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
   onContinueToEvaluation
 }) => {
   const [formData, setFormData] = React.useState({
@@ -33,8 +33,15 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
   });
 
   const handleContinue = () => {
+    if (!formData.fullName || !formData.email || !formData.position) {
+      // Assuming Alert is imported or I should import it. It wasn't imported.
+      // I need to add Alert import.
+      alert('Por favor complete todos los campos del responsable');
+      return;
+    }
+
     if (onContinueToEvaluation) {
-      onContinueToEvaluation();
+      onContinueToEvaluation(formData);
     } else {
       console.log('Función de navegación a evaluación no disponible');
     }
@@ -50,30 +57,30 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         {/* Logo e información de bienvenida */}
         <View style={styles.welcomeSection}>
           <View style={styles.logoContainer}>
-            <Image 
-              source={require('../../assets/icono_indurama.png')} 
+            <Image
+              source={require('../../assets/icono_indurama.png')}
               style={styles.logoImage}
               resizeMode="contain"
             />
           </View>
-          
-          
+
+
           <Text style={styles.welcomeMessage}>
             Bienvenido, proveedor. Indurama te invita a ser un proveedor evaluado.
           </Text>
-          
+
           <Text style={styles.roleTitle}>Responsable de la EPI</Text>
         </View>
 
         {/* Formulario */}
         <View style={styles.formSection}>
-          
+
           {/* Nombre y Apellidos */}
           <View style={styles.inputGroup}>
             <Text style={styles.inputLabel}>Nombre y Apellidos</Text>
@@ -121,7 +128,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
             <Text style={styles.continueButtonText}>Continuar con la EPI</Text>
           </TouchableOpacity>
         </View>
-        
+
       </ScrollView>
     </View>
   );

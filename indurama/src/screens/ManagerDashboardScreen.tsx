@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,10 @@ import {
   Platform,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../hooks/useAuth';
+import { getRequestStats, getRecentRequests, getRelativeTime } from '../services/requestService';
+import { getSupplierCount } from '../services/supplierDataService';
+import { Request, RequestPriority, RequestStatus } from '../types';
 
 interface StatCardData {
   label: string;
@@ -25,7 +29,7 @@ interface RequestData {
   title: string;
   description: string;
   time: string;
-  type: 'nueva' | 'urgente' | 'cotizacion';
+  type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda';
   user?: string;
   department?: string;
   userAvatar?: string;
@@ -49,6 +53,8 @@ interface ManagerDashboardScreenProps {
   onNavigateToNotifications?: () => void;
   onNavigateToProfile?: () => void;
   onNavigateToValidateRequest?: (requestId: string) => void;
+  onNavigateToSearch?: (requestId: string) => void;
+  onNavigateToUserManagement?: () => void;
 }
 
 const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
@@ -56,55 +62,86 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   onNavigateToSuppliers,
   onNavigateToNotifications,
   onNavigateToProfile,
-  onNavigateToValidateRequest
+  onNavigateToValidateRequest,
+  onNavigateToSearch,
+  onNavigateToUserManagement
 }) => {
-  // Datos de ejemplo
-  const stats: DashboardStats = {
-    totalSolicitudes: 247,
-    totalSolicitudesChange: '+12% vs mes anterior',
-    enProgreso: 38,
-    completadas: 195,
-    completadasChange: '+8% vs mes anterior',
-    proveedoresActivos: 124,
-  };
+  const { user } = useAuth();
+  const [stats, setStats] = useState<DashboardStats>({
+    totalSolicitudes: 0,
+    totalSolicitudesChange: '-',
+    enProgreso: 0,
+    completadas: 0,
+    completadasChange: '-',
+    proveedoresActivos: 0,
+  });
+  const [recentRequests, setRecentRequests] = useState<RequestData[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const recentRequests: RequestData[] = [
-    {
-      id: '1',
-      title: '50 Unidades - Cascos de Seguridad',
-      description: '"Necesitamos renovar equipos para la línea B antes de fin de mes..."',
-      time: 'Hace 15 min',
-      type: 'nueva',
-      user: 'Roberto Gomez',
-      userAvatar: 'RG',
-      department: 'Taller Planta 1',
-      action: 'Validar Solicitud'
-    },
-    {
-      id: '2',
-      title: 'Repuestos Compresor #3',
-      description: 'Requiere Cotizacion externa',
-      time: 'Hace 1h',
-      type: 'urgente',
-      user: 'Juan Pérez',
-      userAvatar: 'JP',
-      department: 'Mantenimiento',
-      action: 'Invitar'
-    },
-    {
-      id: '3',
-      title: 'Láminas de Acero Inox',
-      description: 'Respuesta Recibidas',
-      time: 'Hace 4h',
-      type: 'cotizacion',
-      user: 'Maria G.',
-      userAvatar: 'MG',
-      department: 'Gestor',
-      progress: 67,
-      progressCount: '2 de 3',
-      action: ''
-    },
-  ];
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true);
+      // Fetch Stats
+      const dashboardStats = await getRequestStats();
+      const supplierCount = await getSupplierCount();
+
+      setStats({
+        totalSolicitudes: dashboardStats.total,
+        totalSolicitudesChange: '',
+        enProgreso: dashboardStats.pending + dashboardStats.inProgress,
+        completadas: dashboardStats.completed,
+        completadasChange: '',
+        proveedoresActivos: supplierCount,
+      });
+
+      // Fetch Recent Requests
+      const recent = await getRecentRequests(5);
+      const mappedRecent = recent.map(r => {
+        // Map priority/status to dashboard 'type'
+        let type: 'nueva' | 'urgente' | 'cotizacion' = 'nueva';
+
+        if (r.priority === RequestPriority.HIGH || r.priority === RequestPriority.URGENT) {
+          type = 'urgente';
+        } else if (r.status === RequestStatus.IN_PROGRESS) {
+          type = 'busqueda';
+        } else if (r.status === RequestStatus.PENDING) {
+          type = 'nueva';
+        }
+
+        // Action logic
+        let action = '';
+        if (type === 'nueva') action = 'Validar Solicitud';
+        if (type === 'urgente') action = 'Revisar Urgencia';
+
+        return {
+          id: r.id,
+          title: r.items?.[0]?.name || r.description || 'Solicitud',
+          description: r.description,
+          time: getRelativeTime(r.createdAt),
+          type,
+          user: r.userName || 'Usuario',
+          userAvatar: (r.userName || 'U').substring(0, 2).toUpperCase(),
+          department: r.department || 'General',
+          action,
+          progress: r.status === 'in_progress' ? 50 : 0,
+          progressCount: r.status === 'in_progress' ? 'En proceso' : ''
+        };
+      });
+      setRecentRequests(mappedRecent);
+
+    } catch (e) {
+      console.error('Failed to load dashboard data', e);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
+
+  // Helper for Initials
+  // const getInitials = (name: string) => name.substring(0, 2).toUpperCase();
 
   // Función para renderizar tarjetas de estadísticas (soporta variantes)
   const renderStatCard = (
@@ -168,7 +205,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   };
 
   // Función para obtener el color del badge según el tipo
-  const getBadgeColor = (type: 'nueva' | 'urgente' | 'cotizacion') => {
+  const getBadgeColor = (type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda') => {
     switch (type) {
       case 'nueva':
         return '#3B82F6';
@@ -176,13 +213,15 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         return '#EF4444';
       case 'cotizacion':
         return '#F59E0B';
+      case 'busqueda':
+        return '#10B981'; // Green for search
       default:
         return '#999999';
     }
   };
 
   // Función para obtener el texto del badge
-  const getBadgeText = (type: 'nueva' | 'urgente' | 'cotizacion') => {
+  const getBadgeText = (type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda') => {
     switch (type) {
       case 'nueva':
         return 'NUEVA';
@@ -190,6 +229,8 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         return 'URGENTE';
       case 'cotizacion':
         return 'COTIZACION';
+      case 'busqueda':
+        return 'BÚSQUEDA';
       default:
         return '';
     }
@@ -256,7 +297,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
 
             <View style={styles.urgentActionBox}>
               <Text style={styles.urgentActionText}>{request.description}</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.inviteButton}
                 onPress={() => onNavigateToSuppliers && onNavigateToSuppliers()}
               >
@@ -297,9 +338,47 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
           </>
         )}
 
+        {request.type === 'busqueda' && (
+          <>
+            <View style={styles.userInfoRow}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>{request.userAvatar}</Text>
+              </View>
+              <View>
+                <Text style={styles.requestUser}>{request.user}</Text>
+                <Text style={styles.requestDepartment}>• {request.department}</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressSection}>
+              <Text style={styles.progressLabel}>{request.description}</Text>
+              <View style={styles.progressRow}>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `50%`, backgroundColor: '#10B981' }
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.progressText, { color: '#10B981', fontWeight: 'bold' }]}>
+                  En Búsqueda
+                </Text>
+              </View>
+              {/* Action Button for Search Phase */}
+              <TouchableOpacity
+                style={[styles.validateButton, { backgroundColor: '#10B981', marginTop: 10 }]}
+                onPress={() => onNavigateToSearch && onNavigateToSearch(request.id)}
+              >
+                <Text style={styles.validateButtonText}>Gestionar Proveedores</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
+
         {request.type === 'nueva' && request.action && (
           <View style={styles.actionButtonContainer}>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.validateButton}
               onPress={() => onNavigateToValidateRequest && onNavigateToValidateRequest(request.id)}
             >
@@ -320,7 +399,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.title}>DASHBOARD</Text>
-            <Text style={styles.subtitle}>Bienvenido, Gestor XXXX</Text>
+            <Text style={styles.subtitle}>Bienvenido, {user?.firstName || 'Gestor'}</Text>
           </View>
           <View style={styles.logoContainer}>
             <Image

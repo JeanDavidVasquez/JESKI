@@ -16,9 +16,57 @@ export interface User extends BaseEntity {
   lastName: string;
   phoneNumber?: string;
   role: UserRole;
-  isActive: boolean;
+  status: UserStatus;
+  isActive: boolean; // Mantener por compatibilidad temporal, pero usar status
   profileImageUrl?: string;
+  companyName?: string;
+  category?: string;
+  phone?: string;
+  termsAccepted?: boolean;
+  city?: string;
+  country?: string;
+  position?: string;
+
+  // Department and Approval (for SOLICITANTE validation)
+  department?: string;
+  approved?: boolean;
+  approvedBy?: string; // Manager userId who approved
+  approvedAt?: any; // Firestore Timestamp
+
+  // Supplier Profile Fields
+  fiscalAddress?: string;
+  centralPhone?: string;
+  website?: string;
+
+  // Internal Management
+  induramaExecutive?: string;
+  epiAuditor?: string;
+  auditType?: string;
+  evalDate?: string;
+
+  // Contacts
+  generalManagerName?: string;
+  generalManagerEmail?: string;
+  commercialContactName?: string;
+  commercialContactEmail?: string;
+  qualityContactName?: string;
+  qualityContactEmail?: string;
+
+  // Banking
+  bankName?: string;
+  bankAddress?: string;
+  accountNumber?: string;
+  bicSwift?: string;
+  iban?: string;
+  accountType?: string;
+
+  // Credit
+  creditDays?: string;
+  deliveryDays?: string;
+  paymentMethod?: string; // e.g., "Transferencia Bancaria"
 }
+
+
 
 /**
  * Roles de usuario en el sistema
@@ -29,6 +77,15 @@ export enum UserRole {
   APROBADOR = 'aprobador',    // Usuario que aprueba solicitudes
   GESTOR = 'gestor',         // Gestor que administra el sistema
   PROVEEDOR = 'proveedor'    // Proveedor que completa evaluaciones
+}
+
+/**
+ * Estados de usuario
+ */
+export enum UserStatus {
+  ACTIVE = 'active',
+  PENDING = 'pending',
+  DISABLED = 'disabled'
 }
 
 /**
@@ -210,14 +267,17 @@ export interface DashboardStats {
  * Estados de solicitud
  */
 export enum RequestStatus {
+  PENDING = 'pending',
+  IN_PROGRESS = 'in_progress',
+  COMPLETED = 'completed',
+  REJECTED = 'rejected',
+  // Legacy values (mantener para compatibilidad)
   DRAFT = 'draft',
   SUBMITTED = 'submitted',
   IN_REVIEW = 'in_review',
   APPROVED = 'approved',
-  REJECTED = 'rejected',
-  IN_PROGRESS = 'in_progress',
-  COMPLETED = 'completed',
-  CANCELLED = 'cancelled'
+  CANCELLED = 'cancelled',
+  RECTIFICATION_REQUIRED = 'rectification_required'
 }
 
 /**
@@ -246,15 +306,33 @@ export enum RequestCategory {
  * Interfaz para solicitudes
  */
 export interface Request extends BaseEntity {
-  code: string; // Código único de la solicitud (ej: SOL-2025-001)
+  code: string; // Código único de la solicitud (ej: REQ-202412-001)
   title: string;
   description: string;
+
+  // User Info
+  userId: string;           // requestedBy renamed
+  userEmail: string;
+  userName: string;
+  department: string;
+
+  // Request Details
+  requestDate: string;
+  tipoProyecto: string;     // "Proyecto de Investigacion" | "Proyecto con Presupuesto Aprobado" | ...
+  claseBusqueda: string;    // "Producto terminado" | "Materia Prima" | "Maquinaria" | "Servicios"
+  supplierSuggestion?: string;
+
   category: RequestCategory;
   priority: RequestPriority;
   status: RequestStatus;
-  requestedBy: string; // ID del usuario solicitante
+
+  requestedBy: string; // ID del usuario solicitante (keep for backward compatibility)
   assignedTo?: string; // ID del usuario asignado
   approvedBy?: string; // ID del usuario que aprobó
+  reviewedBy?: string; // ID del usuario que revisó
+  reviewedAt?: any;    // Timestamp
+  completedAt?: any;   // Timestamp
+
   dueDate?: Date;
   estimatedCost?: number;
   actualCost?: number;
@@ -262,6 +340,9 @@ export interface Request extends BaseEntity {
   attachments?: string[]; // URLs de archivos adjuntos
   items?: RequestItem[]; // Elementos específicos de la solicitud
   timeline?: RequestTimelineEvent[]; // Historial de eventos
+  rectificationComment?: string; // Additional comment for rectification status
+  urgency?: 'baja' | 'media' | 'alta';
+  documents?: { name: string; url: string; type?: string }[];
 }
 
 /**

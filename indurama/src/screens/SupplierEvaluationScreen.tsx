@@ -11,7 +11,7 @@ import {
   Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -38,7 +38,7 @@ interface SupplierEvaluationScreenProps {
 /**
  * Pantalla de Evaluación EPI para el rol de Proveedor
  */
-export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> = ({ 
+export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> = ({
   onNavigateBack,
   onNavigateToCreation,
   onNavigateToQuestionnaireQuality,
@@ -47,10 +47,12 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   taskCompletedFromCreation,
   onSignOut
 }) => {
+  console.log('Rendering SupplierEvaluationScreen');
   const [showEpiModal, setShowEpiModal] = React.useState(false);
+  const { signOut, user } = useAuth();
+  console.log('SupplierEvaluationScreen User:', user);
   const [showMenu, setShowMenu] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
-  const { signOut, user } = useAuth();
   const [tasks, setTasks] = React.useState<Task[]>([
     {
       id: '1',
@@ -178,18 +180,18 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.titleSection}>
             <Text style={styles.title}>MI EVALUACIÓN EPI</Text>
-            
+
             <View style={styles.rightSection}>
               {/* Logo de Indurama */}
               <View style={styles.logoContainer}>
-                <Image 
-                  source={require('../../assets/icono_indurama.png')} 
+                <Image
+                  source={require('../../assets/icono_indurama.png')}
                   style={styles.logoImage}
                   resizeMode="contain"
                 />
@@ -219,7 +221,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         {/* Subtítulo */}
         <Text style={styles.subtitle}>
           Complete todos los pasos
@@ -236,7 +238,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
               </View>
               <View style={styles.progressIconContainer}>
                 <View style={styles.progressIcon}>
-                  <Image 
+                  <Image
                     source={require('../../assets/icons/check.png')}
                     style={styles.progressIconImage}
                     resizeMode="contain"
@@ -244,14 +246,14 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                 </View>
               </View>
             </View>
-            
+
             {/* Barra de progreso */}
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBar}>
                 <View style={[styles.progressBarFill, { width: '43%' }]} />
               </View>
             </View>
-            
+
             <Text style={styles.progressMessage}>
               Completa todas las secciones al 100% para enviar tu evaluación
             </Text>
@@ -261,7 +263,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
         {/* Tareas Pendientes */}
         <View style={styles.tasksSection}>
           <Text style={styles.sectionTitle}>Tareas pendientes</Text>
-          
+
           <View style={styles.tasksList}>
             {tasks.map((task) => (
               <TaskCard
@@ -282,7 +284,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
             <Text style={styles.completeButtonText}>Completar Tareas para Enviar</Text>
           </TouchableOpacity>
         </View>
-        
+
       </ScrollView>
 
       {/* Modal de Epi Enviada */}
@@ -298,8 +300,8 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
             <Text style={styles.modalMessage}>
               Se le notificara una vez finalizado la{"\n"}evaluacion
             </Text>
-            <TouchableOpacity 
-              style={styles.modalButton} 
+            <TouchableOpacity
+              style={styles.modalButton}
               onPress={handleEpiModalClose}
             >
               <Text style={styles.modalButtonText}>Listo</Text>
@@ -352,29 +354,29 @@ const TaskCard: React.FC<{
     <TouchableOpacity style={styles.taskCard} activeOpacity={0.7} onPress={onPress}>
       <View style={styles.taskContent}>
         <View style={[styles.taskIconContainer, { backgroundColor: iconBackground }]}>
-          <Image 
+          <Image
             source={iconSource}
             style={[styles.taskIconImage, { tintColor: iconColor }]}
             resizeMode="contain"
           />
         </View>
-        
+
         <View style={styles.taskInfo}>
           <Text style={styles.taskTitle}>{task.title}</Text>
           <Text style={styles.taskProgress}>{task.progress}</Text>
         </View>
       </View>
-      
+
       {/* Barra de progreso de la tarea */}
       <View style={styles.taskProgressBarContainer}>
         <View style={styles.taskProgressBar}>
           <View style={[
-            styles.taskProgressBarFill, 
-            { 
+            styles.taskProgressBarFill,
+            {
               width: task.id === '1' ? '100%' :  // Creación de Proveedor - Completado
-                     task.id === '2' ? '75%' :   // Cuestionario de Calidad - 15/20
-                     task.id === '4' ? '67%' :   // Evidencias Fotográficas - 2/3
-                     '0%',                        // Cuestionario de Abastecimiento - Pendiente
+                task.id === '2' ? '75%' :   // Cuestionario de Calidad - 15/20
+                  task.id === '4' ? '67%' :   // Evidencias Fotográficas - 2/3
+                    '0%',                        // Cuestionario de Abastecimiento - Pendiente
               backgroundColor: task.status === 'pending' ? '#E0E0E0' : '#003E85'
             }
           ]} />
