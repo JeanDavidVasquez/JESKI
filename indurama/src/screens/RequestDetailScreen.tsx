@@ -178,6 +178,62 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
           </Text>
         </View>
 
+        {/* Supplier Criteria Card - NEW */}
+        {(request.requiredBusinessType || request.requiredCategories?.length ||
+          request.requiredTags?.length || request.customRequiredTags?.length) && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Criterios de Búsqueda de Proveedor</Text>
+
+              {request.requiredBusinessType && request.requiredBusinessType !== 'cualquiera' && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.label}>Tipo de Proveedor:</Text>
+                  <Text style={styles.criteriaText}>
+                    {request.requiredBusinessType.charAt(0).toUpperCase() + request.requiredBusinessType.slice(1)}
+                  </Text>
+                </View>
+              )}
+
+              {request.requiredCategories && request.requiredCategories.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.label}>Categorías:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.requiredCategories.map((cat, idx) => (
+                      <View key={idx} style={styles.criteriaChip}>
+                        <Text style={styles.criteriaChipText}>{cat.replace(/_/g, ' ')}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {request.requiredTags && request.requiredTags.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={styles.label}>Productos/Servicios:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.requiredTags.map((tag, idx) => (
+                      <View key={idx} style={[styles.criteriaChip, { backgroundColor: '#DBEAFE' }]}>
+                        <Text style={[styles.criteriaChipText, { color: '#1E40AF' }]}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {request.customRequiredTags && request.customRequiredTags.length > 0 && (
+                <View>
+                  <Text style={styles.label}>Requisitos Adicionales:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.customRequiredTags.map((tag, idx) => (
+                      <View key={idx} style={[styles.criteriaChip, { backgroundColor: '#FEF3C7', borderColor: '#FCD34D' }]}>
+                        <Text style={[styles.criteriaChipText, { color: '#92400E' }]}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
         {/* Rectification Alert */}
         {request.status === RequestStatus.RECTIFICATION_REQUIRED && (
           <View style={styles.rectificationCard}>
@@ -264,13 +320,32 @@ const styles = StyleSheet.create({
   header: {
     backgroundColor: '#FFF',
     paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 15,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     borderBottomWidth: 1,
     borderBottomColor: '#EEE',
+  },
+  // Supplier criteria styles - NEW
+  criteriaText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
+  },
+  criteriaChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  criteriaChipText: {
+    fontSize: 13,
+    color: '#4B5563',
+    fontWeight: '500',
   },
   backButton: {
     padding: 5,

@@ -1,10 +1,10 @@
 export interface EpiQuestion {
     id: string;
     text: string;
-    weight: number; // Porcentaje (0-100)
-    isNew?: boolean; // Para identificar si es un campo nuevo en la UI
-    inputValue?: string; // Para controlar el input temporalmente
-    evidence?: string; // Para el campo de evidencias
+    // Weight is now calculated automatically: sectionWeight / questionCount
+    // weight field removed - points calculated dynamically
+    evidenceRequired?: boolean; // Si requiere adjuntar evidencia
+    evidenceDescription?: string; // Descripción de evidencia esperada
 }
 
 export interface EpiSection {

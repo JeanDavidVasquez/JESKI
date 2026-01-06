@@ -100,6 +100,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (firebaseUser) {
         try {
           const userData = await AuthService.getUserData(firebaseUser.uid);
+
+          // Check approval status (null/undefined = legacy users, considered approved)
+          const isApproved = userData.approved !== false;
+
+          if (!isApproved) {
+            // User not approved, force sign out and show message
+            await auth.signOut();
+            dispatch({
+              type: 'AUTH_ERROR',
+              payload: 'Tu cuenta está pendiente de aprobación. Un gestor revisará tu solicitud pronto. Recibirás confirmación cuando sea aprobada.'
+            });
+            return;
+          }
+
+          // User is approved, proceed normally
           dispatch({ type: 'AUTH_SUCCESS', payload: userData });
         } catch (error) {
           dispatch({ type: 'AUTH_ERROR', payload: 'Error al cargar datos del usuario' });

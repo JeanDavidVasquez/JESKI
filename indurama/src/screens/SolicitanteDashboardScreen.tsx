@@ -130,7 +130,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
         let color = '#2196F3';
 
         if (status === 'pending') { label = 'ESPERANDO APROBACIÓN'; color = '#FFA726'; }
-        if (status === 'in_progress') { label = 'COTIZANDO'; color = '#2196F3'; }
+        if (status === 'in_progress') { label = 'EN GESTIÓN'; color = '#2196F3'; }
         if (status === 'completed') { label = 'LISTO / COMPRA'; color = '#4CAF50'; }
         if (status === 'rejected') { label = 'RECHAZADA'; color = '#F44336'; }
         if (status === 'rectification_required') { label = 'CORRECCIÓN REQUERIDA'; color = '#FF9800'; } // Orange/Warning

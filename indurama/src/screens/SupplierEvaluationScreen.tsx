@@ -57,14 +57,14 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
     {
       id: '1',
       title: 'Creación de Proveedor',
-      status: 'completed',
-      progress: 'Completado (1 de 1)'
+      status: 'pending',
+      progress: 'Pendiente (0 de 1)'
     },
     {
       id: '2',
       title: 'Cuestionario de Calidad',
-      status: 'in-progress',
-      progress: 'En Progreso (15 de 20)'
+      status: 'pending',
+      progress: 'Pendiente (0 de 20)'
     },
     {
       id: '3',
@@ -75,10 +75,93 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
     {
       id: '4',
       title: 'Evidencias Fotográficas',
-      status: 'in-progress',
-      progress: 'En Progreso (2 de 3)'
+      status: 'pending',
+      progress: 'Pendiente (0 de 3)'
     }
   ]);
+  const [globalProgress, setGlobalProgress] = React.useState(0);
+  const [completedTasks, setCompletedTasks] = React.useState(0);
+
+  // Load real progress data
+  React.useEffect(() => {
+    const loadProgress = async () => {
+      if (!user?.id) return;
+
+      try {
+        // Reload user data from Firestore to get latest profileCompleted status
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../services/firebaseConfig');
+        const userDocRef = doc(db, 'users', user.id);
+        const userSnap = await getDoc(userDocRef);
+        const userData = userSnap.exists() ? userSnap.data() : null;
+
+        // Check if supplier profile is configured
+        const hasProfileData = userData?.profileCompleted === true;
+
+        // Load REAL evaluation data from SupplierResponseService
+        const { SupplierResponseService } = await import('../services/supplierResponseService');
+        const evaluation = await SupplierResponseService.getSupplierEvaluation(user.id);
+
+        let qualityAnswered = 0;
+        let supplyAnswered = 0;
+        let totalQualityQuestions = 20; // Default
+        let totalSupplyQuestions = 18; // Default
+
+        if (evaluation) {
+          const calidadResponses = evaluation.responses.filter(r => r.category === 'calidad');
+          const abastecimientoResponses = evaluation.responses.filter(r => r.category === 'abastecimiento');
+
+          qualityAnswered = calidadResponses.length;
+          supplyAnswered = abastecimientoResponses.length;
+
+          // Use actual totals from progress
+          totalQualityQuestions = evaluation.progress?.calidadQuestions || 20;
+          totalSupplyQuestions = evaluation.progress?.abastecimientoQuestions || 18;
+        }
+
+        const updatedTasks: Task[] = [
+          {
+            id: '1',
+            title: 'Creación de Proveedor',
+            status: hasProfileData ? 'completed' : 'pending',
+            progress: hasProfileData ? 'Completado (1 de 1)' : 'Pendiente (0 de 1)'
+          },
+          {
+            id: '2',
+            title: 'Cuestionario de Calidad',
+            status: qualityAnswered === 0 ? 'pending' : (qualityAnswered >= totalQualityQuestions ? 'completed' : 'in-progress'),
+            progress: `${qualityAnswered === 0 ? 'Pendiente' : (qualityAnswered >= totalQualityQuestions ? 'Completado' : 'En Progreso')} (${qualityAnswered} de ${totalQualityQuestions})`
+          },
+          {
+            id: '3',
+            title: 'Cuestionario de Abastecimiento',
+            status: supplyAnswered === 0 ? 'pending' : (supplyAnswered >= totalSupplyQuestions ? 'completed' : 'in-progress'),
+            progress: `${supplyAnswered === 0 ? 'Pendiente' : (supplyAnswered >= totalSupplyQuestions ? 'Completado' : 'En Progreso')} (${supplyAnswered} de ${totalSupplyQuestions})`
+          },
+          {
+            id: '4',
+            title: 'Evidencias Fotográficas',
+            status: 'pending',
+            progress: 'Pendiente (0 de 3)'
+          }
+        ];
+
+        setTasks(updatedTasks);
+
+        // Calculate global progress
+        const completed = updatedTasks.filter(t => t.status === 'completed').length;
+        const progress = Math.round((completed / updatedTasks.length) * 100);
+        setGlobalProgress(progress);
+        setCompletedTasks(completed);
+      } catch (error) {
+        console.error('Error loading progress:', error);
+      }
+    };
+
+    loadProgress();
+
+    // Also reload when taskCompletedFromCreation changes
+  }, [user?.id, taskCompletedFromCreation]);
 
   const handleGoBack = () => {
     if (onNavigateBack) {
@@ -233,8 +316,8 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
             <View style={styles.progressHeader}>
               <View style={styles.progressInfo}>
                 <Text style={styles.progressLabel}>Progreso General</Text>
-                <Text style={styles.progressPercentage}>43%</Text>
-                <Text style={styles.progressDetails}>18 de 42 tareas completadas</Text>
+                <Text style={styles.progressPercentage}>{globalProgress}%</Text>
+                <Text style={styles.progressDetails}>{completedTasks} de 4 tareas completadas</Text>
               </View>
               <View style={styles.progressIconContainer}>
                 <View style={styles.progressIcon}>
@@ -250,7 +333,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
             {/* Barra de progreso */}
             <View style={styles.progressBarContainer}>
               <View style={styles.progressBar}>
-                <View style={[styles.progressBarFill, { width: '43%' }]} />
+                <View style={[styles.progressBarFill, { width: `${globalProgress}%` }]} />
               </View>
             </View>
 
@@ -373,10 +456,9 @@ const TaskCard: React.FC<{
           <View style={[
             styles.taskProgressBarFill,
             {
-              width: task.id === '1' ? '100%' :  // Creación de Proveedor - Completado
-                task.id === '2' ? '75%' :   // Cuestionario de Calidad - 15/20
-                  task.id === '4' ? '67%' :   // Evidencias Fotográficas - 2/3
-                    '0%',                        // Cuestionario de Abastecimiento - Pendiente
+              width: task.status === 'completed' ? '100%' :
+                task.status === 'in-progress' ? '50%' :
+                  '0%',
               backgroundColor: task.status === 'pending' ? '#E0E0E0' : '#003E85'
             }
           ]} />

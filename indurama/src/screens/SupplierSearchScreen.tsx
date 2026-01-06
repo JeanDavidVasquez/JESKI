@@ -14,7 +14,10 @@ import { StatusBar } from 'expo-status-bar';
 import { theme } from '../styles/theme';
 import { getSuppliersList, SupplierSummary } from '../services/supplierDataService';
 import { getRequestById } from '../services/requestService';
-import { Request } from '../types';
+import { Request, User } from '../types';
+import { SupplierMatchingService, SupplierMatch } from '../services/supplierMatchingService';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
 
 interface SupplierSearchScreenProps {
   requestId?: string;
@@ -35,8 +38,11 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
   const [activeTab, setActiveTab] = useState<'disponibles' | 'seleccionados'>('disponibles');
   const [selectedSuppliers, setSelectedSuppliers] = useState<string[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierSummary[]>([]);
+  const [supplierUsers, setSupplierUsers] = useState<User[]>([]); // NEW: Full user data for matching
+  const [supplierMatches, setSupplierMatches] = useState<SupplierMatch[]>([]); // NEW: Match results
   const [loading, setLoading] = useState(true);
   const [request, setRequest] = useState<Request | null>(null);
+  const [minCompatibility, setMinCompatibility] = useState(20); // NEW: Minimum % to show
 
   React.useEffect(() => {
     const fetchData = async () => {
@@ -49,8 +55,29 @@ export const SupplierSearchScreen: React.FC<SupplierSearchScreenProps> = ({
         ]);
 
         setSuppliers(suppliersData);
+
         if (requestData) {
           setRequest(requestData);
+
+          // If request has criteria, load full user data and apply matching
+          if (requestData.requiredBusinessType || requestData.requiredCategories?.length ||
+            requestData.requiredTags?.length || requestData.customRequiredTags?.length) {
+
+            // Load full supplier user data from Firestore
+            const usersSnapshot = await getDocs(collection(db, 'users'));
+            const allUsers = usersSnapshot.docs.map(doc => ({
+              id: doc.id,
+              ...doc.data()
+            })) as User[];
+
+            // Filter only suppliers
+            const supplierUsersList = allUsers.filter(u => u.role === 'proveedor');
+            setSupplierUsers(supplierUsersList);
+
+            // Apply matching algorithm
+            const matches = SupplierMatchingService.matchSuppliers(requestData, supplierUsersList);
+            setSupplierMatches(matches);
+          }
         }
       } catch (error) {
         console.error('Failed to fetch data', error);

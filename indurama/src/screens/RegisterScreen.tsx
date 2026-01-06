@@ -82,7 +82,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
       const result = await AuthService.signUp(email, password, finalFirstName, finalSurname, role, additionalData);
 
       if (result.success && result.data) {
-        Alert.alert('Éxito', isSupplier ? 'Cuenta de proveedor creada. Completa tu perfil.' : 'Registro exitoso', [
+        const savedRole = result.data.role;
+        const isAutoApproved = (savedRole === UserRole.GESTOR || savedRole === UserRole.ADMIN);
+        const message = isAutoApproved
+          ? (isSupplier ? 'Cuenta de proveedor creada. Completa tu perfil.' : 'Registro exitoso')
+          : 'Registro exitoso. Tu cuenta será revisada por un gestor. Recibirás confirmación cuando sea aprobada.';
+
+        Alert.alert('Éxito', message, [
           {
             text: 'Continuar',
             onPress: () => onRegister?.(result.data!)

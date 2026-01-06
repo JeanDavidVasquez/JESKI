@@ -20,7 +20,7 @@ const { width } = Dimensions.get('window');
 const isMobile = width < 768;
 
 // Tipos para las pestañas
-type TabType = 'General' | 'Bancaria' | 'Credito';
+type TabType = 'General' | 'Productos' | 'Bancaria' | 'Credito';
 
 // Props para la pantalla
 interface SupplierCreationScreenProps {
@@ -38,6 +38,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>('General');
   const [loading, setLoading] = useState(false);
+  const [productTagsText, setProductTagsText] = useState(''); // Raw text for input
 
   const [formData, setFormData] = useState({
     // General
@@ -50,6 +51,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     country: '',
     phone: '', // centralPhone
     website: '',
+
+    // Business Profile - NEW
+    businessType: '' as 'fabricante' | 'distribuidor' | 'servicio' | '',
+    productCategories: [] as string[],
+    productTags: [] as string[],
 
     // Contacts
     generalManagerName: '',
@@ -87,6 +93,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     const loadUserData = async () => {
       if (!user?.id) return;
       try {
+        // Load user document for business profile
+        const userDoc = await getDoc(doc(db, 'users', user.id));
+        const userData = userDoc.exists() ? userDoc.data() : null;
+
         // Load from subcollections
         const supplierData = await loadAllSupplierData(user.id);
 
@@ -101,6 +111,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           country: supplierData.companyProfile?.country || '',
           postalCode: supplierData.companyProfile?.postalCode || '',
           ruc: supplierData.companyProfile?.ruc || '',
+
+          // Business Profile - from user document
+          businessType: userData?.businessType || '',
+          productCategories: userData?.productCategories || [],
+          productTags: userData?.productTags || [],
 
           // Contacts
           generalManagerName: supplierData.contacts?.generalManager?.name || '',
@@ -124,6 +139,9 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           paymentMethod: supplierData.credit?.paymentMethod || '',
           retentionEmail: supplierData.credit?.retentionEmail || ''
         }));
+
+        // Populate productTagsText for display
+        setProductTagsText((userData?.productTags || []).join(', '));
       } catch (error) {
         console.error('Error loading supplier data:', error);
       }
@@ -180,15 +198,36 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         }
       });
 
-      // Also update company name in main user document
+      // Parse productTagsText before saving
+      const parsedProductTags = productTagsText.split(',').map(t => t.trim()).filter(t => t);
+
+      // Also update company name, business profile, and profile completion flag in main user document
       await updateDoc(doc(db, 'users', user.id), {
         companyName: formData.companyName,
+        businessType: formData.businessType || undefined,
+        productCategories: formData.productCategories.length > 0 ? formData.productCategories : undefined,
+        productTags: parsedProductTags.length > 0 ? parsedProductTags : undefined,
+        profileCompleted: true, // Mark profile as completed
         updatedAt: serverTimestamp()
       });
 
+      // Reload data to confirm save
+      const reloadedData = await loadAllSupplierData(user.id);
+      setFormData(prev => ({
+        ...prev,
+        companyName: reloadedData.companyProfile?.fiscalAddress?.split(',')[0] || formData.companyName,
+        address: reloadedData.companyProfile?.fiscalAddress || formData.address,
+        phone: reloadedData.companyProfile?.centralPhone || formData.phone,
+        website: reloadedData.companyProfile?.website || formData.website,
+        city: reloadedData.companyProfile?.city || formData.city,
+        country: reloadedData.companyProfile?.country || formData.country,
+      }));
+
+      console.log('✅ Datos guardados exitosamente');
+
     } catch (error) {
       console.error('Error saving progress:', error);
-      alert('Error al guardar progreso');
+      alert('Error al guardar progreso:' + error);
     } finally {
       setLoading(false);
     }
@@ -204,11 +243,14 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
   const handleNext = async () => {
     await saveProgress();
+
     if (activeTab === 'General') {
       setActiveTab('Bancaria');
     } else if (activeTab === 'Bancaria') {
       setActiveTab('Credito');
     } else {
+      // Last tab completed
+      alert('¡Perfil de proveedor completado! Los datos han sido guardados.');
       if (onComplete) onComplete();
     }
   };
@@ -506,6 +548,97 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     </View>
   );
 
+  const renderProductosTab = () => (
+    <View style={styles.formContainer}>
+      <Text style={styles.sectionTitle}>Productos y Servicios que Ofreces</Text>
+
+      {/* Tipo de Negocio */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>¿Qué tipo de proveedor eres?</Text>
+        <View style={styles.chipContainer}>
+          {[
+            { value: 'fabricante', label: 'Fabricante' },
+            { value: 'distribuidor', label: 'Distribuidor' },
+            { value: 'servicio', label: 'Servicios' }
+          ].map((type) => (
+            <TouchableOpacity
+              key={type.value}
+              style={[
+                styles.chip,
+                formData.businessType === type.value && styles.chipSelected
+              ]}
+              onPress={() => setFormData({ ...formData, businessType: type.value as any })}
+            >
+              <Text style={[
+                styles.chipText,
+                formData.businessType === type.value && styles.chipTextSelected
+              ]}>
+                {type.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Categorías de Productos */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Categorías que ofreces (selecciona todas las que apliquen)</Text>
+        <View style={styles.chipContainer}>
+          {[
+            { value: 'materia_prima', label: 'Materia Prima' },
+            { value: 'componentes', label: 'Componentes' },
+            { value: 'productos_terminados', label: 'Productos Terminados' },
+            { value: 'insumos', label: 'Insumos' },
+            { value: 'servicios', label: 'Servicios' }
+          ].map((cat) => (
+            <TouchableOpacity
+              key={cat.value}
+              style={[
+                styles.chip,
+                formData.productCategories.includes(cat.value) && styles.chipSelected
+              ]}
+              onPress={() => {
+                const newCategories = formData.productCategories.includes(cat.value)
+                  ? formData.productCategories.filter(c => c !== cat.value)
+                  : [...formData.productCategories, cat.value];
+                setFormData({ ...formData, productCategories: newCategories });
+              }}
+            >
+              <Text style={[
+                styles.chipText,
+                formData.productCategories.includes(cat.value) && styles.chipTextSelected
+              ]}>
+                {cat.label}
+              </Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </View>
+
+      {/* Productos/Servicios Específicos */}
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Productos/Servicios Específicos</Text>
+        <TextInput
+          style={[styles.textInput, { height: 80 }]}
+          placeholder="Ej: Tornillos M6x20, Acero AISI 304, Mecanizado CNC (separados por coma)"
+          placeholderTextColor="#999999"
+          value={productTagsText}
+          onChangeText={setProductTagsText}
+          onBlur={() => {
+            // Parse on blur and update formData
+            const tags = productTagsText.split(',').map(t => t.trim()).filter(t => t);
+            setFormData({ ...formData, productTags: tags });
+          }}
+          multiline
+          textAlignVertical="top"
+        />
+        <Text style={styles.helperText}>
+          Lista los productos o servicios específicos que ofreces, separados por comas
+        </Text>
+      </View>
+    </View>
+  );
+
   const renderCreditoTab = () => (
     <View style={styles.formContainer}>
       <Text style={styles.sectionTitle}>Condiciones de Crédito</Text>
@@ -561,6 +694,8 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     switch (activeTab) {
       case 'General':
         return renderGeneralTab();
+      case 'Productos':
+        return renderProductosTab();
       case 'Bancaria':
         return renderBancariaTab();
       case 'Credito':
@@ -607,6 +742,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       {/* Tabs */}
       <View style={styles.tabsContainer}>
         {renderTabButton('General', 'General', 'document')}
+        {renderTabButton('Productos', 'Productos', 'plus')}
         {renderTabButton('Bancaria', 'Bancaria', 'plus')}
         {renderTabButton('Credito', 'Crédito', 'check')}
       </View>
@@ -843,5 +979,37 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F0F0F0',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  chipSelected: {
+    backgroundColor: '#003E85',
+    borderColor: '#003E85',
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#666666',
+    fontWeight: '500',
+  },
+  chipTextSelected: {
+    color: '#FFFFFF',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: 4,
+    fontStyle: 'italic',
   },
 });

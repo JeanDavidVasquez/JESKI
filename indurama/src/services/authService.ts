@@ -134,6 +134,10 @@ export class AuthService {
         phone: (firestoreData as any).phone,
         department: (firestoreData as any).department,
         position: (firestoreData as any).position,
+        // Approval fields - CRITICAL for blocking unapproved users
+        approved: (firestoreData as any).approved,
+        approvedBy: (firestoreData as any).approvedBy,
+        approvedAt: (firestoreData as any).approvedAt,
         createdAt: ((firestoreData as any).createdAt?.toDate && (firestoreData as any).createdAt.toDate()) || new Date(),
         updatedAt: new Date()
       };
@@ -215,9 +219,11 @@ export class AuthService {
         createdAt: new Date(),
         updatedAt: new Date(),
         ...extraData, // Merge invite data
-        ...additionalData // Merge form data (higher priority if we want, or lower. Usually invite data wins? Let's assume Invite wins for CompanyName if set, but mobile fields fill gaps. Actually extraData is fetched from DB, so it's truth).
-        // Let's allow form data to overwrite invite data ONLY if invite data is empty?
-        // Simpler: spread additionalData first, then extraData.
+        ...additionalData,
+        // Approval system: MUST be after spreads to not get overwritten
+        approved: (role === UserRole.GESTOR || role === UserRole.ADMIN) ? true : false,
+        approvedBy: (role === UserRole.GESTOR || role === UserRole.ADMIN) ? 'auto' : null,
+        approvedAt: (role === UserRole.GESTOR || role === UserRole.ADMIN) ? serverTimestamp() : null,
       };
 
       await setDoc(doc(db, 'users', firebaseUser.uid), {
@@ -299,6 +305,10 @@ export class AuthService {
       phone: data.phone,
       department: data.department,
       position: data.position,
+      // Approval fields - CRITICAL for approval workflow
+      approved: data.approved,
+      approvedBy: data.approvedBy,
+      approvedAt: data.approvedAt,
       createdAt: data.createdAt?.toDate?.() || new Date(data.createdAt),
       updatedAt: data.updatedAt?.toDate?.() || new Date(data.updatedAt),
     };

@@ -17,6 +17,9 @@ import { StatusBar } from 'expo-status-bar';
 import { EpiService } from '../services/epiService';
 import { EpiConfig, EpiCategory } from '../types/epi';
 import { SupplierEvaluation, EvaluationResponse } from '../types/evaluation';
+import { ScoringService } from '../services/scoringService';
+import { SupplierResponseService } from '../services/supplierResponseService';
+import { useAuth } from '../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 
@@ -46,22 +49,34 @@ interface QualityQuestionnaireScreenProps {
 }
 
 export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProps> = ({
-  supplierId,
+  supplierId: supplierIdProp,
   onNavigateBack,
   onComplete,
   onNavigateToSupplyQuestionnaire
 }) => {
+  const { user } = useAuth();
+
+  // Use prop or fallback to current user's ID
+  const supplierId = supplierIdProp || user?.id;
+
   const [loading, setLoading] = useState(true);
   const [sections, setSections] = useState<UISection[]>([]);
+  const [currentScore, setCurrentScore] = useState(0);
+  const [evaluation, setEvaluation] = useState<any>(null);
   // Flattened list for progress calculation only
   const allQuestions = sections.flatMap(s => s.questions);
 
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
 
-  console.log('Mounting QualityQuestionnaireScreen for supplier:', supplierId);
+  console.log('Mounting QualityQuestionnaireScreen for supplier:', supplierId, 'user:', user?.id);
 
   useEffect(() => {
+    if (!supplierId) {
+      Alert.alert('Error', 'No se pudo identificar al proveedor. Por favor, intenta de nuevo.');
+      onNavigateBack?.();
+      return;
+    }
     console.log('useEffect triggered');
     loadQuestions();
   }, []);
@@ -73,20 +88,49 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
       const config = await EpiService.getEpiConfig();
       console.log('Config received:', JSON.stringify(config, null, 2));
 
-      const loadedSections: UISection[] = config.calidad.sections.map(s => ({
-        id: s.id,
-        title: s.title,
-        questions: s.questions.map(q => ({
-          id: q.id,
-          text: q.text,
-          expectedEvidence: q.evidence,
-          maxPoints: q.weight,
-          sectionId: s.id,
-          selectedAnswer: undefined,
-          observation: '',
-          score: 0
-        }))
-      }));
+      // Calculate points per question automatically using ScoringService
+      const loadedSections: UISection[] = config.calidad.sections.map(s => {
+        const pointsPerQuestion = ScoringService.calculateQuestionPoints(s);
+        return {
+          id: s.id,
+          title: s.title,
+          questions: s.questions.map(q => ({
+            id: q.id,
+            text: q.text,
+            expectedEvidence: q.evidenceDescription,
+            maxPoints: pointsPerQuestion, // AUTOMATIC CALCULATION
+            sectionId: s.id,
+            selectedAnswer: undefined,
+            observation: '',
+            score: 0
+          }))
+        };
+      });
+
+      // Load existing evaluation if any
+      const existingEval = await SupplierResponseService.getSupplierEvaluation(supplierId);
+      if (existingEval) {
+        setEvaluation(existingEval);
+        setCurrentScore(existingEval.calidadScore || 0);
+
+        // Populate answers from existing responses
+        const calidadResponses = existingEval.responses.filter(r => r.category === 'calidad');
+        loadedSections.forEach(section => {
+          section.questions.forEach(question => {
+            const savedResponse = calidadResponses.find(r => r.questionId === question.id);
+            if (savedResponse) {
+              // Map response status to answer
+              const answer = savedResponse.answer === 'cumple' ? 'SI' :
+                savedResponse.answer === 'no_cumple' ? 'NO' : 'N/A';
+              question.selectedAnswer = answer;
+              question.score = savedResponse.pointsEarned || 0;
+              question.observation = savedResponse.note || '';
+            }
+          });
+        });
+
+        console.log('✅ Loaded existing responses:', calidadResponses.length);
+      }
 
       setSections(loadedSections);
     } catch (error) {
@@ -97,7 +141,8 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
     }
   };
 
-  const handleAnswerSelect = (sectionId: string, questionId: string, answer: 'SI' | 'NO' | 'N/A') => {
+  const handleAnswerSelect = async (sectionId: string, questionId: string, answer: 'SI' | 'NO' | 'N/A') => {
+    // Update UI immediately
     setSections(prev => prev.map(s => {
       if (s.id !== sectionId) return s;
       return {
@@ -110,9 +155,35 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
         })
       };
     }));
+
+    // Find question to get points
+    const section = sections.find(s => s.id === sectionId);
+    const question = section?.questions.find(q => q.id === questionId);
+    if (!question) return;
+
+    // Save response with SupplierResponseService (auto-updates score)
+    try {
+      const response = ScoringService.createResponse(
+        questionId,
+        sectionId,
+        'calidad',
+        answer === 'SI' ? 'cumple' : 'no_cumple',
+        question.maxPoints
+      );
+      await SupplierResponseService.saveResponse(supplierId, response);
+
+      // Refresh score
+      const updatedEval = await SupplierResponseService.getSupplierEvaluation(supplierId);
+      if (updatedEval) {
+        setCurrentScore(updatedEval.calidadScore || 0);
+      }
+    } catch (error) {
+      console.error('Error saving response:', error);
+    }
   };
 
-  const handleObservationChange = (sectionId: string, questionId: string, text: string) => {
+  const handleObservationChange = async (sectionId: string, questionId: string, text: string) => {
+    // Update UI immediately
     setSections(prev => prev.map(s => {
       if (s.id !== sectionId) return s;
       return {
@@ -123,6 +194,22 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
         })
       };
     }));
+
+    // Save observation to existing response if it exists
+    try {
+      const existingEval = await SupplierResponseService.getSupplierEvaluation(supplierId);
+      if (existingEval) {
+        const existingResponse = existingEval.responses.find(r => r.questionId === questionId);
+        if (existingResponse) {
+          // Update existing response with new note
+          const updatedResponse = { ...existingResponse, note: text };
+          await SupplierResponseService.saveResponse(supplierId, updatedResponse);
+          console.log('✅ Observation saved for question:', questionId);
+        }
+      }
+    } catch (error) {
+      console.error('Error saving observation:', error);
+    }
   };
 
   const handleSaveAndExit = async () => {
@@ -133,36 +220,17 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
 
     setSaving(true);
     try {
-      const flatQ = sections.flatMap(s => s.questions);
-      const responses: EvaluationResponse[] = flatQ.map(q => ({
-        questionId: q.id,
-        questionText: q.text,
-        sectionId: q.sectionId,
-        answer: q.selectedAnswer || 'N/A',
-        score: q.score || 0,
-        maxScore: q.maxPoints,
-        observation: q.observation
-      }));
+      // Since we're saving responses in real-time, just submit the evaluation
+      const result = await SupplierResponseService.submitEvaluation(supplierId);
 
-      const totalScore = responses.reduce((sum, r) => sum + r.score, 0);
-      const maxTotal = responses.reduce((sum, r) => sum + r.maxScore, 0);
-
-      const evaluation: SupplierEvaluation = {
-        supplierId: supplierId,
-        type: 'CALIDAD',
-        totalScore,
-        maxTotalScore: maxTotal,
-        responses,
-        timestamp: Date.now(),
-        status: 'COMPLETED'
-      };
-
-      await EpiService.saveEvaluation(evaluation);
-      setShowSaveModal(true);
-
-    } catch (error) {
+      if (result) {
+        setShowSaveModal(true);
+      } else {
+        Alert.alert('Advertencia', 'La evaluación no está completa al 100%');
+      }
+    } catch (error: any) {
       console.error(error);
-      Alert.alert('Error', 'No se pudo guardar la evaluación');
+      Alert.alert('Error', error.message || 'No se pudo guardar la evaluación');
     } finally {
       setSaving(false);
     }
@@ -218,9 +286,15 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
         </View>
       </View>
 
-      {/* Progress Bar (Global) */}
+      {/* Progress Bar and Score Display */}
       <View style={styles.progressContainer}>
-        <Text style={styles.progressText}>Total Preguntas: {totalQuestions}</Text>
+        <View style={styles.progressRow}>
+          <Text style={styles.progressText}>Progreso: {answeredQuestions}/{totalQuestions}</Text>
+          <View style={styles.scoreDisplay}>
+            <Text style={styles.scoreLabel}>Score Calidad:</Text>
+            <Text style={styles.scoreValue}>{Math.round(currentScore)}/100</Text>
+          </View>
+        </View>
         <View style={styles.progressBar}>
           <View style={[
             styles.progressFill,
@@ -354,7 +428,11 @@ const styles = StyleSheet.create({
   logoImage: { width: 40, height: 40 },
 
   progressContainer: { backgroundColor: '#fff', padding: 15, borderBottomWidth: 1, borderColor: '#eee' },
-  progressText: { textAlign: 'center', color: '#666', marginBottom: 5 },
+  progressRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  progressText: { color: '#666', fontSize: 14 },
+  scoreDisplay: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  scoreLabel: { color: '#666', fontSize: 13 },
+  scoreValue: { fontSize: 18, fontWeight: 'bold', color: '#10B981' },
   progressBar: { height: 6, backgroundColor: '#eee', borderRadius: 3, overflow: 'hidden' },
   progressFill: { height: '100%', backgroundColor: '#4FC3F7' },
 

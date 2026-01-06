@@ -22,7 +22,7 @@ interface RequestReviewScreenProps {
   requestId?: string;
   onNavigateBack?: () => void;
   onNavigateToDashboard?: () => void;
-  onNavigateToProveedores?: () => void;
+  onNavigateToProveedores?: (requestId: string) => void;
   onNavigateToSupplierDetail?: (supplierId: string) => void;
   onApprove?: (requestId: string, comment?: string) => void;
   onReject?: (requestId: string, comment: string) => void;
@@ -84,7 +84,7 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
 
       setShowApprovalModal(false);
       Alert.alert('Éxito', 'Solicitud aprobada correctamente.', [
-        { text: 'OK', onPress: onNavigateToProveedores }
+        { text: 'OK', onPress: () => onNavigateToProveedores?.(request.id) }
       ]);
     } catch (error) {
       console.error('Error approving request:', error);
@@ -248,6 +248,62 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
           <Text style={styles.descriptionText}>{request.description}</Text>
         </View>
 
+        {/* Supplier Criteria - NEW */}
+        {(request.requiredBusinessType || request.requiredCategories?.length ||
+          request.requiredTags?.length || request.customRequiredTags?.length) && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Criterios de Búsqueda de Proveedor</Text>
+
+              {request.requiredBusinessType && request.requiredBusinessType !== 'cualquiera' && (
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoLabel}>Tipo:</Text>
+                  <Text style={styles.infoValue}>
+                    {request.requiredBusinessType.charAt(0).toUpperCase() + request.requiredBusinessType.slice(1)}
+                  </Text>
+                </View>
+              )}
+
+              {request.requiredCategories && request.requiredCategories.length > 0 && (
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={styles.infoLabel}>Categorías:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.requiredCategories.map((cat, idx) => (
+                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#D1D5DB' }}>
+                        <Text style={{ fontSize: 12, color: '#4B5563' }}>{cat.replace(/_/g, ' ')}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {request.requiredTags && request.requiredTags.length > 0 && (
+                <View style={{ marginBottom: 10 }}>
+                  <Text style={styles.infoLabel}>Tags:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.requiredTags.map((tag, idx) => (
+                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#3B82F6' }}>
+                        <Text style={{ fontSize: 12, color: '#1E40AF' }}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+
+              {request.customRequiredTags && request.customRequiredTags.length > 0 && (
+                <View>
+                  <Text style={styles.infoLabel}>Custom:</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                    {request.customRequiredTags.map((tag, idx) => (
+                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D' }}>
+                        <Text style={{ fontSize: 12, color: '#92400E' }}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                </View>
+              )}
+            </View>
+          )}
+
         {/* Sugerencia de Proveedor */}
         <View style={styles.card}>
           <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
@@ -367,7 +423,7 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
         <View style={styles.footer}>
           <TouchableOpacity
             style={[styles.validateButton, { flex: 1, backgroundColor: '#10B981' }]}
-            onPress={onNavigateToProveedores}
+            onPress={() => onNavigateToProveedores?.(request.id)}
           >
             <Image source={require('../../assets/icons/search.png')} style={styles.validateIcon} resizeMode="contain" />
             <Text style={styles.validateButtonText}>Continuar a Búsqueda de Proveedores</Text>

@@ -482,7 +482,8 @@ export const SimpleNavigator: React.FC = () => {
               }
             }}
             onNavigateToDashboard={navigateBackToManagerDashboard}
-            onNavigateToProveedores={() => {
+            onNavigateToProveedores={(requestId) => {
+              setReviewRequestId(requestId); // Store requestId for filtering
               setPreviousScreen('RequestReview');
               setCurrentScreen('SupplierSearch');
             }}

@@ -103,7 +103,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         if (r.priority === RequestPriority.HIGH || r.priority === RequestPriority.URGENT) {
           type = 'urgente';
         } else if (r.status === RequestStatus.IN_PROGRESS) {
-          type = 'busqueda';
+          type = 'busqueda' as any;
         } else if (r.status === RequestStatus.PENDING) {
           type = 'nueva';
         }
@@ -251,7 +251,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
           styles.requestCard,
           { borderLeftColor, backgroundColor: cardBackgroundColor }
         ]}
-        onPress={() => onNavigateToRequests && onNavigateToRequests()}
+        onPress={() => onNavigateToValidateRequest?.(request.id)}
       >
         {/* Header: Badge and Time */}
         <View style={styles.requestHeader}>

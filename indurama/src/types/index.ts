@@ -64,6 +64,20 @@ export interface User extends BaseEntity {
   creditDays?: string;
   deliveryDays?: string;
   paymentMethod?: string; // e.g., "Transferencia Bancaria"
+
+  // Categorization (for PROVEEDOR role) - NEW
+  businessType?: 'fabricante' | 'distribuidor' | 'servicio' | 'mixto';
+  productCategories?: string[]; // ["materia_prima", "componentes"]
+  productTags?: string[]; // ["tornillos", "acero_inoxidable", "pernos"]
+  serviceTags?: string[]; // ["mecanizado", "soldadura", "pintura"]
+  industries?: string[]; // ["metalmecanica", "automotriz"]
+  capabilities?: string; // Descripción libre de capacidades
+  score?: number; // Score del EPI (0-100)
+
+  // Custom/Free-text tags when catalog doesn't match - NEW
+  customProductTags?: string[]; // Tags personalizados de productos
+  customServiceTags?: string[]; // Tags personalizados de servicios
+  customCategories?: string[]; // Categorías personalizadas
 }
 
 
@@ -343,6 +357,15 @@ export interface Request extends BaseEntity {
   rectificationComment?: string; // Additional comment for rectification status
   urgency?: 'baja' | 'media' | 'alta';
   documents?: { name: string; url: string; type?: string }[];
+
+  // Supplier Search Criteria - NEW
+  requiredBusinessType?: 'fabricante' | 'distribuidor' | 'servicio' | 'cualquiera';
+  requiredCategories?: string[]; // ["materia_prima", "componentes"]
+  requiredTags?: string[]; // ["tornillos", "acero_inoxidable"]
+  industry?: string; // "metalmecanica"
+
+  // Custom search criteria - NEW
+  customRequiredTags?: string[]; // Tags personalizados de búsqueda
 }
 
 /**

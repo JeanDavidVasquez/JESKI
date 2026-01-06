@@ -95,6 +95,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     searchClass: '',
     supplierSuggestion: '',
     urgency: 'media' as 'baja' | 'media' | 'alta',
+    // Supplier search criteria - NEW
+    requiredBusinessType: 'cualquiera' as 'fabricante' | 'distribuidor' | 'servicio' | 'cualquiera',
+    requiredCategories: [] as string[],
+    requiredTags: [] as string[],
+    customRequiredTags: [] as string[],
+    industry: '',
   });
 
   // Populate form if editing
@@ -107,6 +113,11 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         searchClass: initialRequest.claseBusqueda || '',
         supplierSuggestion: initialRequest.supplierSuggestion || '',
         urgency: (initialRequest.urgency as any) || 'media',
+        requiredBusinessType: initialRequest.requiredBusinessType || 'cualquiera',
+        requiredCategories: initialRequest.requiredCategories || [],
+        requiredTags: initialRequest.requiredTags || [],
+        customRequiredTags: initialRequest.customRequiredTags || [],
+        industry: initialRequest.industry || '',
       });
     }
   }, [initialRequest]);
@@ -188,6 +199,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         claseBusqueda: formData.searchClass,
         supplierSuggestion: formData.supplierSuggestion,
         urgency: formData.urgency,
+        // Supplier search criteria - NEW
+        requiredBusinessType: formData.requiredBusinessType,
+        requiredCategories: formData.requiredCategories,
+        requiredTags: formData.requiredTags,
+        customRequiredTags: formData.customRequiredTags,
+        industry: formData.industry,
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -321,6 +338,104 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           <TextInput style={styles.textInput} placeholder="Ingresar Sugerencia de Proveedor" placeholderTextColor="#999" value={formData.supplierSuggestion} onChangeText={(text) => setFormData({ ...formData, supplierSuggestion: text })} />
         </View>
 
+        {/* Supplier Search Criteria Section - NEW */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Criterios de Búsqueda de Proveedor (Opcional)</Text>
+          <Text style={styles.sectionSubtitle}>
+            Especifique requisitos para filtrado inteligente de proveedores
+          </Text>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Tipo de Proveedor</Text>
+          <View style={styles.chipContainer}>
+            {[
+              { value: 'cualquiera', label: 'Cualquiera' },
+              { value: 'fabricante', label: 'Fabricante' },
+              { value: 'distribuidor', label: 'Distribuidor' },
+              { value: 'servicio', label: 'Servicios' }
+            ].map((type) => (
+              <TouchableOpacity
+                key={type.value}
+                style={[
+                  styles.chip,
+                  formData.requiredBusinessType === type.value && styles.chipSelected
+                ]}
+                onPress={() => setFormData({ ...formData, requiredBusinessType: type.value as any })}
+              >
+                <Text style={[
+                  styles.chipText,
+                  formData.requiredBusinessType === type.value && styles.chipTextSelected
+                ]}>
+                  {type.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Categorías Requeridas</Text>
+          <View style={styles.chipContainer}>
+            {[
+              { value: 'materia_prima', label: 'Materia Prima' },
+              { value: 'componentes', label: 'Componentes' },
+              { value: 'productos_terminados', label: 'Productos Terminados' },
+              { value: 'insumos', label: 'Insumos' },
+              { value: 'servicios', label: 'Servicios' }
+            ].map((cat) => (
+              <TouchableOpacity
+                key={cat.value}
+                style={[
+                  styles.chip,
+                  formData.requiredCategories.includes(cat.value) && styles.chipSelected
+                ]}
+                onPress={() => {
+                  const newCategories = formData.requiredCategories.includes(cat.value)
+                    ? formData.requiredCategories.filter(c => c !== cat.value)
+                    : [...formData.requiredCategories, cat.value];
+                  setFormData({ ...formData, requiredCategories: newCategories });
+                }}
+              >
+                <Text style={[
+                  styles.chipText,
+                  formData.requiredCategories.includes(cat.value) && styles.chipTextSelected
+                ]}>
+                  {cat.label}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>¿Qué necesitas exactamente?</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: Tornillos M6x20, Acero AISI 304 calibre 18, Mecanizado CNC (separados por coma)"
+            placeholderTextColor="#999"
+            value={formData.requiredTags.join(', ')}
+            onChangeText={(text) => {
+              const tags = text.split(',').map(t => t.trim()).filter(t => t);
+              setFormData({ ...formData, requiredTags: tags });
+            }}
+          />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Requisitos Especiales o Condiciones Extra</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: ISO 9001, capacidad 1000 unid/mes, entrega máx 15 días, ubicación Cuenca"
+            placeholderTextColor="#999"
+            value={formData.customRequiredTags.join(', ')}
+            onChangeText={(text) => {
+              const tags = text.split(',').map(t => t.trim()).filter(t => t);
+              setFormData({ ...formData, customRequiredTags: tags });
+            }}
+          />
+        </View>
+
         <View style={styles.formGroup}>
           <Text style={styles.label}>Adjuntar Documentos Técnicos <Text style={styles.required}>*</Text></Text>
           <View style={styles.uploadArea}>
@@ -409,4 +524,48 @@ const styles = StyleSheet.create({
   successMessage: { fontSize: 16, color: '#666666', textAlign: 'center', lineHeight: 22, marginBottom: 24 },
   successButton: { backgroundColor: '#003E85', paddingVertical: 12, paddingHorizontal: 32, borderRadius: 8, minWidth: 120 },
   successButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', textAlign: 'center' },
+  // Supplier criteria styles - NEW
+  sectionHeader: {
+    marginTop: 24,
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 2,
+    borderBottomColor: '#004CA3',
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#004CA3',
+    marginBottom: 4,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#6B7280',
+  },
+  chipContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  chip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    backgroundColor: '#F3F4F6',
+    borderWidth: 1,
+    borderColor: '#D1D5DB',
+  },
+  chipSelected: {
+    backgroundColor: '#DBEAFE',
+    borderColor: '#3B82F6',
+  },
+  chipText: {
+    fontSize: 14,
+    color: '#4B5563',
+    fontWeight: '500',
+  },
+  chipTextSelected: {
+    color: '#1E40AF',
+    fontWeight: '600',
+  },
 });
