@@ -46,6 +46,7 @@ interface QualityQuestionnaireScreenProps {
   onNavigateBack?: () => void;
   onComplete?: () => void;
   onNavigateToSupplyQuestionnaire?: () => void;
+  isLocked?: boolean; // NEW: Questionnaire is read-only if locked
 }
 
 export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProps> = ({
@@ -68,6 +69,7 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
 
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isLocked, setIsLocked] = useState(false); // NEW: Locked state
 
   console.log('Mounting QualityQuestionnaireScreen for supplier:', supplierId, 'user:', user?.id);
 
@@ -79,7 +81,20 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
     }
     console.log('useEffect triggered');
     loadQuestions();
+    loadLockStatus(); // NEW: Check if locked
   }, []);
+
+  // NEW: Load lock status from submission
+  const loadLockStatus = async () => {
+    try {
+      if (!supplierId) return;
+      const canEdit = await SupplierResponseService.canEditEPI(supplierId);
+      setIsLocked(!canEdit);
+      console.log('Questionnaire locked:', !canEdit);
+    } catch (error) {
+      console.error('Error loading lock status:', error);
+    }
+  };
 
   const loadQuestions = async () => {
     try {
@@ -303,6 +318,16 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
         </View>
       </View>
 
+      {/* NEW: Locked Banner */}
+      {isLocked && (
+        <View style={styles.lockedBanner}>
+          <Text style={styles.lockedIcon}>🔒</Text>
+          <Text style={styles.lockedText}>
+            Evaluación enviada - Solo lectura
+          </Text>
+        </View>
+      )}
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {sections.map(section => (
           <View key={section.id} style={styles.sectionContainer}>
@@ -329,9 +354,11 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
                       key={opt}
                       style={[
                         styles.answerButton,
-                        q.selectedAnswer === opt && styles.selectedAnswerButton
+                        q.selectedAnswer === opt && styles.selectedAnswerButton,
+                        isLocked && styles.disabledButton // NEW
                       ]}
                       onPress={() => handleAnswerSelect(section.id, q.id, opt as any)}
+                      disabled={isLocked} // NEW
                     >
                       <Text style={[
                         styles.answerButtonText,
@@ -345,12 +372,13 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
                 <View style={styles.observationContainer}>
                   <Text style={styles.observationLabel}>Observación / Evidencia</Text>
                   <TextInput
-                    style={styles.observationInput}
+                    style={[styles.observationInput, isLocked && styles.disabledInput]}
                     value={q.observation || ''}
                     onChangeText={(text) => handleObservationChange(section.id, q.id, text)}
-                    placeholder="Evidencias..."
+                    placeholder={isLocked ? "Sin observaciones" : "Evidencias..."}
                     placeholderTextColor="#999"
                     multiline
+                    editable={!isLocked}
                   />
                 </View>
               </View>
@@ -481,5 +509,36 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   modalMessage: { textAlign: 'center', color: '#666', marginBottom: 20 },
   modalButton: { backgroundColor: '#4CAF50', paddingVertical: 10, paddingHorizontal: 30, borderRadius: 6 },
-  modalButtonText: { color: '#fff', fontWeight: 'bold' }
+  modalButtonText: { color: '#fff', fontWeight: 'bold' },
+
+  // NEW: Locked state styles
+  lockedBanner: {
+    backgroundColor: '#FFF3CD',
+    padding: 16,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA726',
+  },
+  lockedIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  lockedText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#856404',
+    fontWeight: '500',
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: '#E0E0E0',
+  },
+  disabledInput: {
+    backgroundColor: '#F5F5F5',
+    color: '#999',
+  },
 });

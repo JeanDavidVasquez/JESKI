@@ -6,6 +6,8 @@ import { db } from '../services/firebaseConfig';
 import { AuthService } from '../services';
 import { LoginScreen, RegisterScreen, RequestsScreen, NewRequestScreen, HistoryScreen, DashboardScreen, SupplierWelcomeScreen, SupplierEvaluationScreen, SupplierCreationScreen, QualityQuestionnaireScreen, SupplyQuestionnaireScreen, PhotoEvidenceScreen, ManagerDashboardScreen, ManagerRequestsScreen, RequestReviewScreen, SupplierDetailScreen, SupplierListScreen, SupplierInviteScreen, SupplierSearchScreen, SupplierTechnicalSheetScreen, AuditScreen, ManagerProfileScreen } from '../screens';
 import { EPIConfigScreen } from '../screens/EPIConfigScreen';
+import { EPIPendingListScreen } from '../screens/EPIPendingListScreen'; // NEW
+import { EPIAuditScreen } from '../screens/EPIAuditScreen';
 import { UserManagementScreen } from '../screens/UserManagementScreen';
 import { RequestDetailScreen } from '../screens/RequestDetailScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
@@ -47,7 +49,9 @@ export type Screen =
   | 'SolicitanteProfile'
   | 'ManagerSuppliers'
   | 'PendingApproval'
-  | 'ValidateRequest';
+  | 'ValidateRequest'
+  | 'EPIPendingList' // NEW
+  | 'EPIAudit'; // NEW
 
 /**
  * Navegación temporal simple con manejo de roles
@@ -62,6 +66,10 @@ export const SimpleNavigator: React.FC = () => {
   const [selectedSupplierId, setSelectedSupplierId] = useState<string | null>(null);
   const [previousScreen, setPreviousScreen] = useState<Screen | null>(null);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
+
+  // NEW: EPI Audit states
+  const [submissionId, setSubmissionId] = useState<string | null>(null);
+  const [auditSupplierId, setAuditSupplierId] = useState<string | null>(null);
 
   // Estado para mostrar términos tras responsable EPI
   const [showTerms, setShowTerms] = useState(false);
@@ -211,6 +219,19 @@ export const SimpleNavigator: React.FC = () => {
     setCurrentScreen('UserManagement');
   };
 
+  // NEW: EPI Audit navigation handlers
+  const navigateToEPIPendingList = () => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('EPIPendingList');
+  };
+
+  const navigateToEPIAudit = (subId: string, suppId: string) => {
+    setSubmissionId(subId);
+    setAuditSupplierId(suppId);
+    setPreviousScreen('EPIPendingList');
+    setCurrentScreen('EPIAudit');
+  };
+
   const handleNavigateToRequestDetail = (requestId: string) => {
     setSelectedRequestId(requestId);
     setCurrentScreen('RequestDetail');
@@ -283,6 +304,18 @@ export const SimpleNavigator: React.FC = () => {
             onRegister={handleLogin}
           />
         );
+      case 'ValidateRequest':
+        return (
+          <LoginScreen
+            onNavigateToRegister={navigateToRegister}
+            onLogin={handleLogin}
+          />
+        ); // TODO: Implement ValidateRequestScreen or map correctly
+
+
+
+
+
       case 'Requests':
         return (
           <RequestsScreen
@@ -437,6 +470,46 @@ export const SimpleNavigator: React.FC = () => {
             onComplete={navigateBackToSupplierEvaluation}
           />
         );
+      case 'EPIPendingList':
+        if (!currentUser || currentUser.role !== UserRole.GESTOR) {
+          return <LoginScreen onNavigateToRegister={navigateToRegister} onLogin={handleLogin} />;
+        }
+        return (
+          <EPIPendingListScreen
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerDashboard');
+              }
+            }}
+            onNavigateToAudit={(subId, suppId) => navigateToSupplierDetail(suppId)}
+          />
+        );
+
+      case 'EPIAudit':
+        return (
+          <EPIAuditScreen
+            submissionId={submissionId}
+            supplierId={auditSupplierId}
+            gestorId={currentUser.id}
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('EPIPendingList');
+              }
+            }}
+            onApproved={() => {
+              setSubmissionId(null);
+              setAuditSupplierId(null);
+              setCurrentScreen('EPIPendingList');
+            }}
+          />
+        );
+
       case 'ManagerDashboard':
         return (
           <ManagerDashboardScreen
@@ -450,6 +523,7 @@ export const SimpleNavigator: React.FC = () => {
               setCurrentScreen('SupplierSearch');
             }}
             onNavigateToUserManagement={navigateToUserManagement}
+            onNavigateToEPIPendingList={navigateToEPIPendingList} // NEW
           />
         );
       case 'ManagerRequests':
@@ -567,7 +641,17 @@ export const SimpleNavigator: React.FC = () => {
               setCurrentScreen('SupplierList');
             }}
             onNavigateToEdit={navigateToSupplierTechnicalSheet}
-            onNavigateToAudit={navigateToAudit}
+            onNavigateToAudit={(subId) => {
+              if (subId) {
+                setSubmissionId(subId);
+                // Use selectedSupplierId if available, otherwise assume we are in the correct context
+                setAuditSupplierId(selectedSupplierId || '');
+                setPreviousScreen('SupplierDetail');
+                setCurrentScreen('EPIAudit');
+              } else {
+                console.warn('Cannot navigate to audit: missing submission ID');
+              }
+            }}
           />
         );
       case 'SupplierTechnicalSheet':
@@ -575,6 +659,44 @@ export const SimpleNavigator: React.FC = () => {
           <SupplierTechnicalSheetScreen
             supplierId={selectedSupplierId || ''}
             onNavigateBack={() => setCurrentScreen('SupplierDetail')}
+          />
+        );
+      case 'EPIPendingList':
+        return (
+          <EPIPendingListScreen
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerDashboard');
+              }
+            }}
+            onNavigateToAudit={(subId, suppId) => {
+              setSubmissionId(subId);
+              setAuditSupplierId(suppId);
+              setPreviousScreen('EPIPendingList');
+              setCurrentScreen('EPIAudit');
+            }}
+          />
+        );
+      case 'EPIAudit':
+        return (
+          <EPIAuditScreen
+            submissionId={submissionId || ''}
+            supplierId={auditSupplierId || ''}
+            gestorId={currentUser?.id || 'admin'}
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('EPIPendingList');
+              }
+            }}
+            onApproved={() => {
+              setCurrentScreen('EPIPendingList');
+            }}
           />
         );
       case 'Audit':

@@ -9,9 +9,11 @@ import {
   Platform,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
+import { SupplierResponseService } from '../services/supplierResponseService';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -82,6 +84,12 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   const [globalProgress, setGlobalProgress] = React.useState(0);
   const [completedTasks, setCompletedTasks] = React.useState(0);
 
+  // EPI Submission states - NEW
+  const [epiSubmission, setEpiSubmission] = React.useState<any | null>(null);
+  const [canSubmit, setCanSubmit] = React.useState(false);
+  const [isSubmitted, setIsSubmitted] = React.useState(false);
+  const [submitLoading, setSubmitLoading] = React.useState(false);
+
   // Load real progress data
   React.useEffect(() => {
     const loadProgress = async () => {
@@ -141,8 +149,10 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
           {
             id: '4',
             title: 'Evidencias Fotográficas',
-            status: 'pending',
-            progress: 'Pendiente (0 de 3)'
+            status: (evaluation as any)?.photoEvidence?.length > 0 ? 'completed' : 'pending',
+            progress: evaluation.photoEvidence && evaluation.photoEvidence.length > 0
+              ? `Completado (${evaluation.photoEvidence.length} de 3)`
+              : 'Pendiente (0 de 3)'
           }
         ];
 
@@ -153,6 +163,15 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
         const progress = Math.round((completed / updatedTasks.length) * 100);
         setGlobalProgress(progress);
         setCompletedTasks(completed);
+
+        // Check if all tasks are completed (can submit)
+        const allComplete = updatedTasks.every(t => t.status === 'completed');
+        setCanSubmit(allComplete && !isSubmitted);
+
+        // Load EPI submission status
+        const submission = await SupplierResponseService.getEPISubmission(user.id);
+        setEpiSubmission(submission);
+        setIsSubmitted(submission?.status === 'submitted' || submission?.status === 'approved');
       } catch (error) {
         console.error('Error loading progress:', error);
       }
@@ -219,6 +238,67 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
     } finally {
       setLoggingOut(false);
       setShowMenu(false);
+    }
+  };
+
+
+  // NEW: Handle EPI submission
+  const handleSubmitEvaluation = async () => {
+    console.log('🔥🔥🔥 BUTTON CLICKED - handleSubmitEvaluation CALLED');
+    console.log('User:', user);
+    console.log('canSubmit:', canSubmit);
+
+    // Platform-specific confirmation dialog
+    if (Platform.OS === 'web') {
+      const confirmed = window.confirm('¿Estás seguro de enviar tu evaluación EPI?\n\nNo podrás editar después del envío.');
+      if (!confirmed) return;
+
+      try {
+        setSubmitLoading(true);
+        await SupplierResponseService.submitEvaluation(user!.id);
+
+        // Reload submission status to show "Enviado" banner
+        const newSubmission = await SupplierResponseService.getEPISubmission(user!.id);
+        setEpiSubmission(newSubmission);
+        setIsSubmitted(true);
+        setCanSubmit(false);
+
+        window.alert('Tu evaluación EPI ha sido enviada correctamente.\n\nEl gestor la revisará pronto.');
+      } catch (error: any) {
+        window.alert('Error: ' + (error.message || 'No se pudo enviar la evaluación'));
+      } finally {
+        setSubmitLoading(false);
+      }
+    } else {
+      Alert.alert(
+        'Confirmar Envío',
+        '¿Estás seguro de enviar tu evaluación EPI?\n\nNo podrás editar después del envío.',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Enviar',
+            style: 'default',
+            onPress: async () => {
+              try {
+                setSubmitLoading(true);
+                await SupplierResponseService.submitEvaluation(user!.id);
+
+                // Reload submission status
+                const newSubmission = await SupplierResponseService.getEPISubmission(user!.id);
+                setEpiSubmission(newSubmission);
+                setIsSubmitted(true);
+                setCanSubmit(false);
+
+                Alert.alert('Éxito', 'Tu evaluación EPI ha sido enviada correctamente.\n\nEl gestor la revisará pronto.');
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'No se pudo enviar la evaluación');
+              } finally {
+                setSubmitLoading(false);
+              }
+            }
+          }
+        ]
+      );
     }
   };
 
@@ -361,12 +441,53 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
           </View>
         </View>
 
-        {/* Botón de completar tareas */}
-        <View style={styles.buttonSection}>
-          <TouchableOpacity style={styles.completeButton} onPress={handleCompleteTasks}>
-            <Text style={styles.completeButtonText}>Completar Tareas para Enviar</Text>
-          </TouchableOpacity>
-        </View>
+        {/* EPI Submission Status Banner - NEW */}
+        {isSubmitted && epiSubmission && (
+          <View style={styles.submittedBanner}>
+            <View style={styles.submittedIconContainer}>
+              <Text style={styles.submittedIcon}>✅</Text>
+            </View>
+            <View style={styles.submittedContent}>
+              <Text style={styles.submittedTitle}>Evaluación Enviada</Text>
+              <Text style={styles.submittedText}>
+                Enviado el {epiSubmission.submittedAt?.toDate?.().toLocaleDateString('es-ES') || 'Recientemente'}
+              </Text>
+              <Text style={styles.submittedSubtext}>
+                Tu evaluación está siendo revisada por el gestor
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Submit Button Section - NEW */}
+        {!isSubmitted && (
+          <View style={styles.submitSection}>
+            {!canSubmit && (
+              <View style={styles.warningBanner}>
+                <Text style={styles.warningIcon}>⚠️</Text>
+                <Text style={styles.warningText}>
+                  Completa todas las tareas para enviar tu evaluación
+                </Text>
+              </View>
+            )}
+
+            <TouchableOpacity
+              style={[
+                styles.submitButton,
+                !canSubmit && styles.submitButtonDisabled
+              ]}
+              disabled={!canSubmit || submitLoading}
+              onPress={handleSubmitEvaluation}
+            >
+              <Text style={[
+                styles.submitButtonText,
+                !canSubmit && styles.submitButtonTextDisabled
+              ]}>
+                {submitLoading ? 'Enviando...' : '✓ Enviar Evaluación EPI'}
+              </Text>
+            </TouchableOpacity>
+          </View>
+        )}
 
       </ScrollView>
 
@@ -822,5 +943,120 @@ const styles = StyleSheet.create({
   menuText: {
     fontSize: 15,
     color: '#0F172A',
+  },
+  // EPI Submission Styles - NEW
+  submittedBanner: {
+    backgroundColor: '#E8F5E9',
+    marginHorizontal: isMobile ? 20 : 40,
+    marginTop: 16,
+    marginBottom: 24,
+    padding: 20,
+    borderRadius: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4CAF50',
+    flexDirection: 'row',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  submittedIconContainer: {
+    marginRight: 16,
+  },
+  submittedIcon: {
+    fontSize: 32,
+  },
+  submittedContent: {
+    flex: 1,
+  },
+  submittedTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2E7D32',
+    marginBottom: 4,
+  },
+  submittedText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#388E3C',
+    marginBottom: 4,
+  },
+  submittedSubtext: {
+    fontSize: 13,
+    color: '#558B2F',
+  },
+  submitSection: {
+    marginHorizontal: isMobile ? 20 : 40,
+    marginTop: 16,
+    marginBottom: 32,
+  },
+  warningBanner: {
+    backgroundColor: '#FFF3E0',
+    padding: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F57C00',
+  },
+  warningIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#E65100',
+    fontWeight: '500',
+  },
+  submitButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+    }),
+  },
+  submitButtonDisabled: {
+    backgroundColor: '#BDBDBD',
+    opacity: 0.6,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#999',
+        shadowOpacity: 0.1,
+      },
+      android: {
+        elevation: 0,
+      },
+    }),
+  },
+  submitButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+  submitButtonTextDisabled: {
+    color: '#E0E0E0',
   },
 });

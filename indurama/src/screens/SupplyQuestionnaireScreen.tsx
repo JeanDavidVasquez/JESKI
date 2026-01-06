@@ -46,6 +46,7 @@ interface SupplyQuestionnaireScreenProps {
   onNavigateBack?: () => void;
   onComplete?: () => void;
   onNavigateToPhotoEvidence?: () => void;
+  isLocked?: boolean; // NEW
 }
 
 export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps> = ({
@@ -69,6 +70,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
+  const [isLocked, setIsLocked] = useState(false); // NEW
 
   console.log('Mounting SupplyQuestionnaireScreen for supplier:', supplierId, 'user:', user?.id);
 
@@ -78,8 +80,22 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
       onNavigateBack?.();
       return;
     }
+    console.log('useEffect triggered');
     loadQuestions();
+    loadLockStatus(); // NEW
   }, []);
+
+  // NEW: Load lock status
+  const loadLockStatus = async () => {
+    try {
+      if (!supplierId) return;
+      const canEdit = await SupplierResponseService.canEditEPI(supplierId);
+      setIsLocked(!canEdit);
+      console.log('Supply questionnaire locked:', !canEdit);
+    } catch (error) {
+      console.error('Error loading lock status:', error);
+    }
+  };
 
   const loadQuestions = async () => {
     try {
@@ -301,6 +317,16 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
         </View>
       </View>
 
+      {/* NEW: Locked Banner */}
+      {isLocked && (
+        <View style={styles.lockedBanner}>
+          <Text style={styles.lockedIcon}>🔒</Text>
+          <Text style={styles.lockedText}>
+            Evaluación enviada - Solo lectura
+          </Text>
+        </View>
+      )}
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {sections.map(section => (
           <View key={section.id} style={styles.sectionContainer}>
@@ -327,9 +353,11 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                       key={opt}
                       style={[
                         styles.answerButton,
-                        q.selectedAnswer === opt && styles.selectedAnswerButton
+                        q.selectedAnswer === opt && styles.selectedAnswerButton,
+                        isLocked && styles.disabledButton
                       ]}
                       onPress={() => handleAnswerSelect(section.id, q.id, opt as any)}
+                      disabled={isLocked}
                     >
                       <Text style={[
                         styles.answerButtonText,
@@ -343,12 +371,13 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                 <View style={styles.observationContainer}>
                   <Text style={styles.observationLabel}>Observación / Evidencia</Text>
                   <TextInput
-                    style={styles.observationInput}
+                    style={[styles.observationInput, isLocked && styles.disabledInput]}
                     value={q.observation || ''}
                     onChangeText={(text) => handleObservationChange(section.id, q.id, text)}
-                    placeholder="Evidencias..."
+                    placeholder={isLocked ? "Sin observaciones" : "Evidencias..."}
                     placeholderTextColor="#999"
                     multiline
+                    editable={!isLocked}
                   />
                 </View>
               </View>
@@ -476,5 +505,36 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
   modalMessage: { textAlign: 'center', color: '#666', marginBottom: 20 },
   modalButton: { backgroundColor: '#4CAF50', paddingVertical: 10, paddingHorizontal: 30, borderRadius: 6 },
-  modalButtonText: { color: '#fff', fontWeight: 'bold' }
+  modalButtonText: { color: '#fff', fontWeight: 'bold' },
+
+  // NEW: Locked state styles
+  lockedBanner: {
+    backgroundColor: '#FFF3CD',
+    padding: 16,
+    marginHorizontal: 20,
+    marginVertical: 16,
+    borderRadius: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA726',
+  },
+  lockedIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  lockedText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#856404',
+    fontWeight: '500',
+  },
+  disabledButton: {
+    opacity: 0.5,
+    backgroundColor: '#E0E0E0',
+  },
+  disabledInput: {
+    backgroundColor: '#F5F5F5',
+    color: '#999',
+  },
 });

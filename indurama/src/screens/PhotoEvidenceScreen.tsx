@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -9,8 +9,10 @@ import {
   Platform,
   Image,
   Modal,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useAuth } from '../hooks/useAuth';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -34,13 +36,13 @@ interface PhotoEvidenceScreenProps {
 /**
  * Pantalla de Evidencias Fotográficas para el rol de Proveedor
  */
-export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({ 
+export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   onNavigateBack,
   onComplete
 }) => {
+  const { user } = useAuth();
   const [showEpiModal, setShowEpiModal] = useState(false);
-  console.log('PhotoEvidenceScreen renderizado, showEpiModal:', showEpiModal); // Debug
-  const [categories] = useState<EvidenceCategory[]>([
+  const [categories, setCategories] = useState<EvidenceCategory[]>([
     {
       id: '1',
       title: 'Flujo de Producción',
@@ -52,10 +54,10 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
     {
       id: '2',
       title: 'Instalaciones de la Empresa',
-      description: 'Fachada,almacenes, oficinas',
-      photosCount: 4,
+      description: 'Fachada, almacenes, oficinas',
+      photosCount: 0,
       totalPhotos: 1,
-      status: 'completed'
+      status: 'pending'
     },
     {
       id: '3',
@@ -66,6 +68,37 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       status: 'pending'
     }
   ]);
+
+  // Load saved evidence data
+  useEffect(() => {
+    const loadEvidenceData = async () => {
+      if (!user?.id) return;
+
+      try {
+        const { doc, getDoc } = await import('firebase/firestore');
+        const { db } = await import('../services/firebaseConfig');
+
+        const evalRef = doc(db, 'supplier_evaluations', user.id);
+        const evalDoc = await getDoc(evalRef);
+
+        if (evalDoc.exists()) {
+          const data = evalDoc.data();
+          if (data.photoEvidence && data.photoEvidence.length > 0) {
+            // Mark all as completed if evidence exists
+            setCategories(prev => prev.map(cat => ({
+              ...cat,
+              status: 'completed',
+              photosCount: 1
+            })));
+          }
+        }
+      } catch (error) {
+        console.error('Error loading evidence:', error);
+      }
+    };
+
+    loadEvidenceData();
+  }, [user?.id]);
 
   const handleGoBack = () => {
     if (onNavigateBack) {
@@ -82,20 +115,61 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
     }
   };
 
-  const handleAccept = () => {
-    console.log('handleAccept llamado'); // Debug
-    setShowEpiModal(true);
-    console.log('Modal debería mostrarse'); // Debug
+  const handleAccept = async () => {
+    if (!user?.id) {
+      Alert.alert('Error', 'No se pudo identificar el usuario');
+      return;
+    }
+
+    try {
+      const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
+      const { db } = await import('../services/firebaseConfig');
+
+      // Create temporary evidence data
+      const tempEvidence = categories.map(cat => ({
+        categoryId: cat.id,
+        categoryTitle: cat.title,
+        photoUrl: 'https://placeholder.com/photo.jpg', // Temporal
+        uploadedAt: new Date().toISOString()
+      }));
+
+      const evalRef = doc(db, 'supplier_evaluations', user.id);
+
+      // Save evidence
+      await setDoc(evalRef, {
+        photoEvidence: tempEvidence,
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
+      // Mark all categories as completed
+      setCategories(prev => prev.map(cat => ({
+        ...cat,
+        status: 'completed',
+        photosCount: 1
+      })));
+
+      console.log('✅ Evidencias guardadas temporalmente');
+      setShowEpiModal(true);
+    } catch (error) {
+      console.error('Error saving evidence:', error);
+      Alert.alert('Error', 'No se pudieron guardar las evidencias');
+    }
   };
 
   const handleUploadPhoto = (categoryId: string) => {
-    console.log('Subir foto para categoría:', categoryId);
-    // Aquí se implementaría la funcionalidad de subir fotos
+    Alert.alert(
+      'Función Temporal',
+      'La subida de fotos será implementada próximamente. Por ahora, haz click en "Aceptar" para marcar como completado.',
+      [{ text: 'OK' }]
+    );
   };
 
   const handleViewPhotos = (categoryId: string) => {
-    console.log('Ver fotos de categoría:', categoryId);
-    // Aquí se implementaría la funcionalidad de ver fotos
+    Alert.alert(
+      'Fotos Temporales',
+      'Esta categoría ha sido marcada como completada temporalmente.',
+      [{ text: 'OK' }]
+    );
   };
 
   const renderEvidenceCard = (category: EvidenceCategory) => {
@@ -106,11 +180,11 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       <View key={category.id} style={styles.evidenceCard}>
         <View style={styles.cardHeader}>
           <View style={[
-            styles.statusIcon, 
+            styles.statusIcon,
             { backgroundColor: isCompleted ? '#4CAF50' : '#E0E0E0' }
           ]}>
             {isCompleted ? (
-              <Image 
+              <Image
                 source={require('../../assets/icons/check.png')}
                 style={styles.statusIconImage}
                 resizeMode="contain"
@@ -119,13 +193,13 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
               <View style={styles.statusIconEmpty} />
             )}
           </View>
-          
+
           <View style={styles.cardContent}>
             <Text style={styles.cardTitle}>{category.title}</Text>
             <Text style={styles.cardDescription}>{category.description}</Text>
-            
+
             <View style={styles.photoCount}>
-              <Image 
+              <Image
                 source={require('../../assets/icons/document.png')}
                 style={styles.photoCountIcon}
                 resizeMode="contain"
@@ -136,18 +210,18 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
             </View>
           </View>
         </View>
-        
-        <TouchableOpacity 
+
+        <TouchableOpacity
           style={[
             styles.actionButton,
             hasPhotos ? styles.viewButton : styles.uploadButton
           ]}
-          onPress={hasPhotos ? 
-            () => handleViewPhotos(category.id) : 
+          onPress={hasPhotos ?
+            () => handleViewPhotos(category.id) :
             () => handleUploadPhoto(category.id)
           }
         >
-          <Image 
+          <Image
             source={require('../../assets/icons/plus.png')}
             style={[
               styles.actionButtonIcon,
@@ -169,24 +243,24 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-          <Image 
+          <Image
             source={require('../../assets/icons/arrow-left.png')}
             style={styles.backIcon}
             resizeMode="contain"
           />
         </TouchableOpacity>
-        
+
         <View style={styles.headerCenter}>
           <Text style={styles.headerTitle}>Evidencias Fotográficas</Text>
         </View>
-        
+
         <View style={styles.logoContainer}>
-          <Image 
-            source={require('../../assets/icono_indurama.png')} 
+          <Image
+            source={require('../../assets/icono_indurama.png')}
             style={styles.logoImage}
             resizeMode="contain"
           />
@@ -195,7 +269,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
       {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         <Text style={styles.subtitle}>Sube fotografías de evidencia</Text>
 
         <View style={styles.sectionHeader}>
@@ -208,7 +282,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
         <View style={styles.categoriesContainer}>
           {categories.map(category => renderEvidenceCard(category))}
         </View>
-        
+
       </ScrollView>
 
       {/* Bottom Button */}
@@ -231,8 +305,8 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
             <Text style={styles.modalMessage}>
               Se le notificara una vez finalizado la{"\n"}evaluacion
             </Text>
-            <TouchableOpacity 
-              style={styles.modalButton} 
+            <TouchableOpacity
+              style={styles.modalButton}
               onPress={handleEpiModalClose}
             >
               <Text style={styles.modalButtonText}>Listo</Text>

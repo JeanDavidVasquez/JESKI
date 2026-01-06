@@ -219,37 +219,7 @@ export const SupplierResponseService = {
         }
     },
 
-    /**
-     * Envía la evaluación final (marca como submitted)
-     * @param supplierId - ID del proveedor
-     * @returns true si se envió correctamente
-     */
-    async submitEvaluation(supplierId: string): Promise<boolean> {
-        try {
-            const evaluation = await this.getSupplierEvaluation(supplierId);
 
-            if (!evaluation) {
-                throw new Error('No se encontró la evaluación');
-            }
-
-            // Verificar que esté completo
-            if (evaluation.progress.percentageComplete < 100) {
-                throw new Error('La evaluación no está completa');
-            }
-
-            const evalRef = doc(db, COLLECTION_NAME, supplierId);
-            await updateDoc(evalRef, {
-                status: 'submitted',
-                submittedAt: Date.now(),
-                updatedAt: Date.now()
-            });
-
-            return true;
-        } catch (error) {
-            console.error('Error submitting evaluation:', error);
-            throw error;
-        }
-    },
 
     /**
      * Obtiene las preguntas sin responder
@@ -324,6 +294,199 @@ export const SupplierResponseService = {
         } catch (error) {
             console.error('Error getting evaluations by status:', error);
             return [];
+        }
+    },
+
+    /**
+     * Submit complete EPI evaluation
+     * Locks editing and creates submission snapshot
+     */
+    async submitEvaluation(supplierId: string): Promise<void> {
+        try {
+            // 1. Get current evaluation
+            const evaluation = await this.getSupplierEvaluation(supplierId);
+
+            if (!evaluation) {
+                throw new Error('No se encontró la evaluación');
+            }
+
+            // 2. Validate completion
+            const calidadResponses = evaluation.responses.filter(r => r.category === 'calidad');
+            const abastecimientoResponses = evaluation.responses.filter(r => r.category === 'abastecimiento');
+
+            const totalQuality = evaluation.progress?.calidadQuestions || 20;
+            const totalSupply = evaluation.progress?.abastecimientoQuestions || 18;
+
+            if (calidadResponses.length < totalQuality) {
+                throw new Error(`Completa todas las preguntas de calidad (${calidadResponses.length}/${totalQuality})`);
+            }
+
+            if (abastecimientoResponses.length < totalSupply) {
+                throw new Error(`Completa todas las preguntas de abastecimiento (${abastecimientoResponses.length}/${totalSupply})`);
+            }
+
+            // 3. Create snapshot in epi_submissions collection
+            const { addDoc } = await import('firebase/firestore');
+            await addDoc(collection(db, 'epi_submissions'), {
+                supplierId,
+                status: 'submitted',
+                qualityResponses: calidadResponses,
+                supplyResponses: abastecimientoResponses,
+                photoEvidence: evaluation.photoEvidence || [],
+                calidadScore: evaluation.calidadScore || 0,
+                abastecimientoScore: evaluation.abastecimientoScore || 0,
+                calculatedScore: evaluation.globalScore || 0,
+                classification: evaluation.classification || '',
+                submittedAt: serverTimestamp(),
+                canEdit: false,
+                createdAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            // 4. Update user document status
+            await updateDoc(doc(db, 'users', supplierId), {
+                supplierStatus: 'epi_submitted',
+                epiSubmittedAt: serverTimestamp(),
+                updatedAt: serverTimestamp()
+            });
+
+            console.log('✅ EPI submitted successfully');
+        } catch (error) {
+            console.error('Error submitting EPI:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Get EPI submission status for a supplier
+     */
+    async getEPISubmission(supplierId: string): Promise<any | null> {
+        try {
+            const q = query(
+                collection(db, 'epi_submissions'),
+                where('supplierId', '==', supplierId)
+            );
+
+            const snapshot = await getDocs(q);
+
+            if (snapshot.empty) {
+                return null;
+            }
+
+            // Return most recent submission
+            const submissions = snapshot.docs.map(d => ({
+                id: d.id,
+                ...d.data()
+            }));
+
+            // Sort by createdAt descending
+            return submissions.sort((a: any, b: any) => {
+                const aTime = a.createdAt?.toMillis?.() || 0;
+                const bTime = b.createdAt?.toMillis?.() || 0;
+                return bTime - aTime;
+            })[0];
+
+        } catch (error) {
+            console.error('Error getting EPI submission:', error);
+            return null;
+        }
+    },
+
+    /**
+     * Check if supplier can edit their EPI
+     */
+    async canEditEPI(supplierId: string): Promise<boolean> {
+        try {
+            const submission = await this.getEPISubmission(supplierId);
+
+            // No submission = can edit
+            if (!submission) {
+                return true;
+            }
+
+            // Draft = can edit
+            if (submission.status === 'draft') {
+                return true;
+            }
+
+            // Submitted but enabled by gestor
+            if (submission.status === 'submitted' && submission.canEdit) {
+                return true;
+            }
+
+            // Revision requested = can edit
+            if (submission.status === 'revision_requested') {
+                return true;
+            }
+
+            // Otherwise cannot edit
+            return false;
+        } catch (error) {
+            console.error('Error checking edit permission:', error);
+            return true; // Default to allowing edit on error
+        }
+    },
+    /**
+     * Approve EPI submission
+     */
+    async approveEPI(
+        submissionId: string,
+        supplierId: string,
+        gestorId: string,
+        comments?: string
+    ): Promise<void> {
+        try {
+            const submissionRef = doc(db, 'epi_submissions', submissionId);
+            const userRef = doc(db, 'users', supplierId);
+
+            // Update submission
+            await updateDoc(submissionRef, {
+                status: 'approved',
+                reviewedAt: serverTimestamp(),
+                reviewedBy: gestorId,
+                reviewComments: comments || '',
+                canEdit: false,
+            });
+
+            // Update user
+            await updateDoc(userRef, {
+                supplierStatus: 'epi_approved',
+                canSearchMatch: true,
+                epiApprovedAt: serverTimestamp(),
+                epiApprovedBy: gestorId,
+            });
+
+            console.log('EPI approved successfully');
+        } catch (error) {
+            console.error('Error approving EPI:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Request revision for EPI submission
+     */
+    async requestRevision(
+        submissionId: string,
+        supplierId: string,
+        gestorId: string,
+        comments: string
+    ): Promise<void> {
+        try {
+            const submissionRef = doc(db, 'epi_submissions', submissionId);
+
+            await updateDoc(submissionRef, {
+                status: 'revision_requested',
+                reviewedAt: serverTimestamp(),
+                reviewedBy: gestorId,
+                reviewComments: comments,
+                canEdit: true, // Allow supplier to edit again
+            });
+
+            console.log('Revision requested successfully');
+        } catch (error) {
+            console.error('Error requesting revision:', error);
+            throw error;
         }
     }
 };

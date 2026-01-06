@@ -14,6 +14,8 @@ export type MainStackParamList = {
   SupplierForm: { supplierId?: string };
   UserManagement: undefined;
   Profile: undefined;
+  EPIPendingList: undefined; // NEW
+  EPIAudit: { submissionId: string; supplierId: string }; // NEW
 };
 
 export type TabParamList = {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -8,8 +8,12 @@ import {
   Image,
   TextInput,
   Modal,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../services/firebaseConfig';
+import { SupplierResponseService } from '../services/supplierResponseService';
 import { theme } from '../styles/theme';
 
 type DetailTab = 'Resumen' | 'Respuestas' | 'Evidencias' | 'Historial';
@@ -20,7 +24,7 @@ interface SupplierDetailScreenProps {
   onApprove?: (supplierId: string) => void;
   onReject?: (supplierId: string) => void;
   onNavigateToEdit?: () => void;
-  onNavigateToAudit?: () => void;
+  onNavigateToAudit?: (submissionId?: string) => void;
 }
 
 const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
@@ -31,10 +35,59 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
   onNavigateToEdit,
   onNavigateToAudit,
 }) => {
+  const [loading, setLoading] = useState(true);
+  const [supplierData, setSupplierData] = useState<any>(null);
+  const [epiSubmission, setEpiSubmission] = useState<any>(null);
+  const [epiConfig, setEpiConfig] = useState<any>(null);
+
   const [activeTab, setActiveTab] = useState<DetailTab>('Resumen');
   const [observations, setObservations] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const tabs: DetailTab[] = ['Resumen', 'Respuestas', 'Evidencias', 'Historial'];
+
+  useEffect(() => {
+    loadData();
+  }, [supplierId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // 1. Get User Data
+      const userDoc = await getDoc(doc(db, 'users', supplierId));
+      if (userDoc.exists()) {
+        setSupplierData(userDoc.data());
+      }
+
+      // 2. Get EPI Submission
+      const submission = await SupplierResponseService.getEPISubmission(supplierId);
+      setEpiSubmission(submission);
+
+      // 3. Get EPI Config for questions text
+      const { EpiService } = await import('../services/epiService');
+      const config = await EpiService.getEpiConfig();
+      setEpiConfig(config);
+
+    } catch (error) {
+      console.error('Error loading supplier detail:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const getStatusColor = (status?: string) => {
+    if (status === 'approved') return '#10B981';
+    if (status === 'submitted') return '#F59E0B';
+    if (status === 'revision_requested') return '#EF4444';
+    return '#6B7280';
+  };
+
+  const getStatusText = (status?: string) => {
+    if (status === 'approved') return 'Aprobado';
+    if (status === 'submitted') return 'Pendiente Revisión';
+    if (status === 'revision_requested') return 'Revisión Solicitada';
+    return 'En Progreso';
+  };
 
   const handleApprove = () => {
     setShowApprovalModal(true);
@@ -47,52 +100,193 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
     }
   };
 
+  const renderResumenTab = () => (
+    <>
+      <View style={styles.card}>
+        <View style={styles.cardHeader}>
+          <View style={styles.cardHeaderLeft}>
+            <Image source={require('../../assets/icons/profile.png')} style={styles.cardIcon} />
+            <Text style={styles.cardTitle}>DATOS INTERNOS (INDURAMA)</Text>
+          </View>
+        </View>
+
+        <View style={styles.dataRow}>
+          <Text style={styles.dataLabel}>Ejecutivo de Compra</Text>
+          <Text style={styles.dataValue}>N/A</Text>
+        </View>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataLabel}>Auditor Asignado</Text>
+          <Text style={styles.dataValue}>{loading ? '...' : (epiSubmission?.reviewedBy || 'Sin asignar')}</Text>
+        </View>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataLabel}>Tipo Auditoría</Text>
+          <Text style={styles.linkValue}>EPI Inicial</Text>
+        </View>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataLabel}>Fecha Evaluación</Text>
+          <Text style={styles.dataValue}>
+            {epiSubmission?.submittedAt?.toDate().toLocaleDateString() || 'N/A'}
+          </Text>
+        </View>
+        <View style={styles.dataRow}>
+          <Text style={styles.dataLabel}>Clasificación</Text>
+          <View style={styles.tagDark}>
+            <Text style={styles.tagText}>{epiSubmission?.classification || 'Pendiente'}</Text>
+          </View>
+        </View>
+      </View>
+
+      <View style={styles.card}>
+        <View style={styles.infoRow}>
+          <View style={styles.infoItem}>
+            <View style={styles.dotBlue} />
+            <Text style={styles.infoLabel}>TIPO PROVEEDOR</Text>
+            <Text style={styles.infoValue}>{supplierData?.supplierType || 'N/A'}</Text>
+          </View>
+          <View style={styles.infoItem}>
+            <Text style={styles.infoLabel}>PARTICIPACIÓN</Text>
+            <Text style={styles.infoValueBlue}>{supplierData?.induramaParticipation || 'N/A'}</Text>
+          </View>
+        </View>
+      </View>
+
+      {epiSubmission && (
+        <View style={styles.card}>
+          <View style={styles.evaluationHeader}>
+            <Text style={styles.evaluationTitle}>Evaluación Detallada</Text>
+            <Text style={styles.autoText}>Auto-evaluación</Text>
+          </View>
+
+          <View style={styles.progressItem}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Calidad (1-6)</Text>
+              <Text style={styles.progressValue}>{Math.round(epiSubmission.calidadScore || 0)}/100</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.calidadScore || 0, 100)}%`, backgroundColor: theme.colors.primary }]} />
+            </View>
+          </View>
+
+          <View style={styles.progressItem}>
+            <View style={styles.progressHeader}>
+              <Text style={styles.progressLabel}>Abastecimiento (7-8)</Text>
+              <Text style={styles.progressValue}>{Math.round(epiSubmission.abastecimientoScore || 0)}/100</Text>
+            </View>
+            <View style={styles.progressBar}>
+              <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.abastecimientoScore || 0, 100)}%`, backgroundColor: '#00BCD4' }]} />
+            </View>
+          </View>
+
+          {onNavigateToAudit && (
+            <>
+              <TouchableOpacity
+                style={styles.auditButton}
+                onPress={() => onNavigateToAudit(epiSubmission.id)}
+              >
+                <Image source={require('../../assets/icons/edit.png')} style={styles.auditIcon} />
+                <Text style={styles.auditText}>Auditar / Recalibrar Puntaje</Text>
+              </TouchableOpacity>
+              <Text style={styles.auditSubtext}>
+                Utilice esta opción para realizar auditoría en planta
+              </Text>
+            </>
+          )}
+        </View>
+      )}
+    </>
+  );
+
+  const renderRespuestasList = (responses: any[], category: 'calidad' | 'abastecimiento') => {
+    if (!epiConfig || !epiConfig[category]) return <ActivityIndicator />;
+
+    const sections = epiConfig[category].sections;
+
+    return (
+      <View>
+        {sections.map((section: any, i: number) => (
+          <View key={i} style={styles.card}>
+            <Text style={styles.sectionNumber}>{section.title}</Text>
+            {section.questions.map((q: any, j: number) => {
+              const answerObj = responses?.find((r: any) => r.questionId === q.id);
+              const isYes = answerObj?.answer === 'SI';
+              const points = isYes ? (category === 'calidad' ? 5 : 5.5) : 0;
+
+              return (
+                <View key={j} style={styles.questionCard}>
+                  <Text style={styles.questionTitle}>{q.text}</Text>
+                  <View style={styles.answerRow}>
+                    <View style={styles.answerLeft}>
+                      <Image
+                        source={isYes ? require('../../assets/icons/check.png') : require('../../assets/icons/close.png')}
+                        style={isYes ? styles.checkGreen : styles.checkRed}
+                      />
+                      <Text style={isYes ? styles.answerText : styles.answerTextRed}>
+                        {isYes ? 'Sí cumple' : 'NO CUMPLE'}
+                      </Text>
+                    </View>
+                    <View style={isYes ? styles.pointsBadge : styles.pointsBadgeGray}>
+                      <Text style={isYes ? styles.pointsText : styles.pointsTextGray}>{points} pts</Text>
+                    </View>
+                  </View>
+                  {answerObj?.observation && (
+                    <Text style={styles.questionNote}>"{answerObj.observation}"</Text>
+                  )}
+                </View>
+              );
+            })}
+          </View>
+        ))}
+      </View>
+    )
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
-      {/* Header Azul */}
+
       <View style={styles.header}>
         <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
           <Image source={require('../../assets/icons/arrow-left.png')} style={styles.backIcon} />
         </TouchableOpacity>
-        
-        <Text style={styles.headerTitle}>Tornillos S.A.</Text>
-        
+
+        <Text style={styles.headerTitle} numberOfLines={1}>
+          {loading ? 'Cargando...' : supplierData?.companyName || 'Proveedor'}
+        </Text>
+
         <Image source={require('../../assets/icono_indurama.png')} style={styles.logo} resizeMode="contain" />
       </View>
 
-      {/* Score Section */}
       <View style={styles.scoreSection}>
         <View style={styles.scoreHeader}>
           <Text style={styles.scoreLabel}>Score Total EPI</Text>
           <View style={styles.statusBadge}>
-            <Text style={styles.statusText}>Pendiente Revisión</Text>
+            <Text style={[styles.statusText, { color: getStatusColor(epiSubmission?.status) }]}>
+              {getStatusText(epiSubmission?.status)}
+            </Text>
           </View>
         </View>
-        
-        <Text style={styles.scoreValue}>88</Text>
-        <Text style={styles.scoreSubtext}>de 100 puntos</Text>
-        
-        <View style={styles.badgeGreen}>
-          <Image source={require('../../assets/icons/check.png')} style={styles.badgeIcon} />
-          <Text style={styles.badgeText}>CLASIFICACIÓN: CRECER</Text>
-        </View>
 
-        {/* Score Cards */}
+        <Text style={styles.scoreValue}>{Math.round(epiSubmission?.calculatedScore || 0)}</Text>
+        <Text style={styles.scoreSubtext}>de 100 puntos</Text>
+
+        {epiSubmission?.classification && (
+          <View style={[styles.badgeGreen, { backgroundColor: '#10B981' }]}>
+            <Text style={styles.badgeText}>CLASIFICACIÓN: {epiSubmission.classification}</Text>
+          </View>
+        )}
+
         <View style={styles.scoreCards}>
           <View style={styles.scoreCard}>
-            <Text style={styles.scoreCardValue}>85</Text>
+            <Text style={styles.scoreCardValue}>{Math.round(epiSubmission?.calidadScore || 0)}</Text>
             <Text style={styles.scoreCardLabel}>Calidad</Text>
           </View>
           <View style={[styles.scoreCard, styles.scoreCardBlue]}>
-            <Text style={styles.scoreCardValueBlue}>90</Text>
+            <Text style={styles.scoreCardValueBlue}>{Math.round(epiSubmission?.abastecimientoScore || 0)}</Text>
             <Text style={styles.scoreCardLabelBlue}>Abastecimiento</Text>
           </View>
         </View>
       </View>
 
-      {/* Tabs */}
       <View style={styles.tabsContainer}>
         {tabs.map((tab) => (
           <TouchableOpacity
@@ -107,343 +301,43 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
         ))}
       </View>
 
-      {/* Content */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'Resumen' ? (
+        {activeTab === 'Resumen' && renderResumenTab()}
+
+        {activeTab === 'Respuestas' && epiSubmission && (
           <>
-            {/* Datos Internos */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <View style={styles.cardHeaderLeft}>
-                  <Image source={require('../../assets/icons/profile.png')} style={styles.cardIcon} />
-                  <Text style={styles.cardTitle}>DATOS INTERNOS (INDURAMA)</Text>
-                </View>
-                <TouchableOpacity onPress={onNavigateToEdit}>
-                  <Text style={styles.editButton}>Editar</Text>
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Ejecutivo de Compra</Text>
-                <Text style={styles.dataValue}>Carlos Mendez</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Auditor Asignado</Text>
-                <Text style={styles.dataValue}>Ing. Ana López</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Tipo Auditoría</Text>
-                <Text style={styles.linkValue}>Inicial / Selección</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Fecha Evaluación</Text>
-                <Text style={styles.dataValue}>22-Nov-2025</Text>
-              </View>
-              <View style={styles.dataRow}>
-                <Text style={styles.dataLabel}>Clasificación</Text>
-                <View style={styles.tagDark}>
-                  <Text style={styles.tagText}>Fabricante Directo</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Tipo Proveedor y Participación */}
-            <View style={styles.card}>
-              <View style={styles.infoRow}>
-                <View style={styles.infoItem}>
-                  <View style={styles.dotBlue} />
-                  <Text style={styles.infoLabel}>TIPO PROVEEDOR</Text>
-                  <Text style={styles.infoValue}>Internacional</Text>
-                </View>
-                <View style={styles.infoItem}>
-                  <Text style={styles.infoLabel}>PARTICIPACIÓN</Text>
-                  <Text style={styles.infoValueBlue}>15% Share</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Productos */}
-            <View style={styles.card}>
-              <Text style={styles.sectionLabel}>PRODUCTOS</Text>
-              <Text style={styles.productText}>
-                Láminas de acero inoxidable, aleaciones especiales.
+            <View style={[styles.card, { backgroundColor: 'transparent', shadowOpacity: 0 }]}>
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8 }}>
+                CALIDAD (1-6)
               </Text>
-            </View>
+              {renderRespuestasList(epiSubmission.qualityResponses, 'calidad')}
 
-            {/* Cumplimiento Financiero */}
-            <View style={styles.card}>
-              <View style={styles.financeHeader}>
-                <View style={styles.financeLeft}>
-                  <Text style={styles.financeIcon}>$</Text>
-                  <Text style={styles.financeTitle}>Cumplimiento Financiero</Text>
-                </View>
-                <Text style={styles.policyLink}>Intl. Policy</Text>
-              </View>
-              
-              <View style={styles.alertBox}>
-                <Image source={require('../../assets/icons/close.png')} style={styles.alertIcon} />
-                <Text style={styles.alertTitle}>Estados Financieros no disponibles</Text>
-              </View>
-              <Text style={styles.alertText}>
-                El proveedor indica políticas de privacidad interna que impiden compartir balances completos
+              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#00BCD4', marginVertical: 16 }}>
+                ABASTECIMIENTO (7-8)
               </Text>
-              
-              <View style={styles.evidenceRow}>
-                <Image source={require('../../assets/icons/document.png')} style={styles.evidenceIcon} />
-                <View style={styles.evidenceInfo}>
-                  <Text style={styles.evidenceName}>Evidencia_Justificacion.msg</Text>
-                  <Text style={styles.evidenceType}>Correo Oficial / Legal</Text>
-                </View>
-                <TouchableOpacity>
-                  <Text style={styles.seeLink}>Ver</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Evaluación Detallada */}
-            <View style={styles.card}>
-              <View style={styles.evaluationHeader}>
-                <Text style={styles.evaluationTitle}>Evaluación Detallada</Text>
-                <Text style={styles.autoText}>Auto-evaluación</Text>
-              </View>
-              
-              <View style={styles.progressItem}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Calidad (1-6)</Text>
-                  <Text style={styles.progressValue}>85/100</Text>
-                </View>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: '85%', backgroundColor: theme.colors.primary }]} />
-                </View>
-              </View>
-              
-              <View style={styles.progressItem}>
-                <View style={styles.progressHeader}>
-                  <Text style={styles.progressLabel}>Abastecimiento (7-8)</Text>
-                  <Text style={styles.progressValue}>90/100</Text>
-                </View>
-                <View style={styles.progressBar}>
-                  <View style={[styles.progressFill, { width: '90%', backgroundColor: '#00BCD4' }]} />
-                </View>
-              </View>
-              
-              <TouchableOpacity style={styles.auditButton} onPress={onNavigateToAudit}>
-                <Image source={require('../../assets/icons/edit.png')} style={styles.auditIcon} />
-                <Text style={styles.auditText}>Audiar / Recalibrar Puntaje</Text>
-              </TouchableOpacity>
-              <Text style={styles.auditSubtext}>
-                Utilice esta opción para realizar auditoría en planta
-              </Text>
-            </View>
-
-            {/* Observaciones */}
-            <View style={styles.card}>
-              <Text style={styles.observationsTitle}>Observaciones</Text>
-              <TextInput
-                style={styles.textArea}
-                placeholder="Escriba aquí sus observaciones..."
-                placeholderTextColor="#9CA3AF"
-                multiline
-                numberOfLines={6}
-                value={observations}
-                onChangeText={setObservations}
-                textAlignVertical="top"
-              />
+              {renderRespuestasList(epiSubmission.supplyResponses, 'abastecimiento')}
             </View>
           </>
-        ) : activeTab === 'Respuestas' ? (
-          <>
-            {/* Sub-tabs para Calidad y Abastecimiento */}
-            <View style={styles.subTabsContainer}>
-              <TouchableOpacity style={styles.subTabActive}>
-                <Text style={styles.subTabTextActive}>Calidad(1-6)</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.subTab}>
-                <Text style={styles.subTabText}>Abastecimiento(7-8)</Text>
-              </TouchableOpacity>
-            </View>
+        )}
 
-            {/* 1. OBJETIVOS Y LIDERAZGO */}
-            <View style={styles.card}>
-              <Text style={styles.sectionNumber}>1. OBJETIVOS Y LIDERAZGO</Text>
-              
-              <View style={styles.questionCard}>
-                <Text style={styles.questionTitle}>1.1¿Objetivos estratégicos definidos y monitoreados?</Text>
-                
-                <View style={styles.answerRow}>
-                  <View style={styles.answerLeft}>
-                    <Image source={require('../../assets/icons/check.png')} style={styles.checkGreen} />
-                    <Text style={styles.answerText}>Sí cumple</Text>
-                  </View>
-                  <View style={styles.pointsBadge}>
-                    <Text style={styles.pointsText}>1 pts</Text>
-                  </View>
+        {activeTab === 'Evidencias' && epiSubmission?.photoEvidence && (
+          <View style={styles.card}>
+            <Text style={styles.evidenceSectionTitle}>FOTOS CARGADAS</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 }}>
+              {epiSubmission.photoEvidence.map((photo: any, index: number) => (
+                <View key={index} style={[styles.evidencePhotoCard, { width: '48%', marginBottom: 12 }]}>
+                  <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 120, borderRadius: 8, backgroundColor: '#eee' }} />
+                  <Text style={styles.evidencePhotoDescription}>{photo.description || `Foto ${index + 1}`}</Text>
                 </View>
-                
-                <Text style={styles.questionNote}>
-                  "Adjuntamos el BSC firmado por gerencia general correspondiente al año 2025"
-                </Text>
-                
-                <View style={styles.fileCard}>
-                  <Image source={require('../../assets/icons/document.png')} style={styles.fileIcon} />
-                  <View style={styles.fileInfo}>
-                    <Text style={styles.fileName}>BSC_2025_firmado.pdf</Text>
-                    <Text style={styles.fileSize}>2.4mb • 10 ene</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Image source={require('../../assets/icons/exit.png')} style={styles.downloadIcon} />
-                  </TouchableOpacity>
-                </View>
-              </View>
+              ))}
             </View>
+          </View>
+        )}
 
-            {/* 2. SISTEMA DE GESTIÓN */}
-            <View style={styles.card}>
-              <Text style={styles.sectionNumber}>2. SISTEMA DE GESTIÓN</Text>
-              
-              <View style={styles.questionCard}>
-                <Text style={styles.questionTitle}>1.1¿Dispone de certificaciones de su SGC(ISO 9001)?</Text>
-                
-                <View style={styles.answerRow}>
-                  <View style={styles.answerLeft}>
-                    <Image source={require('../../assets/icons/check.png')} style={styles.checkGreen} />
-                    <Text style={styles.answerText}>Sí cumple</Text>
-                  </View>
-                  <View style={styles.pointsBadge}>
-                    <Text style={styles.pointsText}>15 pts</Text>
-                  </View>
-                </View>
-                
-                <Text style={styles.questionNote}>
-                  "Adjuntamos la certificación ISO 9001"
-                </Text>
-                
-                <View style={styles.fileCard}>
-                  <Image source={require('../../assets/icons/img.png')} style={styles.fileIconImage} />
-                  <View style={styles.fileInfo}>
-                    <Text style={styles.fileName}>Certificado_ISO.jpg</Text>
-                    <Text style={styles.fileSize}>2.4mb • 10 ene</Text>
-                  </View>
-                  <TouchableOpacity>
-                    <Image source={require('../../assets/icons/eye.png')} style={styles.viewIcon} />
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
-              <View style={styles.questionCard}>
-                <Text style={styles.questionTitle}>5.8 Procedimiento inspección producto terminado</Text>
-                
-                <View style={styles.answerRow}>
-                  <View style={styles.answerLeft}>
-                    <Image source={require('../../assets/icons/close.png')} style={styles.checkRed} />
-                    <Text style={styles.answerTextRed}>NO CUMPLE</Text>
-                  </View>
-                  <View style={styles.pointsBadgeGray}>
-                    <Text style={styles.pointsTextGray}>0 pts</Text>
-                  </View>
-                </View>
-              </View>
-            </View>
-          </>
-        ) : activeTab === 'Evidencias' ? (
-          <>
-            {/* 1. Legal y Financiero */}
-            <View style={styles.card}>
-              <View style={styles.evidenceSectionHeader}>
-                <Text style={styles.evidenceSectionTitle}>1.Legal y Financiero</Text>
-                <Text style={styles.fileCount}>3 archivos</Text>
-              </View>
-              
-              <View style={styles.evidenceFileCard}>
-                <Image source={require('../../assets/icons/document.png')} style={styles.evidenceFileIcon} />
-                <View style={styles.evidenceFileInfo}>
-                  <Text style={styles.evidenceFileName}>Estados_Financieros_2024-pdf</Text>
-                  <Text style={styles.evidenceFileRef}>Ref 8.9: Situación Financiera</Text>
-                </View>
-                <TouchableOpacity>
-                  <Image source={require('../../assets/icons/exit.png')} style={styles.evidenceDownloadIcon} />
-                </TouchableOpacity>
-              </View>
-              
-              <View style={styles.evidenceFileCard}>
-                <Image source={require('../../assets/icons/img.png')} style={styles.evidenceFileIconBlue} />
-                <View style={styles.evidenceFileInfo}>
-                  <Text style={styles.evidenceFileName}>Ruc_Vigente.jpg</Text>
-                  <Text style={styles.evidenceFileRef}>Ref 1.1: Constitución Legal</Text>
-                </View>
-                <TouchableOpacity>
-                  <Image source={require('../../assets/icons/exit.png')} style={styles.evidenceDownloadIcon} />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* 2. FLUJO DE PRODUCCIÓN (FOTOS) */}
-            <View style={styles.card}>
-              <Text style={styles.evidenceSectionTitle}>2.FLUJO DE PRODUCCIÓN (FOTOS)</Text>
-              
-              <View style={styles.evidencePhotoRow}>
-                <View style={styles.evidencePhotoCard}>
-                  <View style={styles.evidencePhotoPlaceholder}>
-                    <Text style={styles.evidencePhotoLabel}>Evidencia 1</Text>
-                  </View>
-                  <View style={styles.evidencePhotoFooter}>
-                    <Text style={styles.evidencePhotoRefText}>Ref 5.4: Línea Producción</Text>
-                  </View>
-                  <Text style={styles.evidencePhotoDescription}>Vista General Planta</Text>
-                </View>
-                
-                <View style={styles.evidencePhotoCard}>
-                  <View style={styles.evidencePhotoPlaceholder}>
-                    <Text style={styles.evidencePhotoLabel}>Evidencia 2</Text>
-                  </View>
-                  <View style={styles.evidencePhotoFooter}>
-                    <Text style={styles.evidencePhotoRefText}>Ref 5.4: Línea Producción</Text>
-                  </View>
-                  <Text style={styles.evidencePhotoDescription}>Vista General Planta</Text>
-                </View>
-              </View>
-              
-              <View style={styles.evidencePhotoRow}>
-                <View style={styles.evidencePhotoCard}>
-                  <View style={styles.evidencePhotoPlaceholder}>
-                    <Text style={styles.evidencePhotoLabel}>Evidencia 3</Text>
-                  </View>
-                  <View style={styles.evidencePhotoFooter}>
-                    <Text style={styles.evidencePhotoRefText}>Ref 5.4: Línea Producción</Text>
-                  </View>
-                  <Text style={styles.evidencePhotoDescription}>Vista General Planta</Text>
-                </View>
-                
-                <View style={styles.evidencePhotoCardAdd}>
-                  <Image source={require('../../assets/icons/camera.png')} style={styles.cameraIcon} />
-                  <Text style={styles.addPhotoText}>Agregar Foto</Text>
-                </View>
-              </View>
-            </View>
-
-            {/* 2. ESTACIONES DE CONTROL (CALIDAD) */}
-            <View style={styles.card}>
-              <Text style={styles.evidenceSectionTitle}>2.ESTACIONES DE CONTROL (CALIDAD)</Text>
-              
-              <View style={styles.evidencePhotoCardSingle}>
-                <View style={styles.evidencePhotoPlaceholder}>
-                  <Text style={styles.evidencePhotoLabel}>Evidencia 3</Text>
-                </View>
-                <View style={styles.evidencePhotoFooter}>
-                  <Text style={styles.evidencePhotoRefText}>Ref 5.4: Línea Producción</Text>
-                </View>
-                <Text style={styles.evidencePhotoDescription}>Vista General Planta</Text>
-              </View>
-            </View>
-          </>
-        ) : activeTab === 'Historial' ? (
-          <>
-            {/* Trazabilidad Completa */}
-            <View style={styles.card}>
-              <Text style={styles.historyTitle}>Trazabilidad Completa</Text>
-              <Text style={styles.historySubtitle}>Seguimiento del proceso de evaluación</Text>
-              
-              {/* Timeline Item 1 */}
+        {activeTab === 'Historial' && (
+          <View style={styles.card}>
+            <Text style={styles.historyTitle}>Trazabilidad</Text>
+            {epiSubmission?.createdAt && (
               <View style={styles.timelineItem}>
                 <View style={styles.timelineIconContainer}>
                   <View style={styles.timelineIconGreen}>
@@ -451,76 +345,28 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
                   </View>
                   <View style={styles.timelineLine} />
                 </View>
-                
                 <View style={styles.timelineContent}>
-                  <Text style={styles.timelineDate}>22 Oct 2025</Text>
-                  <Text style={styles.timelineEventTitle}>Invitación Enviada</Text>
-                  <Text style={styles.timelineEventBy}>por María González</Text>
+                  <Text style={styles.timelineDate}>{epiSubmission.createdAt.toDate().toLocaleDateString()}</Text>
+                  <Text style={styles.timelineEventTitle}>EPI Enviado por Proveedor</Text>
                 </View>
               </View>
-              
-              {/* Timeline Item 2 */}
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineIconContainer}>
-                  <View style={styles.timelineIconGreen}>
-                    <Image source={require('../../assets/icons/check.png')} style={styles.timelineCheckIcon} />
-                  </View>
-                  <View style={styles.timelineLine} />
-                </View>
-                
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineDate}>23 Oct 2025</Text>
-                  <Text style={styles.timelineEventTitle}>Proveedor creó su cuenta</Text>
+            )}
+            <View style={styles.timelineItem}>
+              <View style={styles.timelineIconContainer}>
+                <View style={styles.timelineIconBlue}>
+                  <Image source={require('../../assets/icons/clock.png')} style={styles.timelineClockIcon} />
                 </View>
               </View>
-              
-              {/* Timeline Item 3 */}
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineIconContainer}>
-                  <View style={styles.timelineIconGreen}>
-                    <Image source={require('../../assets/icons/check.png')} style={styles.timelineCheckIcon} />
-                  </View>
-                  <View style={styles.timelineLine} />
-                </View>
-                
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineDate}>24 Oct 2025</Text>
-                  <Text style={styles.timelineEventTitle}>Proveedor envió EPI final</Text>
-                </View>
-              </View>
-              
-              {/* Timeline Item 4 - Pending */}
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineIconContainer}>
-                  <View style={styles.timelineIconBlue}>
-                    <Image source={require('../../assets/icons/clock.png')} style={styles.timelineClockIcon} />
-                  </View>
-                </View>
-                
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineDate}>24 Oct 2025</Text>
-                  <Text style={styles.timelineEventTitle}>Pendiente de Auditoria por Indurama</Text>
-                </View>
+              <View style={styles.timelineContent}>
+                <Text style={styles.timelineEventTitle}>Estado Actual: {getStatusText(epiSubmission?.status)}</Text>
               </View>
             </View>
-          </>
-        ) : null}
-
-        {/* Buttons */}
-        <TouchableOpacity style={styles.approveButton} onPress={handleApprove}>
-          <Image source={require('../../assets/icons/check.png')} style={styles.buttonIcon} />
-          <Text style={styles.approveText}>Aceptar Solicitud</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.rejectButton} onPress={() => onReject && onReject(supplierId)}>
-          <Image source={require('../../assets/icons/close.png')} style={styles.buttonIconRed} />
-          <Text style={styles.rejectText}>Rechazar Solicitud</Text>
-        </TouchableOpacity>
+          </View>
+        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
 
-      {/* Approval Modal */}
       <Modal
         visible={showApprovalModal}
         transparent
@@ -531,13 +377,13 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>¿Aprobar Solicitud?</Text>
             <Text style={styles.modalMessage}>
-              Esta acción aprobará la solicitud SOL-2025-042 y permitirá continuar con el proceso de búsqueda de proveedores y cotización
+              Esta acción aprobará la solicitud y permitirá continuar con el proceso.
             </Text>
-            
+
             <TouchableOpacity style={styles.modalApproveButton} onPress={confirmApprove}>
               <Text style={styles.modalApproveText}>Aprobar</Text>
             </TouchableOpacity>
-            
+
             <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowApprovalModal(false)}>
               <Text style={styles.modalCancelText}>Cancelar</Text>
             </TouchableOpacity>
@@ -578,8 +424,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   logo: {
-    width: 120,
-    height: 70,
+    width: 60,
+    height: 35,
   },
   scoreSection: {
     backgroundColor: theme.colors.primary,
@@ -619,7 +465,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   badgeGreen: {
-    backgroundColor: '#10B981',
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'flex-start',
@@ -627,12 +472,6 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
     borderRadius: 6,
     marginBottom: 16,
-  },
-  badgeIcon: {
-    width: 14,
-    height: 14,
-    tintColor: '#FFF',
-    marginRight: 6,
   },
   badgeText: {
     fontSize: 11,
@@ -683,7 +522,7 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingVertical: 14,
     alignItems: 'center',
-    borderBottomWidth: 2,
+    borderBottomWidth: 3,
     borderBottomColor: 'transparent',
   },
   tabActive: {
@@ -727,16 +566,17 @@ const styles = StyleSheet.create({
   cardIcon: {
     width: 16,
     height: 16,
-    tintColor: '#374151',
     marginRight: 8,
+    tintColor: '#6B7280',
   },
   cardTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#374151',
+    color: '#4B5563',
+    textTransform: 'uppercase',
   },
   editButton: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#3B82F6',
     fontWeight: '600',
   },
@@ -744,76 +584,76 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 10,
+    marginBottom: 12,
+    paddingBottom: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F3F4F6',
   },
   dataLabel: {
-    fontSize: 13,
-    color: '#6B7280',
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   dataValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
     color: '#1F2937',
+    fontWeight: '600',
   },
   linkValue: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
     color: '#3B82F6',
-    textDecorationLine: 'underline',
+    fontWeight: '600',
   },
   tagDark: {
-    backgroundColor: '#4B5563',
-    paddingHorizontal: 10,
+    backgroundColor: '#374151',
+    paddingHorizontal: 12,
     paddingVertical: 4,
     borderRadius: 6,
   },
   tagText: {
-    fontSize: 11,
-    fontWeight: '600',
     color: '#FFF',
+    fontSize: 12,
+    fontWeight: 'bold',
   },
   infoRow: {
     flexDirection: 'row',
-    gap: 16,
+    justifyContent: 'space-around',
   },
   infoItem: {
-    flex: 1,
+    alignItems: 'center',
   },
   dotBlue: {
     width: 8,
     height: 8,
     borderRadius: 4,
     backgroundColor: '#3B82F6',
-    marginBottom: 8,
+    marginBottom: 4,
   },
   infoLabel: {
     fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    color: '#9CA3AF',
+    fontWeight: 'bold',
     marginBottom: 4,
   },
   infoValue: {
     fontSize: 14,
-    fontWeight: '600',
     color: '#1F2937',
+    fontWeight: 'bold',
   },
   infoValueBlue: {
     fontSize: 14,
+    color: '#1E40AF',
     fontWeight: 'bold',
-    color: '#3B82F6',
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
+    fontSize: 12,
+    color: '#9CA3AF',
+    fontWeight: 'bold',
     marginBottom: 8,
   },
   productText: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#4B5563',
-    lineHeight: 18,
+    lineHeight: 20,
   },
   financeHeader: {
     flexDirection: 'row',
@@ -827,94 +667,93 @@ const styles = StyleSheet.create({
   },
   financeIcon: {
     fontSize: 16,
+    color: '#6B7280',
     fontWeight: 'bold',
-    color: '#374151',
     marginRight: 8,
   },
   financeTitle: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#374151',
+    color: '#4B5563',
   },
   policyLink: {
-    fontSize: 12,
-    color: '#3B82F6',
-    textDecorationLine: 'underline',
+    backgroundColor: '#DBEAFE',
+    color: '#1E40AF',
+    fontSize: 11,
+    fontWeight: '600',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
   },
   alertBox: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FEF2F2',
-    borderRadius: 8,
-    padding: 12,
     marginBottom: 8,
   },
   alertIcon: {
-    width: 20,
-    height: 20,
+    width: 16,
+    height: 16,
     tintColor: '#EF4444',
     marginRight: 8,
   },
   alertTitle: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#991B1B',
-    flex: 1,
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#EF4444',
   },
   alertText: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
-    lineHeight: 16,
-    marginBottom: 12,
+    lineHeight: 18,
+    marginBottom: 16,
   },
   evidenceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F9FAFB',
-    borderRadius: 10,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    marginTop: 12,
+    padding: 12,
+    borderRadius: 8,
   },
   evidenceIcon: {
-    width: 20,
+    width: 24,
     height: 24,
-    tintColor: '#6B7280',
     marginRight: 12,
   },
   evidenceInfo: {
     flex: 1,
   },
   evidenceName: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '600',
-    color: '#1F2937',
+    color: '#1E3A8A',
   },
   evidenceType: {
     fontSize: 11,
     color: '#6B7280',
-    marginTop: 2,
   },
   seeLink: {
-    fontSize: 12,
-    color: '#3B82F6',
+    fontSize: 13,
     fontWeight: '600',
+    color: '#3B82F6',
   },
   evaluationHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
   },
   evaluationTitle: {
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1F2937',
   },
   autoText: {
-    fontSize: 11,
-    color: '#6B7280',
+    fontSize: 12,
+    color: '#9CA3AF',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
   },
   progressItem: {
     marginBottom: 16,
@@ -922,11 +761,11 @@ const styles = StyleSheet.create({
   progressHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   progressLabel: {
     fontSize: 13,
-    color: '#374151',
+    color: '#4B5563',
   },
   progressValue: {
     fontSize: 13,
@@ -937,7 +776,6 @@ const styles = StyleSheet.create({
     height: 8,
     backgroundColor: '#E5E7EB',
     borderRadius: 4,
-    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
@@ -947,144 +785,82 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF',
     borderWidth: 1,
-    borderColor: '#D1D5DB',
-    borderRadius: 6,
-    paddingVertical: 10,
+    borderColor: '#3B82F6',
+    borderRadius: 8,
+    paddingVertical: 12,
     marginTop: 8,
   },
   auditIcon: {
     width: 16,
     height: 16,
-    tintColor: theme.colors.primary,
+    tintColor: '#3B82F6',
     marginRight: 8,
   },
   auditText: {
-    fontSize: 12,
+    color: '#3B82F6',
     fontWeight: '600',
-    color: theme.colors.primary,
+    fontSize: 14,
   },
   auditSubtext: {
     fontSize: 11,
     color: '#9CA3AF',
     textAlign: 'center',
-    marginTop: 6,
-  },
-  observationsTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
-  },
-  textArea: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    fontSize: 13,
-    color: '#1F2937',
-    minHeight: 100,
-  },
-  approveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginHorizontal: 20,
-    marginTop: 24,
-  },
-  buttonIcon: {
-    width: 18,
-    height: 18,
-    tintColor: '#FFF',
-    marginRight: 8,
-  },
-  approveText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-  },
-  rejectButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF',
-    borderWidth: 1,
-    borderColor: '#EF4444',
-    borderRadius: 8,
-    paddingVertical: 14,
-    marginHorizontal: 20,
-    marginTop: 12,
-  },
-  buttonIconRed: {
-    width: 18,
-    height: 18,
-    tintColor: '#EF4444',
-    marginRight: 8,
-  },
-  rejectText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#EF4444',
+    marginTop: 8,
   },
   subTabsContainer: {
     flexDirection: 'row',
-    backgroundColor: '#FFF',
+    justifyContent: 'space-between',
     marginHorizontal: 20,
     marginTop: 16,
-    borderRadius: 8,
-    padding: 4,
-  },
-  subTab: {
-    flex: 1,
-    paddingVertical: 8,
-    alignItems: 'center',
-    borderRadius: 6,
   },
   subTabActive: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 10,
     alignItems: 'center',
-    backgroundColor: theme.colors.primary,
-    borderRadius: 6,
+    borderBottomWidth: 2,
+    borderBottomColor: theme.colors.primary,
   },
-  subTabText: {
-    fontSize: 12,
-    color: '#6B7280',
-    fontWeight: '500',
+  subTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
   },
   subTabTextActive: {
-    fontSize: 12,
-    color: '#FFF',
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: theme.colors.primary,
+  },
+  subTabText: {
+    fontSize: 14,
+    color: '#9CA3AF',
   },
   sectionNumber: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#6B7280',
-    marginBottom: 12,
+    marginBottom: 16,
+    textTransform: 'uppercase',
   },
   questionCard: {
-    backgroundColor: '#F9FAFB',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12,
+    marginBottom: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F3F4F6',
   },
   questionTitle: {
-    fontSize: 13,
+    fontSize: 15,
     fontWeight: '600',
-    color: '#374151',
+    color: '#1F2937',
     marginBottom: 12,
   },
   answerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   answerLeft: {
     flexDirection: 'row',
@@ -1095,9 +871,6 @@ const styles = StyleSheet.create({
     height: 20,
     tintColor: '#10B981',
     marginRight: 8,
-    backgroundColor: '#D1FAE5',
-    borderRadius: 10,
-    padding: 2,
   },
   checkRed: {
     width: 20,
@@ -1106,96 +879,42 @@ const styles = StyleSheet.create({
     marginRight: 8,
   },
   answerText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
-    color: '#10B981',
+    color: '#1F2937',
   },
   answerTextRed: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#EF4444',
   },
   pointsBadge: {
     backgroundColor: '#DBEAFE',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
-  },
-  pointsText: {
-    fontSize: 11,
-    fontWeight: 'bold',
-    color: theme.colors.primary,
+    borderRadius: 4,
   },
   pointsBadgeGray: {
     backgroundColor: '#F3F4F6',
-    paddingHorizontal: 10,
+    paddingHorizontal: 8,
     paddingVertical: 4,
-    borderRadius: 6,
+    borderRadius: 4,
+  },
+  pointsText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#1E40AF',
   },
   pointsTextGray: {
-    fontSize: 11,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#6B7280',
   },
   questionNote: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#6B7280',
     fontStyle: 'italic',
     marginBottom: 12,
-  },
-  fileCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 10,
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-  },
-  fileIcon: {
-    width: 22,
-    height: 26,
-    tintColor: '#EF4444',
-    marginRight: 12,
-  },
-  fileIconImage: {
-    width: 24,
-    height: 22,
-    tintColor: '#3B82F6',
-    marginRight: 12,
-  },
-  fileInfo: {
-    flex: 1,
-  },
-  fileName: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#1F2937',
-    marginBottom: 2,
-  },
-  fileSize: {
-    fontSize: 11,
-    color: '#9CA3AF',
-  },
-  downloadIcon: {
-    width: 24,
-    height: 20,
-    tintColor: '#3B82F6',
-    marginLeft: 8,
-  },
-  viewIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#3B82F6',
-  },
-  emptyState: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#9CA3AF',
   },
   evidenceSectionHeader: {
     flexDirection: 'row',
@@ -1204,125 +923,66 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   evidenceSectionTitle: {
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: 'bold',
     color: '#1F2937',
   },
   fileCount: {
     fontSize: 12,
-    color: '#6B7280',
+    color: '#9CA3AF',
   },
   evidenceFileCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFF',
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
   },
   evidenceFileIcon: {
-    width: 22,
-    height: 26,
-    tintColor: '#EF4444',
+    width: 32,
+    height: 32,
     marginRight: 12,
+    tintColor: '#EF4444',
   },
   evidenceFileIconBlue: {
-    width: 24,
-    height: 22,
-    tintColor: '#3B82F6',
+    width: 32,
+    height: 32,
     marginRight: 12,
+    tintColor: '#3B82F6',
   },
   evidenceFileInfo: {
     flex: 1,
   },
   evidenceFileName: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#1F2937',
-    marginBottom: 4,
   },
   evidenceFileRef: {
     fontSize: 11,
     color: '#3B82F6',
   },
   evidenceDownloadIcon: {
-    width: 24,
+    width: 20,
     height: 20,
     tintColor: '#9CA3AF',
-  },
-  evidencePhotoRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 16,
+    marginLeft: 12,
   },
   evidencePhotoCard: {
-    width: '48%',
-  },
-  evidencePhotoCardSingle: {
-    width: '100%',
-  },
-  evidencePhotoCardAdd: {
-    width: '48%',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#D1D5DB',
-    borderStyle: 'dashed',
-    borderRadius: 14,
-    paddingVertical: 36,
-  },
-  evidencePhotoPlaceholder: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 14,
-    height: 136,
+    backgroundColor: '#FFF',
+    borderRadius: 8,
+    overflow: 'hidden',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  evidencePhotoLabel: {
-    fontSize: 13,
-    color: '#6B7280',
-    fontWeight: '600',
-  },
-  evidencePhotoFooter: {
-    backgroundColor: '#111827',
-    paddingVertical: 6,
-    paddingHorizontal: 10,
-    borderRadius: 6,
-    alignSelf: 'center',
-    marginBottom: 8,
-  },
-  evidencePhotoRefText: {
-    fontSize: 11,
-    color: '#FFF',
-    fontWeight: '700',
-    letterSpacing: 0.2,
   },
   evidencePhotoDescription: {
     fontSize: 12,
     fontWeight: '600',
     color: '#1F2937',
+    padding: 8,
     textAlign: 'center',
-  },
-  cameraIcon: {
-    width: 28,
-    height: 28,
-    tintColor: '#3B82F6',
-    marginBottom: 6,
-  },
-  addPhotoText: {
-    fontSize: 12,
-    color: '#3B82F6',
-    fontWeight: '600',
   },
   historyTitle: {
     fontSize: 18,
@@ -1393,6 +1053,22 @@ const styles = StyleSheet.create({
   timelineEventBy: {
     fontSize: 12,
     color: '#6B7280',
+  },
+  observationsTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#1F2937',
+    marginBottom: 12,
+  },
+  textArea: {
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderRadius: 8,
+    padding: 12,
+    fontSize: 14,
+    color: '#1F2937',
+    height: 120,
   },
   modalOverlay: {
     flex: 1,

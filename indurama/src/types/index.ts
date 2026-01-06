@@ -78,9 +78,50 @@ export interface User extends BaseEntity {
   customProductTags?: string[]; // Tags personalizados de productos
   customServiceTags?: string[]; // Tags personalizados de servicios
   customCategories?: string[]; // Categorías personalizadas
+
+  // EPI Submission Status (for PROVEEDOR role) - NEW
+  supplierStatus?: 'pending_epi' | 'epi_submitted' | 'epi_approved' | 'active' | 'suspended' | 'rejected';
+  epiScore?: number; // Score calculado por el gestor (0-100)
+  canSearchMatch?: boolean; // Si puede aparecer en búsqueda de proveedores
+  epiSubmittedAt?: any; // Firestore Timestamp
+  epiApprovedAt?: any; // Firestore Timestamp
+  epiApprovedBy?: string; // Gestor que aprobó el EPI
+  profileCompleted?: boolean; // Si completó su perfil de proveedor
 }
 
 
+
+/**
+ * Interface para submission de evaluación EPI
+ */
+export interface EPISubmission {
+  id: string;
+  supplierId: string;
+
+  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'revision_requested';
+
+  // Snapshot de respuestas al momento del envío
+  qualityResponses: any[]; // Array de respuestas de calidad
+  supplyResponses: any[]; // Array de respuestas de abastecimiento
+  photoEvidence: any[]; // Array de evidencias fotográficas
+
+  // Metadata
+  submittedAt?: any; // Firestore Timestamp
+  reviewedAt?: any; // Firestore Timestamp
+  reviewedBy?: string; // ID del gestor que revisó
+
+  // Control de edición
+  canEdit: boolean;
+  revisionReason?: string; // Motivo si se solicita corrección
+  revisionDeadline?: any; // Firestore Timestamp
+
+  // Score calculado por el gestor
+  calculatedScore?: number;
+  reviewComments?: string;
+
+  createdAt: any; // Firestore Timestamp
+  updatedAt: any; // Firestore Timestamp
+}
 
 /**
  * Roles de usuario en el sistema

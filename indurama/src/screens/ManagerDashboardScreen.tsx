@@ -55,6 +55,7 @@ interface ManagerDashboardScreenProps {
   onNavigateToValidateRequest?: (requestId: string) => void;
   onNavigateToSearch?: (requestId: string) => void;
   onNavigateToUserManagement?: () => void;
+  onNavigateToEPIPendingList?: () => void; // NEW
 }
 
 const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
@@ -64,7 +65,8 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   onNavigateToProfile,
   onNavigateToValidateRequest,
   onNavigateToSearch,
-  onNavigateToUserManagement
+  onNavigateToUserManagement,
+  onNavigateToEPIPendingList // NEW
 }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -77,6 +79,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   });
   const [recentRequests, setRecentRequests] = useState<RequestData[]>([]);
   const [loading, setLoading] = useState(true);
+  const [pendingEPIsCount, setPendingEPIsCount] = useState(0); // NEW
 
   const loadData = useCallback(async () => {
     try {
@@ -139,6 +142,28 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   useEffect(() => {
     loadData();
   }, [loadData]);
+
+  // NEW: Load pending EPIs count
+  useEffect(() => {
+    const loadPendingEPIs = async () => {
+      try {
+        const { collection, query, where, getDocs } = await import('firebase/firestore');
+        const { db } = await import('../services/firebaseConfig');
+
+        const q = query(
+          collection(db, 'epi_submissions'),
+          where('status', '==', 'submitted')
+        );
+
+        const snapshot = await getDocs(q);
+        setPendingEPIsCount(snapshot.size);
+      } catch (error) {
+        console.error('Error loading pending EPIs:', error);
+      }
+    };
+
+    loadPendingEPIs();
+  }, []);
 
   // Helper for Initials
   // const getInitials = (name: string) => name.substring(0, 2).toUpperCase();
@@ -461,6 +486,30 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
             'dark'
           )}
         </View>
+
+        {/* NEW: EPIs Pending Card */}
+        {pendingEPIsCount > 0 && (
+          <TouchableOpacity
+            style={styles.epiPendingCard}
+            onPress={() => onNavigateToEPIPendingList?.()}
+          >
+            <View style={styles.epiCardHeader}>
+              <View style={styles.epiIconContainer}>
+                <Text style={styles.epiIcon}>📋</Text>
+              </View>
+              <View style={styles.epiCardContent}>
+                <Text style={styles.epiCardTitle}>EPIs Pendientes de Auditar</Text>
+                <Text style={styles.epiCardSubtitle}>
+                  {pendingEPIsCount} nueva{pendingEPIsCount !== 1 ? 's' : ''} evaluación{pendingEPIsCount !== 1 ? 'es' : ''}
+                </Text>
+              </View>
+            </View>
+            <View style={styles.epiCardAction}>
+              <Text style={styles.epiCardActionText}>Ver Pendientes</Text>
+              <Text style={styles.epiCardArrow}>→</Text>
+            </View>
+          </TouchableOpacity>
+        )}
 
         {/* Métrica circular de eficiencia */}
         <View style={styles.efficiencySection}>
@@ -1031,6 +1080,73 @@ const styles = StyleSheet.create({
   activeNavText: {
     color: '#003E85',
     fontWeight: '600',
+  },
+
+  // NEW: EPI Pending Card styles
+  epiPendingCard: {
+    backgroundColor: '#FFF8E1',
+    padding: 20,
+    borderRadius: 12,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#FFA726',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 3,
+      },
+    }),
+  },
+  epiCardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  epiIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#FFE0B2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 16,
+  },
+  epiIcon: {
+    fontSize: 24,
+  },
+  epiCardContent: {
+    flex: 1,
+  },
+  epiCardTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 4,
+  },
+  epiCardSubtitle: {
+    fontSize: 14,
+    color: '#666',
+  },
+  epiCardAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+  },
+  epiCardActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#F57C00',
+    marginRight: 8,
+  },
+  epiCardArrow: {
+    fontSize: 18,
+    color: '#F57C00',
+    fontWeight: 'bold',
   },
 });
 
