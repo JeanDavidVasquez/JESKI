@@ -87,40 +87,42 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
         const activeStep = getTimelineStatus(status);
         const isRejected = status === 'rejected';
 
+        // Progress ratio across the track (0 to 1)
+        const progressRatio = Math.max(0, Math.min((activeStep - 1) / (steps.length - 1), 1));
+
         return (
-            <View style={styles.timelineContainer}>
-                {steps.map((step, index) => {
-                    const isActive = index < activeStep;
-                    const isCurrent = index === activeStep - 1;
+            <View style={styles.timelineWrapper}>
+                <View style={styles.timelineContainer}>
+                    <View style={styles.timelineBase} />
+                    <View style={[styles.timelineProgress, { width: `${progressRatio * 100}%` }]} />
 
-                    let dotColor = '#E0E0E0';
-                    if (isActive) dotColor = '#2196F3'; // Blue for completed
-                    if (isCurrent && status === 'pending') dotColor = '#FFA726'; // Orange for pending action
-                    if (isCurrent && isRejected) dotColor = '#F44336'; // Red for rejected
+                    {steps.map((step, index) => {
+                        const isActive = index < activeStep;
+                        const isCurrent = index === activeStep - 1;
 
-                    return (
-                        <React.Fragment key={index}>
-                            {/* Line connector */}
-                            {index > 0 && (
+                        let dotColor = '#E0E0E0';
+                        if (isActive) dotColor = '#2196F3';
+                        if (isCurrent && status === 'pending') dotColor = '#FFA726';
+                        if (isCurrent && isRejected) dotColor = '#F44336';
+
+                        const dotSize = isCurrent ? 14 : isActive ? 12 : 10;
+
+                        return (
+                            <View key={index} style={styles.timelineStep}>
                                 <View style={[
-                                    styles.timelineLine,
-                                    { backgroundColor: index < activeStep ? '#2196F3' : '#E0E0E0', left: -(width * 0.12) }
+                                    styles.timelineDot,
+                                    { backgroundColor: dotColor, width: dotSize, height: dotSize, borderRadius: dotSize / 2 }
                                 ]} />
-                            )}
-
-                            {/* Step Dot and Label */}
-                            <View style={styles.timelineStep}>
-                                <View style={[styles.timelineDot, { backgroundColor: dotColor }]} />
                                 <Text style={[
                                     styles.timelineLabel,
-                                    { color: isActive || isCurrent ? '#333' : '#999' }
+                                    isActive || isCurrent ? styles.timelineLabelActive : null
                                 ]}>
                                     {step}
                                 </Text>
                             </View>
-                        </React.Fragment>
-                    );
-                })}
+                        );
+                    })}
+                </View>
             </View>
         );
     };
@@ -455,35 +457,66 @@ const styles = StyleSheet.create({
         color: '#757575',
         marginBottom: 20,
     },
+    timelineWrapper: {
+        backgroundColor: 'rgba(21,101,192,0.06)',
+        borderRadius: 12,
+        paddingVertical: 10,
+        paddingHorizontal: 8,
+        marginBottom: 24,
+    },
     timelineContainer: {
         flexDirection: 'row',
-        alignItems: 'flex-start',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 24,
-        paddingHorizontal: 10,
+        paddingHorizontal: 16,
+        position: 'relative',
+        minHeight: 46,
     },
     timelineStep: {
         alignItems: 'center',
-        width: 60,
+        flex: 1,
     },
     timelineDot: {
-        width: 12,
-        height: 12,
-        borderRadius: 6,
         marginBottom: 8,
         zIndex: 2,
+        borderWidth: 2,
+        borderColor: '#FFFFFF',
+        shadowColor: '#000',
+        shadowOpacity: 0.08,
+        shadowRadius: 2,
+        elevation: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
     },
-    timelineLine: {
+    timelineBase: {
         position: 'absolute',
-        top: 5,
-        // left: -35, // Adjust based on width
-        width: '180%',
-        height: 2,
+        top: 18,
+        left: 16,
+        right: 16,
+        height: 4,
+        backgroundColor: '#E0E0E0',
+        borderRadius: 2,
         zIndex: 1,
+    },
+    timelineProgress: {
+        position: 'absolute',
+        top: 18,
+        left: 16,
+        height: 4,
+        backgroundColor: '#2196F3',
+        borderRadius: 2,
+        zIndex: 2,
     },
     timelineLabel: {
         fontSize: 10,
         textAlign: 'center',
+        marginTop: 2,
+        color: '#999',
+        letterSpacing: 0.2,
+    },
+    timelineLabelActive: {
+        color: '#333',
+        fontWeight: '600',
     },
     cardFooter: {
         flexDirection: 'row',

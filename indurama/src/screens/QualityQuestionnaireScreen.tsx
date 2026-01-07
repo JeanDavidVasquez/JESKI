@@ -20,6 +20,12 @@ import { SupplierEvaluation, EvaluationResponse } from '../types/evaluation';
 import { ScoringService } from '../services/scoringService';
 import { SupplierResponseService } from '../services/supplierResponseService';
 import { useAuth } from '../hooks/useAuth';
+import {
+  takePhoto,
+  pickFromGallery,
+  pickDocument,
+  uploadSupplierEvidence,
+} from '../services/imagePickerService';
 
 const { width } = Dimensions.get('window');
 
@@ -33,6 +39,8 @@ interface UIQuestion {
   selectedAnswer?: 'SI' | 'NO' | 'N/A';
   observation?: string;
   score?: number;
+  evidenceUrl?: string; // File URL
+  evidenceFileName?: string; // NEW: Store file name for display
 }
 
 interface UISection {
@@ -69,7 +77,10 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
 
   const [saving, setSaving] = useState(false);
   const [showSaveModal, setShowSaveModal] = useState(false);
-  const [isLocked, setIsLocked] = useState(false); // NEW: Locked state
+  const [isLocked, setIsLocked] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeUploadQuestionId, setActiveUploadQuestionId] = useState<{ sectionId: string, questionId: string } | null>(null);
 
   console.log('Mounting QualityQuestionnaireScreen for supplier:', supplierId, 'user:', user?.id);
 
@@ -227,6 +238,76 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
     }
   };
 
+  const handleUploadEvidence = (sectionId: string, questionId: string) => {
+    setActiveUploadQuestionId({ sectionId, questionId });
+    setShowUploadModal(true);
+  };
+
+  const performUpload = async (type: 'camera' | 'gallery' | 'document') => {
+    if (!supplierId || !activeUploadQuestionId) return;
+
+    const { sectionId, questionId } = activeUploadQuestionId;
+
+    try {
+      setUploading(true);
+      let media = null;
+
+      if (type === 'camera') {
+        media = await takePhoto();
+      } else if (type === 'gallery') {
+        media = await pickFromGallery();
+      } else {
+        media = await pickDocument();
+      }
+
+      if (!media) {
+        setUploading(false);
+        return;
+      }
+
+      const url = await uploadSupplierEvidence(
+        supplierId,
+        'quality',
+        questionId,
+        media.uri,
+        media.name
+      );
+
+      // Update UI with URL and filename
+      setSections(prev => prev.map(s => {
+        if (s.id !== sectionId) return s;
+        return {
+          ...s,
+          questions: s.questions.map(q => {
+            if (q.id !== questionId) return q;
+            return { ...q, evidenceUrl: url, evidenceFileName: media.name };
+          })
+        };
+      }));
+
+      // Update persisted data
+      const existingEval = await SupplierResponseService.getSupplierEvaluation(supplierId);
+      if (existingEval) {
+        const existingResponse = existingEval.responses.find(r => r.questionId === questionId);
+        if (existingResponse) {
+          await SupplierResponseService.saveResponse(supplierId, {
+            ...existingResponse,
+            evidenceUrl: url
+          });
+        }
+      }
+
+      Alert.alert('Éxito', 'Evidencia subida correctamente');
+
+    } catch (error) {
+      console.error('Error uploading:', error);
+      Alert.alert('Error', 'No se pudo subir el archivo');
+    } finally {
+      setUploading(false);
+      setActiveUploadQuestionId(null);
+    }
+  };
+
   const handleSaveAndExit = async () => {
     if (!supplierId) {
       Alert.alert('Error', 'No se ha identificado al proveedor');
@@ -380,6 +461,36 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
                     multiline
                     editable={!isLocked}
                   />
+
+                  {/* Upload Button */}
+                  {!isLocked && (
+                    <TouchableOpacity
+                      style={[styles.uploadButton, uploading && styles.uploadButtonDisabled]}
+                      onPress={() => handleUploadEvidence(section.id, q.id)}
+                      disabled={uploading}
+                    >
+                      <Image
+                        source={require('../../assets/icons/camera.png')}
+                        style={styles.uploadIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.uploadText}>
+                        {q.evidenceUrl ? 'Cambiar Evidencia' : 'Adjuntar Evidencia'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {/* Evidence Preview */}
+                  {q.evidenceUrl && (
+                    <View style={styles.evidencePreview}>
+                      <Image
+                        source={require('../../assets/icons/check.png')}
+                        style={styles.evidenceCheckIcon}
+                        resizeMode="contain"
+                      />
+                      <Text style={styles.evidenceText}>Evidencia adjuntada</Text>
+                    </View>
+                  )}
                 </View>
               </View>
             ))}
@@ -404,6 +515,63 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Upload Options Modal */}
+      <Modal
+        visible={showUploadModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUploadModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowUploadModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={{ alignItems: 'center' }}>
+            <View style={styles.uploadModalContainer}>
+              <Text style={styles.uploadModalTitle}>Subir Evidencia</Text>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('camera');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>📷 Tomar Foto</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('gallery');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>🖼️ Desde Galería</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('document');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>📄 Seleccionar Archivo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadCancelButton}
+                onPress={() => setShowUploadModal(false)}
+              >
+                <Text style={styles.uploadCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal
         visible={showSaveModal}
@@ -540,5 +708,89 @@ const styles = StyleSheet.create({
   disabledInput: {
     backgroundColor: '#F5F5F5',
     color: '#999',
+  },
+  // Upload Evidence Styles
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E3F2FD',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#1976D2',
+  },
+  uploadButtonDisabled: {
+    opacity: 0.5,
+    backgroundColor: '#E0E0E0',
+  },
+  uploadIcon: {
+    width: 16,
+    height: 16,
+    tintColor: '#1976D2',
+    marginRight: 8,
+  },
+  uploadText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#1976D2',
+  },
+  evidencePreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8F5E9',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    marginTop: 8,
+  },
+  evidenceCheckIcon: {
+    width: 16,
+    height: 16,
+    tintColor: '#4CAF50',
+    marginRight: 8,
+  },
+  evidenceText: {
+    fontSize: 12,
+    fontWeight: '500',
+    color: '#2E7D32',
+  },
+  uploadModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  uploadModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#003E85',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  uploadOptionButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  uploadOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  uploadCancelButton: {
+    marginTop: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  uploadCancelText: {
+    color: '#666',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

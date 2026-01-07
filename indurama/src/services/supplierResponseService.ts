@@ -1,4 +1,4 @@
-import { collection, doc, setDoc, getDoc, getDocs, query, where, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, doc, setDoc, getDoc, getDocs, query, where, updateDoc, serverTimestamp, addDoc } from 'firebase/firestore';
 import { db } from './firebaseConfig';
 import { SupplierEvaluation, SupplierResponse, SupplierProgress } from '../types/evaluation';
 import { EpiService } from './epiService';
@@ -106,20 +106,64 @@ export const SupplierResponseService = {
 
     /**
      * Obtiene la evaluación completa de un proveedor
+     * CORREGIDO: Ahora busca primero en supplier_evaluations, luego intenta epi_submissions
      * @param supplierId - ID del proveedor
      * @returns Evaluación completa o null si no existe
      */
     async getSupplierEvaluation(supplierId: string): Promise<SupplierEvaluation | null> {
         try {
+            console.log('🔍 Buscando evaluación para supplier:', supplierId);
+            
+            // 1. Intentar obtener de supplier_evaluations
             const evalRef = doc(db, COLLECTION_NAME, supplierId);
             const evalDoc = await getDoc(evalRef);
 
             if (evalDoc.exists()) {
+                console.log('✅ Evaluación encontrada en supplier_evaluations');
                 return { id: evalDoc.id, ...evalDoc.data() } as SupplierEvaluation;
             }
+
+            console.log('⚠️ No encontrado en supplier_evaluations, buscando en epi_submissions...');
+
+            // 2. Si no existe, intentar obtener de epi_submissions
+            const submission = await this.getEPISubmission(supplierId);
+            
+            if (submission) {
+                console.log('✅ Submission encontrada en epi_submissions');
+                // Convertir submission a formato SupplierEvaluation
+                const responses = [
+                    ...(submission.qualityResponses || []),
+                    ...(submission.supplyResponses || [])
+                ];
+
+                return {
+                    id: submission.id,
+                    supplierId: supplierId,
+                    responses: responses,
+                    calidadScore: submission.calidadScore || submission.qualityScore || 0,
+                    abastecimientoScore: submission.abastecimientoScore || submission.supplyScore || 0,
+                    globalScore: submission.calculatedScore || submission.globalScore || 0,
+                    classification: submission.classification || 'Pendiente',
+                    progress: {
+                        totalQuestions: responses.length,
+                        answeredQuestions: responses.length,
+                        percentageComplete: 100,
+                        calidadQuestions: submission.qualityResponses?.length || 0,
+                        calidadAnswered: submission.qualityResponses?.length || 0,
+                        abastecimientoQuestions: submission.supplyResponses?.length || 0,
+                        abastecimientoAnswered: submission.supplyResponses?.length || 0
+                    },
+                    status: submission.status,
+                    createdAt: submission.createdAt?.toMillis?.() || Date.now(),
+                    updatedAt: submission.updatedAt?.toMillis?.() || Date.now(),
+                    photoEvidence: submission.photoEvidence || []
+                } as SupplierEvaluation;
+            }
+
+            console.log('❌ No se encontró evaluación en ninguna colección');
             return null;
         } catch (error) {
-            console.error('Error getting evaluation:', error);
+            console.error('❌ Error getting evaluation:', error);
             return null;
         }
     },
@@ -218,8 +262,6 @@ export const SupplierResponseService = {
             throw error;
         }
     },
-
-
 
     /**
      * Obtiene las preguntas sin responder
@@ -326,7 +368,6 @@ export const SupplierResponseService = {
             }
 
             // 3. Create snapshot in epi_submissions collection
-            const { addDoc } = await import('firebase/firestore');
             await addDoc(collection(db, 'epi_submissions'), {
                 supplierId,
                 status: 'submitted',
@@ -379,12 +420,36 @@ export const SupplierResponseService = {
                 ...d.data()
             }));
 
-            // Sort by createdAt descending
-            return submissions.sort((a: any, b: any) => {
-                const aTime = a.createdAt?.toMillis?.() || 0;
-                const bTime = b.createdAt?.toMillis?.() || 0;
+            // Sort by createdAt descending and pick latest
+            const sorted = submissions.sort((a: any, b: any) => {
+                const aTime = a.createdAt?.toMillis?.() || a.createdAt || 0;
+                const bTime = b.createdAt?.toMillis?.() || b.createdAt || 0;
                 return bTime - aTime;
-            })[0];
+            });
+
+            const latest = sorted[0];
+
+            // Normalize known score fields for backwards compatibility
+            if (latest) {
+                const doc = latest as any;
+                // many records store the overall as either 'calculatedScore' or 'globalScore'
+                if (doc.calculatedScore == null && doc.globalScore != null) {
+                    doc.calculatedScore = doc.globalScore;
+                }
+                if (doc.globalScore == null && doc.calculatedScore != null) {
+                    doc.globalScore = doc.calculatedScore;
+                }
+
+                // Some older docs might have different naming for calidad/abastecimiento
+                if (doc.calidadScore == null && doc.qualityScore != null) {
+                    doc.calidadScore = doc.qualityScore;
+                }
+                if (doc.abastecimientoScore == null && doc.supplyScore != null) {
+                    doc.abastecimientoScore = doc.supplyScore;
+                }
+            }
+
+            return latest || null;
 
         } catch (error) {
             console.error('Error getting EPI submission:', error);
@@ -426,6 +491,68 @@ export const SupplierResponseService = {
             return true; // Default to allowing edit on error
         }
     },
+
+    // --- AUDITORÍA Y RECALIBRACIÓN ---
+    async auditAndRecalibrate(submissionId: string, supplierId: string, updatedResponses: any[]): Promise<number> {
+        try {
+            // Recalculate using the official ScoringService so weights/sections remain authoritative
+            const config = await EpiService.getEpiConfig();
+
+            // Ensure updatedResponses have category fields; ScoringService expects category in responses
+            const calidadScore = ScoringService.calculateCategoryScore(
+                config.calidad.sections,
+                updatedResponses,
+                'calidad'
+            );
+
+            const abastecimientoScore = ScoringService.calculateCategoryScore(
+                config.abastecimiento.sections,
+                updatedResponses,
+                'abastecimiento'
+            );
+
+            // Global score and classification using ScoringService
+            const totalScore = ScoringService.calculateGlobalScore(calidadScore, abastecimientoScore);
+            const classification = ScoringService.getClassification(totalScore);
+
+            // 3. Actualizar la Submisión (El detalle de la auditoría)
+            const submissionRef = doc(db, 'epi_submissions', submissionId);
+            await updateDoc(submissionRef, {
+                responses: updatedResponses,
+                qualityResponses: updatedResponses.filter(r => r.category === 'calidad'),
+                supplyResponses: updatedResponses.filter(r => r.category === 'abastecimiento'),
+                calidadScore: calidadScore,
+                abastecimientoScore: abastecimientoScore,
+                calculatedScore: totalScore,
+                globalScore: totalScore,
+                classification: classification,
+                status: 'approved',
+                reviewedAt: serverTimestamp(),
+                reviewedBy: 'Auditor Indurama',
+                canEdit: false
+            });
+
+            // 4. Actualizar el Usuario (CRUCIAL para el Buscador Rápido)
+            const userRef = doc(db, 'users', supplierId);
+            await updateDoc(userRef, {
+                epiScore: totalScore,
+                epiClassification: classification,
+                supplierStatus: 'epi_approved',
+                approved: true,
+                isValidated: true,
+                status: 'active',
+                epiApprovedAt: serverTimestamp()
+            });
+
+            console.log('✅ Auditoría guardada y perfil de usuario actualizado correctamente.');
+            return totalScore;
+
+        } catch (error) {
+            console.error('Error en auditAndRecalibrate:', error);
+            throw error;
+        }
+    },
+
     /**
      * Approve EPI submission
      */
@@ -454,6 +581,8 @@ export const SupplierResponseService = {
                 canSearchMatch: true,
                 epiApprovedAt: serverTimestamp(),
                 epiApprovedBy: gestorId,
+                approved: true, 
+                isValidated: true 
             });
 
             console.log('EPI approved successfully');
@@ -480,7 +609,7 @@ export const SupplierResponseService = {
                 reviewedAt: serverTimestamp(),
                 reviewedBy: gestorId,
                 reviewComments: comments,
-                canEdit: true, // Allow supplier to edit again
+                canEdit: true,
             });
 
             console.log('Revision requested successfully');

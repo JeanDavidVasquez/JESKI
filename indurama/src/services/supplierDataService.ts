@@ -357,33 +357,61 @@ export const getSuppliersList = async (): Promise<SupplierSummary[]> => {
 
         const suppliers: SupplierSummary[] = [];
 
-        // This might be slow if there are many suppliers because we need to fetch profile for each
-        // Optimally we would store basic info on the user doc or use a collection group
-        // For now, we will fetch user doc data + companyProfile
+        // Fetch EPI submissions for all suppliers to get real scores
+        const epiSubmissionsRef = collection(db, 'epi_submissions');
+        const epiSnapshot = await getDocs(epiSubmissionsRef);
+
+        // Create a map of supplierId -> most recent submission data (by createdAt)
+        const submissionsMap = new Map<string, any>();
+        epiSnapshot.docs.forEach(d => {
+            const data = d.data();
+            const supplierId = data.supplierId;
+            if (!supplierId) return;
+
+            const existing = submissionsMap.get(supplierId);
+            const existingTime = existing?.createdAt?.toMillis?.() || existing?.createdAt || 0;
+            const thisTime = data.createdAt?.toMillis?.() || data.createdAt || 0;
+
+            if (!existing || thisTime > existingTime) {
+                submissionsMap.set(supplierId, { id: d.id, ...data });
+            }
+        });
 
         const promises = querySnapshot.docs.map(async (docSnap) => {
             const userData = docSnap.data();
             const userId = docSnap.id;
 
-            // Fetch company profile for location
+            // Get EPI submission for this supplier (most recent)
+            const submission = submissionsMap.get(userId);
+
+            // FILTER: Only include approved suppliers (those with approved EPI submissions)
+            if (!submission || submission.status !== 'approved') {
+                return null; // Will be filtered out
+            }
+
+            // Fetch company profile for location and category
             const profileRef = doc(db, 'users', userId, 'companyProfile', 'main');
             const profileSnap = await getDoc(profileRef);
             const profileData = profileSnap.exists() ? profileSnap.data() as CompanyProfileData : null;
 
             return {
                 id: userId,
-                name: userData.firstName ? `${userData.firstName} ${userData.lastName || ''}` : (userData.displayName || 'Proveedor'),
+                name: userData.companyName || (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}` : 'Proveedor'),
                 email: userData.email || '',
                 location: profileData?.city ? `${profileData.city}, ${profileData.country || ''}` : 'Ubicación no disponible',
                 tags: profileData?.category ? [profileData.category] : [],
-                score: 0, // Default to 0 as requested
-                phone: profileData?.centralPhone || '',
-                certifications: [], // Placeholder
+                // Use whichever field exists: calculatedScore or globalScore
+                score: Math.round((submission.calculatedScore ?? submission.globalScore ?? 0) as number),
+                phone: profileData?.centralPhone || userData.phone || '',
+                certifications: userData.certifications || [], // From user data
                 status: undefined
             };
         });
 
-        return await Promise.all(promises);
+        const results = await Promise.all(promises);
+
+        // Filter out null values (non-approved suppliers)
+        return results.filter(s => s !== null) as SupplierSummary[];
 
     } catch (error) {
         console.error('Error fetching suppliers list:', error);

@@ -135,13 +135,13 @@ export const getRequestStats = async (): Promise<{
             const data = doc.data();
             const status = data.status;
 
-            if (status === 'pending' || status === RequestStatus.PENDING) {
+            if (status === RequestStatus.PENDING) {
                 stats.pending++;
-            } else if (status === 'in_progress' || status === RequestStatus.IN_PROGRESS) {
+            } else if (status === RequestStatus.IN_PROGRESS) {
                 stats.inProgress++;
-            } else if (status === 'completed' || status === RequestStatus.COMPLETED) {
+            } else if (status === RequestStatus.COMPLETED) {
                 stats.completed++;
-            } else if (status === 'rejected' || status === RequestStatus.REJECTED) {
+            } else if (status === RequestStatus.REJECTED) {
                 stats.rejected++;
             }
         });
@@ -175,7 +175,7 @@ export const updateRequestStatus = async (
             updateData.rectificationComment = comment;
         }
 
-        if (status === 'completed' || status === RequestStatus.COMPLETED) {
+        if (status === RequestStatus.COMPLETED) {
             updateData.completedAt = serverTimestamp();
         }
 
@@ -284,13 +284,13 @@ export const getUserRequestStats = async (userId: string): Promise<{
 
         requests.forEach(req => {
             const status = req.status;
-            if (status === 'pending' || status === RequestStatus.PENDING || status === RequestStatus.RECTIFICATION_REQUIRED) {
+            if (status === RequestStatus.PENDING || status === RequestStatus.RECTIFICATION_REQUIRED) {
                 stats.pending++;
-            } else if (status === 'in_progress' || status === RequestStatus.IN_PROGRESS) {
+            } else if (status === RequestStatus.IN_PROGRESS) {
                 stats.inProgress++;
-            } else if (status === 'completed' || status === RequestStatus.COMPLETED) {
+            } else if (status === RequestStatus.COMPLETED) {
                 stats.completed++;
-            } else if (status === 'rejected' || status === RequestStatus.REJECTED) {
+            } else if (status === RequestStatus.REJECTED) {
                 stats.rejected++;
             }
         });

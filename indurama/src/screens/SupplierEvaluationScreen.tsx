@@ -35,6 +35,7 @@ interface SupplierEvaluationScreenProps {
   onNavigateToPhotoEvidence?: () => void;
   taskCompletedFromCreation?: boolean;
   onSignOut?: () => void;
+  user?: any; // NEW: Accept user as prop
 }
 
 /**
@@ -47,11 +48,15 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   onNavigateToQuestionnaireSupply,
   onNavigateToPhotoEvidence,
   taskCompletedFromCreation,
-  onSignOut
+  onSignOut,
+  user: userProp
 }) => {
   console.log('Rendering SupplierEvaluationScreen');
   const [showEpiModal, setShowEpiModal] = React.useState(false);
-  const { signOut, user } = useAuth();
+  const { signOut, user: contextUser } = useAuth();
+  // Prioritize prop user, then context user
+  const user = userProp || contextUser;
+
   console.log('SupplierEvaluationScreen User:', user);
   const [showMenu, setShowMenu] = React.useState(false);
   const [loggingOut, setLoggingOut] = React.useState(false);
@@ -149,9 +154,9 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
           {
             id: '4',
             title: 'Evidencias Fotográficas',
-            status: (evaluation as any)?.photoEvidence?.length > 0 ? 'completed' : 'pending',
-            progress: evaluation.photoEvidence && evaluation.photoEvidence.length > 0
-              ? `Completado (${evaluation.photoEvidence.length} de 3)`
+            status: (evaluation?.photoEvidence?.length || 0) > 0 ? 'completed' : 'pending',
+            progress: (evaluation?.photoEvidence?.length || 0) > 0
+              ? `Completado (${evaluation?.photoEvidence?.length} de 3)`
               : 'Pendiente (0 de 3)'
           }
         ];

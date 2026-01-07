@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Linking, Alert } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
@@ -65,7 +65,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
     }
   ];
 
-  if (request.status === 'pending') {
+  if (request.status === RequestStatus.PENDING) {
     timelineEvents.push({
       title: 'Esperando Revisión',
       user: 'Gestor',
@@ -86,7 +86,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
     });
   }
 
-  if (request.status === 'completed') {
+  if (request.status === RequestStatus.COMPLETED) {
     timelineEvents.push({
       title: 'Solicitud Aprobada',
       user: 'Gestor de Compras',
@@ -95,7 +95,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
       icon: 'checkmark-circle-outline',
       active: true
     });
-  } else if (request.status === 'rejected' || request.status === RequestStatus.REJECTED) {
+  } else if (request.status === RequestStatus.REJECTED) {
     timelineEvents.push({
       title: 'Solicitud Rechazada',
       user: 'Gestor de Compras',
@@ -114,6 +114,20 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
       active: true
     });
   }
+
+  const handleOpenDocument = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'No se puede abrir este archivo');
+      }
+    } catch (error) {
+      console.error('Error opening document:', error);
+      Alert.alert('Error', 'No se pudo abrir el archivo');
+    }
+  };
 
   return (
     <View style={styles.container}>
@@ -272,7 +286,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
                   <Text style={styles.fileName}>{doc.name || `Documento ${index + 1}`}</Text>
                   <Text style={styles.fileSize}>Adjunto</Text>
                 </View>
-                <TouchableOpacity>
+                <TouchableOpacity onPress={() => handleOpenDocument(doc.url)}>
                   <Ionicons name="download-outline" size={20} color="#333" />
                 </TouchableOpacity>
               </View>

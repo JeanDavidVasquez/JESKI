@@ -9,6 +9,7 @@ import {
   Platform,
   Image,
   TextInput,
+  Alert,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
@@ -22,10 +23,13 @@ const isMobile = width < 768;
 // Tipos para las pestañas
 type TabType = 'General' | 'Productos' | 'Bancaria' | 'Credito';
 
+import { User } from '../types';
+
 // Props para la pantalla
 interface SupplierCreationScreenProps {
   onNavigateBack?: () => void;
   onComplete?: () => void;
+  user?: User | null; // NEW: Accept user as prop
 }
 
 /**
@@ -33,9 +37,13 @@ interface SupplierCreationScreenProps {
  */
 export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   onNavigateBack,
-  onComplete
+  onComplete,
+  user: userProp
 }) => {
-  const { user } = useAuth();
+  const { user: contextUser } = useAuth();
+  // Prioritize prop user, then context user
+  const user = userProp || contextUser;
+
   const [activeTab, setActiveTab] = useState<TabType>('General');
   const [loading, setLoading] = useState(false);
   const [productTagsText, setProductTagsText] = useState(''); // Raw text for input
@@ -150,12 +158,25 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   }, [user]);
 
   const saveProgress = async () => {
-    if (!user?.id) return;
+    console.log('💾 SAVING SUPPLIER DATA - Starting...', {
+      userId: user?.id,
+      hasFormData: !!formData,
+      companyName: formData.companyName
+    });
+
+    if (!user?.id) {
+      console.error('❌ No user ID found');
+      Alert.alert('Error', 'Usuario no identificado');
+      return;
+    }
+
     try {
       setLoading(true);
 
       // Import saveAllSupplierData
       const { saveAllSupplierData } = await import('../services/supplierDataService');
+
+      console.log('📦 Preparing data for save...');
 
       // Save to subcollections
       await saveAllSupplierData(user.id, {
@@ -198,8 +219,17 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         }
       });
 
+      console.log('✅ Subcollections saved');
+
       // Parse productTagsText before saving
       const parsedProductTags = productTagsText.split(',').map(t => t.trim()).filter(t => t);
+
+      console.log('📝 Updating main user document...', {
+        companyName: formData.companyName,
+        businessType: formData.businessType,
+        productCategories: formData.productCategories,
+        parsedProductTags
+      });
 
       // Also update company name, business profile, and profile completion flag in main user document
       await updateDoc(doc(db, 'users', user.id), {
@@ -210,6 +240,8 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         profileCompleted: true, // Mark profile as completed
         updatedAt: serverTimestamp()
       });
+
+      console.log('✅ Main document updated');
 
       // Reload data to confirm save
       const reloadedData = await loadAllSupplierData(user.id);
@@ -223,11 +255,17 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         country: reloadedData.companyProfile?.country || formData.country,
       }));
 
-      console.log('✅ Datos guardados exitosamente');
+      console.log('✅✅✅ Datos guardados exitosamente');
+      Alert.alert('Éxito', 'Datos guardados correctamente');
 
-    } catch (error) {
-      console.error('Error saving progress:', error);
-      alert('Error al guardar progreso:' + error);
+    } catch (error: any) {
+      console.error('❌❌❌ Error saving progress:', error);
+      console.error('Error details:', {
+        message: error.message,
+        code: error.code,
+        stack: error.stack
+      });
+      Alert.alert('Error al guardar', error.message || 'No se pudo guardar el progreso. Por favor intenta de nuevo.');
     } finally {
       setLoading(false);
     }

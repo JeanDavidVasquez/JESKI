@@ -1,5 +1,6 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getReactNativePersistence, getAuth } from 'firebase/auth';
+import { initializeAuth, getAuth } from 'firebase/auth';
+import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -23,12 +24,20 @@ const firebaseConfig = {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Inicializar Auth con persistencia AsyncStorage para React Native
+// Usamos initializeAuth con getReactNativePersistence para persistencia en RN
+// La función puede no estar en los tipos de TS actuales, así que accedemos dinámicamente
 let auth;
-if (getApps().length === 0) {
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
-} else {
+try {
+  const getReactNativePersistence = (firebaseAuth as any).getReactNativePersistence;
+
+  if (getReactNativePersistence) {
+    auth = initializeAuth(app, {
+      persistence: getReactNativePersistence(AsyncStorage)
+    });
+  } else {
+    auth = getAuth(app);
+  }
+} catch (e) {
   auth = getAuth(app);
 }
 

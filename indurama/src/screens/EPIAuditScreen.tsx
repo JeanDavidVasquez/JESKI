@@ -11,12 +11,21 @@ import {
     TextInput,
     Alert,
     Switch,
+    Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { SupplierResponseService } from '../services/supplierResponseService';
 import { theme } from '../styles/theme';
+import {
+    takePhoto,
+    pickFromGallery,
+    pickDocument,
+    showUploadOptions,
+    uploadSupplierEvidence,
+    PickedMedia
+} from '../services/imagePickerService';
 
 interface EPIAuditScreenProps {
     submissionId: string;
@@ -39,9 +48,12 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
     const [activeTab, setActiveTab] = useState<'calidad' | 'abastecimiento'>('calidad');
     const [processing, setProcessing] = useState(false);
     const [epiConfig, setEpiConfig] = useState<any>(null);
+    const [uploadingQuestion, setUploadingQuestion] = useState<string | null>(null);
+    const [showUploadModal, setShowUploadModal] = useState(false);
+    const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
 
-    // Audit State: Map questionId -> { isValid: boolean, finding: string, evidence?: string }
-    const [auditState, setAuditState] = useState<Record<string, { isValid: boolean, finding: string }>>({});
+    // Audit State: Map questionId -> { isValid: boolean, finding: string, evidenceUrl?: string }
+    const [auditState, setAuditState] = useState<Record<string, { isValid: boolean, finding: string, evidenceUrl?: string }>>({});
 
     useEffect(() => {
         loadData();
@@ -56,14 +68,43 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             const config = await EpiService.getEpiConfig();
             setEpiConfig(config);
 
-            // 2. Submission
-            const subDoc = await getDoc(doc(db, 'epi_submissions', submissionId));
-            if (subDoc.exists()) {
-                const subData = subDoc.data();
-                setSubmission({ id: subDoc.id, ...subData });
+            // 2. Submission - try epi_submissions first, then supplier_evaluations
+            let subData: any = null;
 
-                // Initialize audit state (assume all valid initially)
-                // In a real app, we might load a saved draft audit here
+            // Try epi_submissions first
+            if (submissionId) {
+                const subDoc = await getDoc(doc(db, 'epi_submissions', submissionId));
+                if (subDoc.exists()) {
+                    subData = { id: subDoc.id, ...subDoc.data() };
+                    console.log('Loaded from epi_submissions:', subData);
+                }
+            }
+
+            // Fallback to supplier_evaluations
+            if (!subData) {
+                console.log('No epi_submission found, trying supplier_evaluations...');
+                const evalDoc = await getDoc(doc(db, 'supplier_evaluations', supplierId));
+                if (evalDoc.exists()) {
+                    const evalData = evalDoc.data();
+                    subData = {
+                        id: evalDoc.id,
+                        supplierId: supplierId,
+                        status: evalData.status || 'draft',
+                        calculatedScore: evalData.globalScore ?? evalData.calculatedScore ?? 0,
+                        calidadScore: evalData.calidadScore ?? 0,
+                        abastecimientoScore: evalData.abastecimientoScore ?? 0,
+                        qualityResponses: evalData.responses?.filter((r: any) => r.category === 'calidad') || [],
+                        supplyResponses: evalData.responses?.filter((r: any) => r.category === 'abastecimiento') || [],
+                        photoEvidence: evalData.photoEvidence || [],
+                    };
+                    console.log('Loaded from supplier_evaluations:', subData);
+                }
+            }
+
+            if (subData) {
+                setSubmission(subData);
+
+                // Initialize audit state
                 const initialAudit: any = {};
                 [...(subData.qualityResponses || []), ...(subData.supplyResponses || [])].forEach((r: any) => {
                     initialAudit[r.questionId] = { isValid: true, finding: '' };
@@ -87,51 +128,70 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
 
     // Calculate Scores in Real-time
     const scores = useMemo(() => {
-        if (!submission || !epiConfig) return { auditScore: 0, delta: 0 };
+        if (!submission || !epiConfig) return { originalScore: 0, auditScore: 0, delta: 0 };
 
-        const originalScore = submission.calculatedScore || 0;
-        let currentScore = 0;
-        let maxScore = 0;
+        // First calculate original score from responses if not available
+        let originalScore = submission.calculatedScore || 0;
 
-        // Helper to calc section score
-        const calcSection = (category: 'calidad' | 'abastecimiento') => {
+        if (originalScore === 0) {
+            // Calculate from responses
+            const qualityResponses = submission.qualityResponses || [];
+            const supplyResponses = submission.supplyResponses || [];
+
+            const qualityYesCount = qualityResponses.filter((r: any) =>
+                r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
+            ).length;
+            const supplyYesCount = supplyResponses.filter((r: any) =>
+                r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
+            ).length;
+
+            const qualityTotal = Math.max(qualityResponses.length, 1);
+            const supplyTotal = Math.max(supplyResponses.length, 1);
+
+            const calidadScore = (qualityYesCount / qualityTotal) * 100;
+            const abastecimientoScore = (supplyYesCount / supplyTotal) * 100;
+            originalScore = (calidadScore + abastecimientoScore) / 2;
+        }
+
+        // Helper to calc section audit score (returns percentage 0-100)
+        const calcSectionAuditScore = (category: 'calidad' | 'abastecimiento'): number => {
+            if (!epiConfig[category]) return 0;
             const sections = epiConfig[category].sections;
-            let catScore = 0;
+            let validCount = 0;
+            let totalQuestions = 0;
 
             sections.forEach((section: any) => {
                 section.questions.forEach((q: any) => {
-                    // Find response
-                    const responses = category === 'calidad' ? submission.qualityResponses : submission.supplyResponses;
-                    const response = responses?.find((r: any) => r.questionId === q.id);
-                    const isYes = response?.answer === 'SI';
-                    const points = isYes ? (category === 'calidad' ? 5 : 5.5) : 0;
+                    totalQuestions++;
 
                     // Apply Audit Validation
                     const audit = auditState[q.id];
-                    const isValid = audit ? audit.isValid : true; // Default to valid if not checked
+                    // Default: if no audit state, use supplier's original answer
+                    const responses = category === 'calidad' ? submission.qualityResponses : submission.supplyResponses;
+                    const response = responses?.find((r: any) => r.questionId === q.id);
+                    const supplierSaidYes = response?.answer?.toUpperCase() === 'SI' || response?.answer?.toUpperCase() === 'CUMPLE';
 
-                    // If Validated as "No Cumple", score is 0 regardless of answer (or logic depending on reqs)
-                    // Assuming: If supplier said YES, but Audit says NO -> 0 points.
-                    // If supplier said NO, it was already 0.
+                    // If auditor hasn't touched this question, use supplier's answer
+                    // If auditor marked it, use auditor's validation
+                    const isValid = audit ? audit.isValid : supplierSaidYes;
 
-                    if (isYes && isValid) {
-                        currentScore += points;
+                    if (isValid) {
+                        validCount++;
                     }
-                    // If !isValid, adds 0.
                 });
             });
+
+            return totalQuestions > 0 ? (validCount / totalQuestions) * 100 : 0;
         };
 
-        calcSection('calidad');
-        calcSection('abastecimiento');
-
-        // Re-normalize or cap if needed? 
-        // Based on previous logic: 12 Qs quality * 5 = 60. 8 Qs supply * 5.5 = 44. Total ~104? Capped at 100?
-        // Let's assume calculatedScore logic matches.
+        const calidadAuditScore = calcSectionAuditScore('calidad');
+        const abastecimientoAuditScore = calcSectionAuditScore('abastecimiento');
+        const auditScore = (calidadAuditScore + abastecimientoAuditScore) / 2;
 
         return {
-            auditScore: Math.round(currentScore),
-            delta: Math.round(currentScore - originalScore)
+            originalScore: Math.round(originalScore),
+            auditScore: Math.round(auditScore),
+            delta: Math.round(auditScore - originalScore)
         };
     }, [submission, epiConfig, auditState]);
 
@@ -150,6 +210,99 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         }));
     };
 
+    // Handle evidence upload for a specific question - opens modal
+    const handleEvidenceUpload = (questionId: string) => {
+        setCurrentQuestionId(questionId);
+        setShowUploadModal(true);
+    };
+
+    // Upload from camera
+    const handleUploadFromCamera = async () => {
+        if (!currentQuestionId) return;
+        const questionId = currentQuestionId;
+        setShowUploadModal(false);
+
+        try {
+            setUploadingQuestion(questionId);
+            const photo = await takePhoto();
+            if (photo) {
+                const url = await uploadSupplierEvidence(
+                    supplierId,
+                    'evidence',
+                    `audit_${questionId}`,
+                    photo.uri,
+                    photo.name
+                );
+                setAuditState(prev => ({
+                    ...prev,
+                    [questionId]: { ...prev[questionId], evidenceUrl: url }
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading photo:', error);
+        } finally {
+            setUploadingQuestion(null);
+        }
+    };
+
+    // Upload from gallery
+    const handleUploadFromGallery = async () => {
+        if (!currentQuestionId) return;
+        const questionId = currentQuestionId;
+        setShowUploadModal(false);
+
+        try {
+            setUploadingQuestion(questionId);
+            const image = await pickFromGallery();
+            if (image) {
+                const url = await uploadSupplierEvidence(
+                    supplierId,
+                    'evidence',
+                    `audit_${questionId}`,
+                    image.uri,
+                    image.name
+                );
+                setAuditState(prev => ({
+                    ...prev,
+                    [questionId]: { ...prev[questionId], evidenceUrl: url }
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+        } finally {
+            setUploadingQuestion(null);
+        }
+    };
+
+    // Upload document
+    const handleUploadDocument = async () => {
+        if (!currentQuestionId) return;
+        const questionId = currentQuestionId;
+        setShowUploadModal(false);
+
+        try {
+            setUploadingQuestion(questionId);
+            const file = await pickDocument();
+            if (file) {
+                const url = await uploadSupplierEvidence(
+                    supplierId,
+                    'evidence',
+                    `audit_${questionId}`,
+                    file.uri,
+                    file.name
+                );
+                setAuditState(prev => ({
+                    ...prev,
+                    [questionId]: { ...prev[questionId], evidenceUrl: url }
+                }));
+            }
+        } catch (error) {
+            console.error('Error uploading document:', error);
+        } finally {
+            setUploadingQuestion(null);
+        }
+    };
+
     const handleSaveAudit = async () => {
         try {
             setProcessing(true);
@@ -162,19 +315,36 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                 return;
             }
 
-            // Determine Status based on new score
-            // If score < 80 (example) -> Rejected? Or just update score?
-            // For now, we Approve with New Score.
+            // Calculate new category scores
+            const calidadScore = calculateCategoryScore('calidad');
+            const abastecimientoScore = calculateCategoryScore('abastecimiento');
+            const newCalculatedScore = Math.round((calidadScore + abastecimientoScore) / 2);
 
+            // Determine new classification
+            const { ScoringService } = await import('../services/scoringService');
+            const newClassification = ScoringService.getClassification(newCalculatedScore);
+
+            // Update submission document with new scores
+            const { updateDoc, doc } = await import('firebase/firestore');
+            const submissionRef = doc(db, 'epi_submissions', submissionId);
+
+            await updateDoc(submissionRef, {
+                calculatedScore: newCalculatedScore,
+                calidadScore: Math.round(calidadScore),
+                abastecimientoScore: Math.round(abastecimientoScore),
+                classification: newClassification,
+                auditValidations: auditState, // Save audit state for reference
+                auditedAt: new Date().toISOString(),
+                auditedBy: gestorId,
+            });
+
+            // Approve with comment
             await SupplierResponseService.approveEPI(
                 submissionId,
                 supplierId,
                 gestorId,
-                `Auditoría Realizada. Recalibración: ${scores.delta >= 0 ? '+' : ''}${scores.delta} Ptos.`
+                `Auditoría Realizada. Recalibración: ${scores.delta >= 0 ? '+' : ''}${scores.delta} Pts. Nuevo Score: ${newCalculatedScore}`
             );
-
-            // Should also save the detailed audit results separately if needed
-            // For this demo, just approving is enough.
 
             Alert.alert('Éxito', 'Auditoría guardada y recalibración aplicada.');
             onApproved?.();
@@ -185,6 +355,35 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         } finally {
             setProcessing(false);
         }
+    };
+
+    // Helper function to calculate category score
+    const calculateCategoryScore = (category: 'calidad' | 'abastecimiento'): number => {
+        if (!epiConfig) return 0;
+
+        const sections = epiConfig[category].sections;
+        let totalScore = 0;
+        let totalQuestions = 0;
+
+        sections.forEach((section: any) => {
+            section.questions.forEach((q: any) => {
+                const responses = category === 'calidad' ? submission.qualityResponses : submission.supplyResponses;
+                const response = responses?.find((r: any) => r.questionId === q.id);
+                const points = category === 'calidad' ? 5 : 5.5;
+
+                const audit = auditState[q.id];
+                const isValid = audit ? audit.isValid : true;
+
+                if (isValid) {
+                    totalScore += points;
+                }
+                totalQuestions++;
+            });
+        });
+
+        // Normalize to 0-100 scale
+        const maxPossible = totalQuestions * (category === 'calidad' ? 5 : 5.5);
+        return maxPossible > 0 ? (totalScore / maxPossible) * 100 : 0;
     };
 
     const renderQuestionList = (category: 'calidad' | 'abastecimiento') => {
@@ -260,10 +459,36 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                                                 onChangeText={(text) => handleFindingChange(q.id, text)}
                                             />
 
-                                            <TouchableOpacity style={styles.attachButton}>
-                                                <Image source={require('../../assets/icons/folder-upload.png')} style={styles.attachIcon} />
-                                                <Text style={styles.attachText}>Adjuntar</Text>
+                                            <TouchableOpacity
+                                                style={styles.attachButton}
+                                                onPress={() => handleEvidenceUpload(q.id)}
+                                                disabled={uploadingQuestion === q.id}
+                                            >
+                                                {uploadingQuestion === q.id ? (
+                                                    <ActivityIndicator size="small" color="#003E85" />
+                                                ) : (
+                                                    <Image source={require('../../assets/icons/folder-upload.png')} style={styles.attachIcon} />
+                                                )}
+                                                <Text style={styles.attachText}>
+                                                    {uploadingQuestion === q.id ? 'Subiendo...' : 'Adjuntar Evidencia'}
+                                                </Text>
                                             </TouchableOpacity>
+
+                                            {/* Show uploaded evidence */}
+                                            {audit.evidenceUrl && (
+                                                <View style={styles.evidencePreview}>
+                                                    <Image source={{ uri: audit.evidenceUrl }} style={styles.evidenceImage} />
+                                                    <TouchableOpacity
+                                                        style={styles.removeEvidence}
+                                                        onPress={() => setAuditState(prev => ({
+                                                            ...prev,
+                                                            [q.id]: { ...prev[q.id], evidenceUrl: undefined }
+                                                        }))}
+                                                    >
+                                                        <Text style={styles.removeEvidenceText}>✕</Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
                                         </View>
                                     )}
                                 </View>
@@ -305,7 +530,7 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             <View style={styles.scoreContainer}>
                 <View style={styles.scoreItem}>
                     <Text style={styles.scoreLabel}>AUTOEVALUACIÓN</Text>
-                    <Text style={styles.scoreValueAuto}>{submission?.calculatedScore || 0}</Text>
+                    <Text style={styles.scoreValueAuto}>{scores.originalScore}</Text>
                 </View>
 
                 <View style={styles.scoreMiddle}>
@@ -354,6 +579,43 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                     )}
                 </TouchableOpacity>
             </View>
+
+            {/* Upload Options Modal */}
+            <Modal
+                visible={showUploadModal}
+                transparent
+                animationType="fade"
+                onRequestClose={() => setShowUploadModal(false)}
+            >
+                <View style={styles.uploadModalOverlay}>
+                    <View style={styles.uploadModalContent}>
+                        <Text style={styles.uploadModalTitle}>Subir Evidencia</Text>
+                        <Text style={styles.uploadModalSubtitle}>Selecciona una opción</Text>
+
+                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadFromCamera}>
+                            <Text style={styles.uploadOptionIcon}>📷</Text>
+                            <Text style={styles.uploadOptionText}>Tomar Foto</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadFromGallery}>
+                            <Text style={styles.uploadOptionIcon}>🖼️</Text>
+                            <Text style={styles.uploadOptionText}>Desde Galería</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadDocument}>
+                            <Text style={styles.uploadOptionIcon}>📄</Text>
+                            <Text style={styles.uploadOptionText}>Seleccionar Archivo</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={styles.uploadCancelButton}
+                            onPress={() => setShowUploadModal(false)}
+                        >
+                            <Text style={styles.uploadCancelText}>Cancelar</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -677,5 +939,85 @@ const styles = StyleSheet.create({
         color: '#FFF',
         fontWeight: 'bold',
         fontSize: 16,
+    },
+    evidencePreview: {
+        marginTop: 12,
+        position: 'relative',
+        alignItems: 'center',
+    },
+    evidenceImage: {
+        width: '100%',
+        height: 120,
+        borderRadius: 8,
+        backgroundColor: '#F3F4F6',
+    },
+    removeEvidence: {
+        position: 'absolute',
+        top: -8,
+        right: -8,
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#EF4444',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    removeEvidenceText: {
+        color: '#FFF',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    uploadModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    uploadModalContent: {
+        backgroundColor: '#FFF',
+        borderRadius: 16,
+        padding: 24,
+        width: '85%',
+        maxWidth: 350,
+    },
+    uploadModalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#1F2937',
+        textAlign: 'center',
+        marginBottom: 4,
+    },
+    uploadModalSubtitle: {
+        fontSize: 14,
+        color: '#6B7280',
+        textAlign: 'center',
+        marginBottom: 20,
+    },
+    uploadOption: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 16,
+        borderRadius: 12,
+        backgroundColor: '#F3F4F6',
+        marginBottom: 12,
+    },
+    uploadOptionIcon: {
+        fontSize: 24,
+        marginRight: 16,
+    },
+    uploadOptionText: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#374151',
+    },
+    uploadCancelButton: {
+        marginTop: 8,
+        padding: 16,
+        alignItems: 'center',
+    },
+    uploadCancelText: {
+        fontSize: 16,
+        color: '#EF4444',
+        fontWeight: '600',
     },
 });

@@ -70,31 +70,29 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
         // Fetch evaluations for this supplier to update status
         try {
           const evals = await EpiService.getEvaluationsBySupplier(doc.id);
-          if (evals.length > 0) {
-            // Determine logic. For simplified UX:
-            // If has Quality & Supply -> Completed
-            // If has partially -> Progress
-            const hasQuality = evals.find(e => e.type === 'CALIDAD');
-            const hasSupply = evals.find(e => e.type === 'ABASTECIMIENTO');
+          // Update status based on latest evaluation
+          const latestEval = evals[0];
 
-            if (hasQuality && hasSupply) {
+          if (latestEval) {
+            // Map status based on evaluation state
+            if (latestEval.status === 'approved') {
               supplier.evalStatus = 'Completado';
               supplier.evalColor = '#D1FAE5';
               supplier.evalTextColor = '#065F46';
-              // Avg score or sum?
-              const totalQ = hasQuality.totalScore;
-              const totalS = hasSupply.totalScore;
-              const maxQ = hasQuality.maxTotalScore;
-              const maxS = hasSupply.maxTotalScore;
-              const totalMax = maxQ + maxS;
-              const finalScore = totalMax > 0 ? Math.round(((totalQ + totalS) / totalMax) * 100) : 0;
-
-              supplier.evalScore = finalScore;
-            } else if (hasQuality || hasSupply) {
+              supplier.evalScore = Math.round(latestEval.globalScore || 0);
+            }
+            else if (latestEval.status === 'submitted') {
+              supplier.evalStatus = 'Pendiente';
+              supplier.evalColor = '#FEF3C7'; // yellow
+              supplier.evalTextColor = '#92400E';
+              // Show score if available, or just wait
+              supplier.evalScore = Math.round(latestEval.globalScore || 0);
+            }
+            else if (['in_progress', 'draft', 'revision_requested'].includes(latestEval.status)) {
               supplier.evalStatus = 'Progreso';
               supplier.evalColor = '#BFDBFE';
               supplier.evalTextColor = '#1E40AF';
-              supplier.evalProgress = hasQuality ? 50 : 50; // Simple logic
+              supplier.evalProgress = latestEval.progress?.percentageComplete || 0;
             }
           }
         } catch (e) {

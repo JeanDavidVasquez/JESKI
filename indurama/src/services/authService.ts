@@ -333,7 +333,13 @@ export class AuthService {
         return 'Demasiados intentos. Intenta más tarde';
       case 'auth/network-request-failed':
         return 'Error de conexión. Verifica tu internet';
+      case 'auth/requests-from-this-ios-client-application-blocked':
+      case 'auth/requests-from-this-ios-client-application-<empty>-are-blocked':
+        return 'El API Key de Firebase está restringida. Por favor, revisa la configuración en Google Cloud Console.';
       default:
+        if (errorCode?.includes('blocked')) {
+          return 'Acceso bloqueado por configuración de seguridad (API Key).';
+        }
         return 'Error desconocido. Intenta nuevamente';
     }
   }

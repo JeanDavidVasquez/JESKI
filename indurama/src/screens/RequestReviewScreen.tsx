@@ -11,7 +11,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
-  TextInput
+  TextInput,
+  Linking
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
@@ -148,6 +149,20 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       Alert.alert('Error', 'No se pudo enviar la solicitud de corrección.');
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleOpenDocument = async (url: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (supported) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('Error', 'No se puede abrir este archivo');
+      }
+    } catch (error) {
+      console.error('Error opening document:', error);
+      Alert.alert('Error', 'No se pudo abrir el archivo');
     }
   };
 
@@ -344,7 +359,9 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
                     <Text style={{ fontWeight: 'bold', color: '#333' }}>{doc.name || `Documento ${index + 1}`}</Text>
                     <Text style={{ fontSize: 12, color: '#999' }}>2.3 MB</Text>
                   </View>
-                  <Image source={require('../../assets/icons/download.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                  <TouchableOpacity onPress={() => handleOpenDocument(doc.url)}>
+                    <Image source={require('../../assets/icons/download.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                  </TouchableOpacity>
                 </View>
               ))
             ) : (

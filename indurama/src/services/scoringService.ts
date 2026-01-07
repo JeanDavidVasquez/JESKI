@@ -32,8 +32,10 @@ export const ScoringService = {
 
         // Calcular puntos ganados
         const pointsEarned = sectionResponses.reduce((sum, response) => {
-            // Si responde "cumple", gana los puntos completos
-            return sum + (response.answer === 'cumple' ? pointsPerQuestion : 0);
+            // Normalizar respuesta y considerar distintos formatos ('cumple', 'CUMPLE', 'SI', etc.)
+            const resp = (response.answer || '').toString().toLowerCase();
+            const isCumple = resp === 'cumple' || resp === 'si' || resp.includes('cum');
+            return sum + (isCumple ? pointsPerQuestion : 0);
         }, 0);
 
         const pointsPossible = section.weight;

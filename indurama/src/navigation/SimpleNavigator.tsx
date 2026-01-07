@@ -436,6 +436,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToQuestionnaireSupply={navigateToSupplyQuestionnaire}
             onNavigateToPhotoEvidence={navigateToPhotoEvidence}
             onSignOut={handleLogout}
+            user={currentUser}
           />
         );
       case 'SupplierCreation':
@@ -443,12 +444,13 @@ export const SimpleNavigator: React.FC = () => {
           <SupplierCreationScreen
             onNavigateBack={navigateBackToSupplierEvaluation}
             onComplete={navigateBackToSupplierEvaluation}
+            user={currentUser}
           />
         );
       case 'QualityQuestionnaire':
         return (
           <QualityQuestionnaireScreen
-            supplierId={selectedSupplierId || ''}
+            supplierId={selectedSupplierId || currentUser?.id || ''}
             onNavigateBack={navigateBackToSupplierEvaluation}
             onComplete={navigateBackToSupplierEvaluation}
             onNavigateToSupplyQuestionnaire={navigateToSupplyQuestionnaire}
@@ -457,7 +459,7 @@ export const SimpleNavigator: React.FC = () => {
       case 'SupplyQuestionnaire':
         return (
           <SupplyQuestionnaireScreen
-            supplierId={selectedSupplierId || ''}
+            supplierId={selectedSupplierId || currentUser?.id || ''}
             onNavigateBack={navigateToQualityQuestionnaire}
             onComplete={navigateBackToSupplierEvaluation}
             onNavigateToPhotoEvidence={navigateToPhotoEvidence}
@@ -468,6 +470,7 @@ export const SimpleNavigator: React.FC = () => {
           <PhotoEvidenceScreen
             onNavigateBack={navigateToSupplyQuestionnaire}
             onComplete={navigateBackToSupplierEvaluation}
+            supplierId={currentUser?.id}
           />
         );
       case 'EPIPendingList':
@@ -629,7 +632,7 @@ export const SimpleNavigator: React.FC = () => {
                 setCurrentScreen(previousScreen);
                 setPreviousScreen(null);
               } else {
-                setCurrentScreen('SupplierSearch');
+                setCurrentScreen('SupplierList');
               }
             }}
             onApprove={(supplierId) => {

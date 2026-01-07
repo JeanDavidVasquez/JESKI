@@ -59,6 +59,9 @@ export interface SupplierEvaluation {
     // Progreso
     progress: SupplierProgress;
 
+    // Evidencias
+    photoEvidence?: string[];
+
     // Estado de la evaluación
     status: 'draft' | 'in_progress' | 'submitted' | 'approved' | 'rejected';
 

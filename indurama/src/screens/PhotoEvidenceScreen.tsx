@@ -10,9 +10,18 @@ import {
   Image,
   Modal,
   Alert,
+  ActivityIndicator,
+  FlatList,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../hooks/useAuth';
+import {
+  takePhoto,
+  pickFromGallery,
+  pickMultipleImages,
+  pickDocument,
+  uploadSupplierEvidence,
+} from '../services/imagePickerService';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -31,6 +40,7 @@ interface EvidenceCategory {
 interface PhotoEvidenceScreenProps {
   onNavigateBack?: () => void;
   onComplete?: () => void;
+  supplierId?: string; // NEW: Accept supplierId as prop
 }
 
 /**
@@ -38,10 +48,26 @@ interface PhotoEvidenceScreenProps {
  */
 export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   onNavigateBack,
-  onComplete
+  onComplete,
+  supplierId: supplierIdProp
 }) => {
   const { user } = useAuth();
+  // Prioritize prop supplierId, then context user
+  const supplierId = supplierIdProp || user?.id;
   const [showEpiModal, setShowEpiModal] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [showPhotosModal, setShowPhotosModal] = useState(false);
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [activeUploadCategory, setActiveUploadCategory] = useState<string | null>(null);
+
+  // Store photos per category
+  const [categoryPhotos, setCategoryPhotos] = useState<Record<string, string[]>>({
+    '1': [],
+    '2': [],
+    '3': [],
+  });
+
   const [categories, setCategories] = useState<EvidenceCategory[]>([
     {
       id: '1',
@@ -72,13 +98,13 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   // Load saved evidence data
   useEffect(() => {
     const loadEvidenceData = async () => {
-      if (!user?.id) return;
+      if (!supplierId) return;
 
       try {
         const { doc, getDoc } = await import('firebase/firestore');
         const { db } = await import('../services/firebaseConfig');
 
-        const evalRef = doc(db, 'supplier_evaluations', user.id);
+        const evalRef = doc(db, 'supplier_evaluations', supplierId);
         const evalDoc = await getDoc(evalRef);
 
         if (evalDoc.exists()) {
@@ -121,34 +147,33 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       return;
     }
 
+    // Check if at least one photo uploaded per category
+    const hasAllPhotos = categories.every(cat => cat.photosCount > 0);
+    if (!hasAllPhotos) {
+      Alert.alert(
+        'Fotos Requeridas',
+        'Debes subir al menos una foto para cada categoría antes de continuar.'
+      );
+      return;
+    }
+
     try {
       const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
       const { db } = await import('../services/firebaseConfig');
 
-      // Create temporary evidence data
-      const tempEvidence = categories.map(cat => ({
-        categoryId: cat.id,
-        categoryTitle: cat.title,
-        photoUrl: 'https://placeholder.com/photo.jpg', // Temporal
-        uploadedAt: new Date().toISOString()
-      }));
+      // Flatten all photos from all categories
+      const allPhotos = Object.values(categoryPhotos).flat();
 
       const evalRef = doc(db, 'supplier_evaluations', user.id);
 
-      // Save evidence
+      // Save real photo evidence URLs
       await setDoc(evalRef, {
-        photoEvidence: tempEvidence,
+        photoEvidence: allPhotos,
+        photoEvidenceByCategory: categoryPhotos,
         updatedAt: serverTimestamp()
       }, { merge: true });
 
-      // Mark all categories as completed
-      setCategories(prev => prev.map(cat => ({
-        ...cat,
-        status: 'completed',
-        photosCount: 1
-      })));
-
-      console.log('✅ Evidencias guardadas temporalmente');
+      console.log('✅ Evidencias guardadas correctamente');
       setShowEpiModal(true);
     } catch (error) {
       console.error('Error saving evidence:', error);
@@ -157,18 +182,166 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   };
 
   const handleUploadPhoto = (categoryId: string) => {
-    Alert.alert(
-      'Función Temporal',
-      'La subida de fotos será implementada próximamente. Por ahora, haz click en "Aceptar" para marcar como completado.',
-      [{ text: 'OK' }]
-    );
+    if (!supplierId) {
+      Alert.alert('Error', 'Debes iniciar sesión');
+      return;
+    }
+
+    setActiveUploadCategory(categoryId);
+    setShowUploadModal(true);
+  };
+
+  const performUpload = async (type: 'camera' | 'gallery' | 'document') => {
+    if (!activeUploadCategory) return;
+
+    if (type === 'camera') {
+      await handleTakePhoto(activeUploadCategory);
+    } else if (type === 'gallery') {
+      await handlePickFromGallery(activeUploadCategory);
+    } else {
+      await handlePickDocument(activeUploadCategory);
+    }
+    setActiveUploadCategory(null);
+  };
+
+  const handleTakePhoto = async (categoryId: string) => {
+    try {
+      setUploading(true);
+      const photo = await takePhoto();
+      if (!photo || !supplierId) return;
+
+      const downloadURL = await uploadSupplierEvidence(
+        supplierId,
+        'evidence',
+        categoryId,
+        photo.uri,
+        photo.name
+      );
+
+      // Add photo to category
+      setCategoryPhotos(prev => ({
+        ...prev,
+        [categoryId]: [...(prev[categoryId] || []), downloadURL]
+      }));
+
+      // Update category photo count
+      setCategories(prev => prev.map(cat =>
+        cat.id === categoryId
+          ? { ...cat, photosCount: (cat.photosCount || 0) + 1, status: 'completed' }
+          : cat
+      ));
+
+      Alert.alert('¡Éxito!', 'Foto subida correctamente');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      Alert.alert('Error', 'No se pudo subir la foto');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePickFromGallery = async (categoryId: string) => {
+    try {
+      setUploading(true);
+      const photo = await pickFromGallery();
+      if (!photo || !supplierId) return;
+
+      const downloadURL = await uploadSupplierEvidence(
+        supplierId,
+        'evidence',
+        categoryId,
+        photo.uri,
+        photo.name
+      );
+
+      setCategoryPhotos(prev => ({
+        ...prev,
+        [categoryId]: [...(prev[categoryId] || []), downloadURL]
+      }));
+
+      setCategories(prev => prev.map(cat =>
+        cat.id === categoryId
+          ? { ...cat, photosCount: (cat.photosCount || 0) + 1, status: 'completed' }
+          : cat
+      ));
+
+      Alert.alert('¡Éxito!', 'Foto subida correctamente');
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      Alert.alert('Error', 'No se pudo subir la foto');
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handlePickDocument = async (categoryId: string) => {
+    try {
+      setUploading(true);
+      const doc = await pickDocument();
+      if (!doc || !supplierId) return;
+
+      const downloadURL = await uploadSupplierEvidence(
+        supplierId,
+        'evidence',
+        categoryId,
+        doc.uri,
+        doc.name
+      );
+
+      setCategoryPhotos(prev => ({
+        ...prev,
+        [categoryId]: [...(prev[categoryId] || []), downloadURL]
+      }));
+
+      setCategories(prev => prev.map(cat =>
+        cat.id === categoryId
+          ? { ...cat, photosCount: (cat.photosCount || 0) + 1, status: 'completed' }
+          : cat
+      ));
+
+      Alert.alert('¡Éxito!', 'Archivo subido correctamente');
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      Alert.alert('Error', 'No se pudo subir el archivo');
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleViewPhotos = (categoryId: string) => {
+    setSelectedCategory(categoryId);
+    setShowPhotosModal(true);
+  };
+
+  const handleRemovePhoto = (categoryId: string, photoUrl: string) => {
     Alert.alert(
-      'Fotos Temporales',
-      'Esta categoría ha sido marcada como completada temporalmente.',
-      [{ text: 'OK' }]
+      'Eliminar Foto',
+      '¿Estás seguro de que deseas eliminar esta foto?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            // Remove from categoryPhotos
+            setCategoryPhotos(prev => ({
+              ...prev,
+              [categoryId]: prev[categoryId].filter(url => url !== photoUrl)
+            }));
+
+            // Update count
+            setCategories(prev => prev.map(cat =>
+              cat.id === categoryId
+                ? {
+                  ...cat,
+                  photosCount: Math.max(0, (cat.photosCount || 0) - 1),
+                  status: (cat.photosCount || 0) - 1 > 0 ? 'completed' : 'pending'
+                }
+                : cat
+            ));
+          }
+        }
+      ]
     );
   };
 
@@ -314,6 +487,123 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
           </View>
         </View>
       </Modal>
+
+      {/* Upload Options Modal */}
+      <Modal
+        visible={showUploadModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowUploadModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowUploadModal(false)}
+        >
+          <TouchableOpacity activeOpacity={1} style={{ alignItems: 'center' }}>
+            <View style={styles.uploadModalContainer}>
+              <Text style={styles.uploadModalTitle}>Subir Evidencia</Text>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('camera');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>📷 Tomar Foto</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('gallery');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>🖼️ Desde Galería</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadOptionButton}
+                onPress={() => {
+                  setShowUploadModal(false);
+                  performUpload('document');
+                }}
+              >
+                <Text style={styles.uploadOptionText}>📄 Seleccionar Archivo</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.uploadCancelButton}
+                onPress={() => setShowUploadModal(false)}
+              >
+                <Text style={styles.uploadCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
+
+      {/* Photo Viewing Modal */}
+      <Modal
+        visible={showPhotosModal}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShowPhotosModal(false)}
+      >
+        <View style={styles.photoViewModalOverlay}>
+          <View style={styles.photoViewModalContainer}>
+            <View style={styles.photoViewModalHeader}>
+              <Text style={styles.photoViewModalTitle}>
+                {categories.find(c => c.id === selectedCategory)?.title || 'Fotos'}
+              </Text>
+              <TouchableOpacity onPress={() => setShowPhotosModal(false)}>
+                <Text style={styles.photoViewModalClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <FlatList
+              data={selectedCategory ? (categoryPhotos[selectedCategory] || []) : []}
+              keyExtractor={(item, index) => `${item}-${index}`}
+              numColumns={2}
+              contentContainerStyle={styles.photoGridContainer}
+              renderItem={({ item: photoUrl }) => (
+                <View style={styles.photoGridItem}>
+                  <Image source={{ uri: photoUrl }} style={styles.photoGridImage} />
+                  <TouchableOpacity
+                    style={styles.photoRemoveButton}
+                    onPress={() => selectedCategory && handleRemovePhoto(selectedCategory, photoUrl)}
+                  >
+                    <Text style={styles.photoRemoveButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+              ListEmptyComponent={
+                <Text style={styles.emptyPhotosText}>No hay fotos en esta categoría</Text>
+              }
+            />
+            <TouchableOpacity
+              style={styles.addMorePhotosButton}
+              onPress={() => {
+                setShowPhotosModal(false);
+                selectedCategory && handleUploadPhoto(selectedCategory);
+              }}
+            >
+              <Text style={styles.addMorePhotosButtonText}>+ Agregar Más Fotos</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Upload Loading Indicator */}
+      {uploading && (
+        <View style={styles.uploadingOverlay}>
+          <View style={styles.uploadingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.uploadingText}>Subiendo...</Text>
+          </View>
+        </View>
+      )}
     </View>
   );
 };
@@ -553,5 +843,145 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: '600',
+  },
+  // Photo viewing modal styles
+  photoViewModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoViewModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 16,
+    width: '90%',
+    maxHeight: '80%',
+    padding: 20,
+  },
+  photoViewModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E5E7EB',
+  },
+  photoViewModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333333',
+  },
+  photoViewModalClose: {
+    fontSize: 28,
+    color: '#666666',
+    fontWeight: 'bold',
+  },
+  photoGridContainer: {
+    paddingBottom: 16,
+  },
+  photoGridItem: {
+    flex: 1,
+    margin: 4,
+    aspectRatio: 1,
+    position: 'relative',
+  },
+  photoGridImage: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 8,
+  },
+  photoRemoveButton: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoRemoveButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  emptyPhotosText: {
+    textAlign: 'center',
+    color: '#999999',
+    fontSize: 14,
+    marginTop: 40,
+  },
+  addMorePhotosButton: {
+    backgroundColor: '#003E85',
+    padding: 14,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  addMorePhotosButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  // Upload indicator styles
+  uploadingOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadingContainer: {
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    padding: 24,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  uploadingText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    marginTop: 12,
+    fontWeight: '500',
+  },
+  uploadModalContainer: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+  },
+  uploadModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#003E85',
+    marginBottom: 20,
+    textAlign: 'center',
+  },
+  uploadOptionButton: {
+    paddingVertical: 15,
+    paddingHorizontal: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  uploadOptionText: {
+    fontSize: 16,
+    color: '#333',
+  },
+  uploadCancelButton: {
+    marginTop: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+  },
+  uploadCancelText: {
+    color: '#666',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
 });

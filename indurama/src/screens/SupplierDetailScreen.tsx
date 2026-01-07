@@ -52,18 +52,106 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
   const loadData = async () => {
     try {
       setLoading(true);
+      console.log('=== Loading supplier detail for ID:', supplierId, '===');
 
       // 1. Get User Data
       const userDoc = await getDoc(doc(db, 'users', supplierId));
       if (userDoc.exists()) {
-        setSupplierData(userDoc.data());
+        const userData = userDoc.data();
+        console.log('User data loaded:', userData);
+        setSupplierData(userData);
+      } else {
+        console.log('No user data found');
       }
 
-      // 2. Get EPI Submission
-      const submission = await SupplierResponseService.getEPISubmission(supplierId);
-      setEpiSubmission(submission);
+      // 2. Try to load from epi_submissions first (submitted evaluations)
+      let submission = await SupplierResponseService.getEPISubmission(supplierId);
+      console.log('EPI Submission from epi_submissions:', submission);
 
-      // 3. Get EPI Config for questions text
+      // 3. If submission exists, ensure it has scores (calculate if missing)
+      if (submission) {
+        let calidadScore = submission.calidadScore ?? 0;
+        let abastecimientoScore = submission.abastecimientoScore ?? 0;
+        let totalScore = submission.calculatedScore ?? submission.globalScore ?? 0;
+
+        // Calculate scores from responses if they're 0
+        if (totalScore === 0 || calidadScore === 0 || abastecimientoScore === 0) {
+          console.log('Calculating scores from responses...');
+
+          // Calidad: count YES answers
+          const qualityResponses = submission.qualityResponses || [];
+          const qualityYesCount = qualityResponses.filter((r: any) =>
+            r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
+          ).length;
+          const qualityTotal = Math.max(qualityResponses.length, 1);
+          calidadScore = calidadScore || (qualityYesCount / qualityTotal) * 100;
+
+          // Abastecimiento: count YES answers
+          const supplyResponses = submission.supplyResponses || [];
+          const supplyYesCount = supplyResponses.filter((r: any) =>
+            r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
+          ).length;
+          const supplyTotal = Math.max(supplyResponses.length, 1);
+          abastecimientoScore = abastecimientoScore || (supplyYesCount / supplyTotal) * 100;
+
+          // Global score
+          totalScore = totalScore || (calidadScore + abastecimientoScore) / 2;
+
+          console.log('Calculated scores:', { calidadScore, abastecimientoScore, totalScore, qualityYesCount, supplyYesCount });
+
+          // Update submission with calculated scores
+          submission = {
+            ...submission,
+            calculatedScore: totalScore,
+            calidadScore: calidadScore,
+            abastecimientoScore: abastecimientoScore,
+          };
+        }
+      }
+
+      // 4. If no submission, try supplier_evaluations (in-progress evaluations)
+      if (!submission) {
+        console.log('No epi_submission, trying supplier_evaluations...');
+
+        // Read directly from Firebase
+        const evalDoc = await getDoc(doc(db, 'supplier_evaluations', supplierId));
+
+        if (evalDoc.exists()) {
+          const evalData = evalDoc.data();
+          console.log('=== RAW DATA from supplier_evaluations ===', evalData);
+
+          // Handle different field names for scores
+          const calidadScore = evalData.calidadScore ?? evalData.qualityScore ?? 0;
+          const abastecimientoScore = evalData.abastecimientoScore ?? evalData.supplyScore ?? 0;
+          const totalScore = evalData.globalScore ?? evalData.calculatedScore ?? evalData.totalScore ?? 0;
+
+          console.log('Extracted scores:', { calidadScore, abastecimientoScore, totalScore });
+
+          submission = {
+            id: evalDoc.id,
+            supplierId: supplierId,
+            status: evalData.status || 'draft',
+            calculatedScore: totalScore,
+            calidadScore: calidadScore,
+            abastecimientoScore: abastecimientoScore,
+            classification: evalData.classification || '',
+            qualityResponses: evalData.responses?.filter((r: any) => r.category === 'calidad') || [],
+            supplyResponses: evalData.responses?.filter((r: any) => r.category === 'abastecimiento') || [],
+            photoEvidence: evalData.photoEvidence || [],
+            submittedAt: evalData.submittedAt,
+            createdAt: evalData.createdAt,
+            updatedAt: evalData.updatedAt,
+          };
+          console.log('Mapped submission:', submission);
+        } else {
+          console.log('No supplier_evaluations document found');
+        }
+      }
+
+      setEpiSubmission(submission);
+      console.log('Final epiSubmission state:', submission);
+
+      // 4. Get EPI Config
       const { EpiService } = await import('../services/epiService');
       const config = await EpiService.getEpiConfig();
       setEpiConfig(config);
@@ -244,152 +332,161 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      <View style={styles.header}>
-        <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
-          <Image source={require('../../assets/icons/arrow-left.png')} style={styles.backIcon} />
-        </TouchableOpacity>
-
-        <Text style={styles.headerTitle} numberOfLines={1}>
-          {loading ? 'Cargando...' : supplierData?.companyName || 'Proveedor'}
-        </Text>
-
-        <Image source={require('../../assets/icono_indurama.png')} style={styles.logo} resizeMode="contain" />
-      </View>
-
-      <View style={styles.scoreSection}>
-        <View style={styles.scoreHeader}>
-          <Text style={styles.scoreLabel}>Score Total EPI</Text>
-          <View style={styles.statusBadge}>
-            <Text style={[styles.statusText, { color: getStatusColor(epiSubmission?.status) }]}>
-              {getStatusText(epiSubmission?.status)}
-            </Text>
-          </View>
+      {loading ? (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color="#003E85" />
+          <Text style={{ marginTop: 10, color: '#666' }}>Cargando detalles del proveedor...</Text>
         </View>
+      ) : (
+        <>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
+              <Image source={require('../../assets/icons/arrow-left.png')} style={styles.backIcon} />
+            </TouchableOpacity>
 
-        <Text style={styles.scoreValue}>{Math.round(epiSubmission?.calculatedScore || 0)}</Text>
-        <Text style={styles.scoreSubtext}>de 100 puntos</Text>
-
-        {epiSubmission?.classification && (
-          <View style={[styles.badgeGreen, { backgroundColor: '#10B981' }]}>
-            <Text style={styles.badgeText}>CLASIFICACIÓN: {epiSubmission.classification}</Text>
-          </View>
-        )}
-
-        <View style={styles.scoreCards}>
-          <View style={styles.scoreCard}>
-            <Text style={styles.scoreCardValue}>{Math.round(epiSubmission?.calidadScore || 0)}</Text>
-            <Text style={styles.scoreCardLabel}>Calidad</Text>
-          </View>
-          <View style={[styles.scoreCard, styles.scoreCardBlue]}>
-            <Text style={styles.scoreCardValueBlue}>{Math.round(epiSubmission?.abastecimientoScore || 0)}</Text>
-            <Text style={styles.scoreCardLabelBlue}>Abastecimiento</Text>
-          </View>
-        </View>
-      </View>
-
-      <View style={styles.tabsContainer}>
-        {tabs.map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab}
+            <Text style={styles.headerTitle} numberOfLines={1}>
+              {loading ? 'Cargando...' : supplierData?.companyName || 'Proveedor'}
             </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
 
-      <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        {activeTab === 'Resumen' && renderResumenTab()}
+            <Image source={require('../../assets/icono_indurama.png')} style={styles.logo} resizeMode="contain" />
+          </View>
 
-        {activeTab === 'Respuestas' && epiSubmission && (
-          <>
-            <View style={[styles.card, { backgroundColor: 'transparent', shadowOpacity: 0 }]}>
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8 }}>
-                CALIDAD (1-6)
-              </Text>
-              {renderRespuestasList(epiSubmission.qualityResponses, 'calidad')}
-
-              <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#00BCD4', marginVertical: 16 }}>
-                ABASTECIMIENTO (7-8)
-              </Text>
-              {renderRespuestasList(epiSubmission.supplyResponses, 'abastecimiento')}
+          <View style={styles.scoreSection}>
+            <View style={styles.scoreHeader}>
+              <Text style={styles.scoreLabel}>Score Total EPI</Text>
+              <View style={styles.statusBadge}>
+                <Text style={[styles.statusText, { color: getStatusColor(epiSubmission?.status) }]}>
+                  {getStatusText(epiSubmission?.status)}
+                </Text>
+              </View>
             </View>
-          </>
-        )}
 
-        {activeTab === 'Evidencias' && epiSubmission?.photoEvidence && (
-          <View style={styles.card}>
-            <Text style={styles.evidenceSectionTitle}>FOTOS CARGADAS</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 }}>
-              {epiSubmission.photoEvidence.map((photo: any, index: number) => (
-                <View key={index} style={[styles.evidencePhotoCard, { width: '48%', marginBottom: 12 }]}>
-                  <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 120, borderRadius: 8, backgroundColor: '#eee' }} />
-                  <Text style={styles.evidencePhotoDescription}>{photo.description || `Foto ${index + 1}`}</Text>
-                </View>
-              ))}
+            <Text style={styles.scoreValue}>{Math.round(epiSubmission?.calculatedScore || 0)}</Text>
+            <Text style={styles.scoreSubtext}>de 100 puntos</Text>
+
+            {epiSubmission?.classification && (
+              <View style={[styles.badgeGreen, { backgroundColor: '#10B981' }]}>
+                <Text style={styles.badgeText}>CLASIFICACIÓN: {epiSubmission.classification}</Text>
+              </View>
+            )}
+
+            <View style={styles.scoreCards}>
+              <View style={styles.scoreCard}>
+                <Text style={styles.scoreCardValue}>{Math.round(epiSubmission?.calidadScore || 0)}</Text>
+                <Text style={styles.scoreCardLabel}>Calidad</Text>
+              </View>
+              <View style={[styles.scoreCard, styles.scoreCardBlue]}>
+                <Text style={styles.scoreCardValueBlue}>{Math.round(epiSubmission?.abastecimientoScore || 0)}</Text>
+                <Text style={styles.scoreCardLabelBlue}>Abastecimiento</Text>
+              </View>
             </View>
           </View>
-        )}
 
-        {activeTab === 'Historial' && (
-          <View style={styles.card}>
-            <Text style={styles.historyTitle}>Trazabilidad</Text>
-            {epiSubmission?.createdAt && (
-              <View style={styles.timelineItem}>
-                <View style={styles.timelineIconContainer}>
-                  <View style={styles.timelineIconGreen}>
-                    <Image source={require('../../assets/icons/check.png')} style={styles.timelineCheckIcon} />
-                  </View>
-                  <View style={styles.timelineLine} />
+          <View style={styles.tabsContainer}>
+            {tabs.map((tab) => (
+              <TouchableOpacity
+                key={tab}
+                style={[styles.tab, activeTab === tab && styles.tabActive]}
+                onPress={() => setActiveTab(tab)}
+              >
+                <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                  {tab}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+            {activeTab === 'Resumen' && renderResumenTab()}
+
+            {activeTab === 'Respuestas' && epiSubmission && (
+              <>
+                <View style={[styles.card, { backgroundColor: 'transparent', shadowOpacity: 0 }]}>
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: theme.colors.primary, marginBottom: 8 }}>
+                    CALIDAD (1-6)
+                  </Text>
+                  {renderRespuestasList(epiSubmission.qualityResponses, 'calidad')}
+
+                  <Text style={{ fontSize: 14, fontWeight: 'bold', color: '#00BCD4', marginVertical: 16 }}>
+                    ABASTECIMIENTO (7-8)
+                  </Text>
+                  {renderRespuestasList(epiSubmission.supplyResponses, 'abastecimiento')}
                 </View>
-                <View style={styles.timelineContent}>
-                  <Text style={styles.timelineDate}>{epiSubmission.createdAt.toDate().toLocaleDateString()}</Text>
-                  <Text style={styles.timelineEventTitle}>EPI Enviado por Proveedor</Text>
+              </>
+            )}
+
+            {activeTab === 'Evidencias' && epiSubmission?.photoEvidence && (
+              <View style={styles.card}>
+                <Text style={styles.evidenceSectionTitle}>FOTOS CARGADAS</Text>
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginTop: 10 }}>
+                  {epiSubmission.photoEvidence.map((photo: any, index: number) => (
+                    <View key={index} style={[styles.evidencePhotoCard, { width: '48%', marginBottom: 12 }]}>
+                      <Image source={{ uri: photo.uri }} style={{ width: '100%', height: 120, borderRadius: 8, backgroundColor: '#eee' }} />
+                      <Text style={styles.evidencePhotoDescription}>{photo.description || `Foto ${index + 1}`}</Text>
+                    </View>
+                  ))}
                 </View>
               </View>
             )}
-            <View style={styles.timelineItem}>
-              <View style={styles.timelineIconContainer}>
-                <View style={styles.timelineIconBlue}>
-                  <Image source={require('../../assets/icons/clock.png')} style={styles.timelineClockIcon} />
+
+            {activeTab === 'Historial' && (
+              <View style={styles.card}>
+                <Text style={styles.historyTitle}>Trazabilidad</Text>
+                {epiSubmission?.createdAt && (
+                  <View style={styles.timelineItem}>
+                    <View style={styles.timelineIconContainer}>
+                      <View style={styles.timelineIconGreen}>
+                        <Image source={require('../../assets/icons/check.png')} style={styles.timelineCheckIcon} />
+                      </View>
+                      <View style={styles.timelineLine} />
+                    </View>
+                    <View style={styles.timelineContent}>
+                      <Text style={styles.timelineDate}>{epiSubmission.createdAt.toDate().toLocaleDateString()}</Text>
+                      <Text style={styles.timelineEventTitle}>EPI Enviado por Proveedor</Text>
+                    </View>
+                  </View>
+                )}
+                <View style={styles.timelineItem}>
+                  <View style={styles.timelineIconContainer}>
+                    <View style={styles.timelineIconBlue}>
+                      <Image source={require('../../assets/icons/clock.png')} style={styles.timelineClockIcon} />
+                    </View>
+                  </View>
+                  <View style={styles.timelineContent}>
+                    <Text style={styles.timelineEventTitle}>Estado Actual: {getStatusText(epiSubmission?.status)}</Text>
+                  </View>
                 </View>
               </View>
-              <View style={styles.timelineContent}>
-                <Text style={styles.timelineEventTitle}>Estado Actual: {getStatusText(epiSubmission?.status)}</Text>
+            )}
+
+            <View style={{ height: 40 }} />
+          </ScrollView>
+
+          <Modal
+            visible={showApprovalModal}
+            transparent
+            animationType="fade"
+            onRequestClose={() => setShowApprovalModal(false)}
+          >
+            <View style={styles.modalOverlay}>
+              <View style={styles.modalContent}>
+                <Text style={styles.modalTitle}>¿Aprobar Solicitud?</Text>
+                <Text style={styles.modalMessage}>
+                  Esta acción aprobará la solicitud y permitirá continuar con el proceso.
+                </Text>
+
+                <TouchableOpacity style={styles.modalApproveButton} onPress={confirmApprove}>
+                  <Text style={styles.modalApproveText}>Aprobar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowApprovalModal(false)}>
+                  <Text style={styles.modalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
               </View>
             </View>
-          </View>
-        )}
-
-        <View style={{ height: 40 }} />
-      </ScrollView>
-
-      <Modal
-        visible={showApprovalModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setShowApprovalModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>¿Aprobar Solicitud?</Text>
-            <Text style={styles.modalMessage}>
-              Esta acción aprobará la solicitud y permitirá continuar con el proceso.
-            </Text>
-
-            <TouchableOpacity style={styles.modalApproveButton} onPress={confirmApprove}>
-              <Text style={styles.modalApproveText}>Aprobar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.modalCancelButton} onPress={() => setShowApprovalModal(false)}>
-              <Text style={styles.modalCancelText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
+          </Modal>
+        </>
+      )}
     </View>
   );
 };

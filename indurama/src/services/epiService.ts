@@ -17,8 +17,7 @@ const defaultConfig: EpiConfig = {
                 questions: [
                     {
                         id: 'default_q1',
-                        text: '¿El proveedor cuenta con certificación ISO 9001? (Pregunta de ejemplo)',
-                        weight: 100
+                        text: '¿El proveedor cuenta con certificación ISO 9001? (Pregunta de ejemplo)'
                     }
                 ]
             }
@@ -34,8 +33,7 @@ const defaultConfig: EpiConfig = {
                 questions: [
                     {
                         id: 'default_q2',
-                        text: '¿El proveedor cumple con los tiempos de entrega? (Pregunta de ejemplo)',
-                        weight: 100
+                        text: '¿El proveedor cumple con los tiempos de entrega? (Pregunta de ejemplo)'
                     }
                 ]
             }
@@ -115,7 +113,8 @@ export const EpiService = {
             // Asegurar timestamp
             const finalData = {
                 ...evaluation,
-                timestamp: evaluation.timestamp || Date.now()
+                createdAt: evaluation.createdAt || Date.now(),
+                updatedAt: Date.now()
             };
 
             const docRef = await addDoc(colRef, finalData);
@@ -134,7 +133,7 @@ export const EpiService = {
             const q = query(
                 colRef,
                 where('supplierId', '==', supplierId),
-                orderBy('timestamp', 'desc')
+                orderBy('createdAt', 'desc')
             );
 
             const snapshot = await getDocs(q);

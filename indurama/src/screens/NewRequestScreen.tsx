@@ -11,11 +11,14 @@ import {
   TextInput,
   Modal,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
+import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { useAuth } from '../hooks/useAuth';
+import { uploadRequestFile, formatFileSize, validateFileSize, UploadedFile } from '../services/fileUploadService';
 import { generateRequestCode } from '../services/requestService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { SolicitanteBottomNav } from '../components/SolicitanteBottomNav';
@@ -88,6 +91,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
 }) => {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [documents, setDocuments] = useState<UploadedFile[]>([]);
+  const [uploadingFile, setUploadingFile] = useState(false);
   const [formData, setFormData] = useState({
     dueDate: new Date(),
     description: '',
@@ -119,6 +124,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         customRequiredTags: initialRequest.customRequiredTags || [],
         industry: initialRequest.industry || '',
       });
+      // Load existing documents
+      if (initialRequest.documents) {
+        setDocuments(initialRequest.documents as UploadedFile[]);
+      }
     }
   }, [initialRequest]);
 
@@ -186,6 +195,33 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       setLoading(true);
       const requestCode = generateRequestCode();
 
+      // For new requests, we need to upload files first
+      let uploadedDocuments: UploadedFile[] = [];
+
+      if (!initialRequest) {
+        // Generate a temporary ID for file upload path
+        const tempRequestId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+        // Upload files that haven't been uploaded yet (have local URI)
+        for (const doc of documents) {
+          if (doc.url.startsWith('file://')) {
+            try {
+              const uploaded = await uploadRequestFile(tempRequestId, doc.url, doc.name);
+              uploadedDocuments.push(uploaded);
+            } catch (error) {
+              console.error('Error uploading file:', error);
+              Alert.alert('Advertencia', `No se pudo subir ${doc.name}, se continuará sin este archivo`);
+            }
+          } else {
+            // File already uploaded
+            uploadedDocuments.push(doc);
+          }
+        }
+      } else {
+        // For edits, documents are already uploaded or were just uploaded
+        uploadedDocuments = documents;
+      }
+
       const requestData = {
         code: requestCode,
         userId: user.id,
@@ -205,6 +241,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         requiredTags: formData.requiredTags,
         customRequiredTags: formData.customRequiredTags,
         industry: formData.industry,
+        // Add documents
+        documents: uploadedDocuments,
         status: 'pending',
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp()
@@ -241,8 +279,77 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     }
   };
 
-  const handleSelectFiles = () => {
-    Alert.alert('Próximamente', 'La carga de archivos estará disponible pronto.');
+  const handleSelectFiles = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: '*/*', // Allow all file types
+        multiple: true, // Allow multiple files
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        return;
+      }
+
+      // Validate and upload files
+      for (const file of result.assets) {
+        // Validate file size (max 10MB)
+        if (!validateFileSize(file.size || 0)) {
+          Alert.alert('Archivo demasiado grande', `${file.name} excede el tamaño máximo de 10MB`);
+          continue;
+        }
+
+        // Check if we need to upload now (when editing existing request)
+        if (initialRequest) {
+          // Upload file immediately
+          setUploadingFile(true);
+          try {
+            const uploadedFile = await uploadRequestFile(
+              initialRequest.id,
+              file.uri,
+              file.name
+            );
+
+            setDocuments(prev => [...prev, uploadedFile]);
+            Alert.alert('Éxito', `${file.name} subido correctamente`);
+          } catch (error) {
+            console.error('Error uploading file:', error);
+            Alert.alert('Error', `No se pudo subir ${file.name}`);
+          } finally {
+            setUploadingFile(false);
+          }
+        } else {
+          // For new requests, just store file info to upload on submit
+          const fileData: UploadedFile = {
+            name: file.name,
+            url: file.uri, // Temporary URI, will be replaced with storage URL on submit
+            type: file.mimeType,
+            size: file.size,
+          };
+          setDocuments(prev => [...prev, fileData]);
+        }
+      }
+    } catch (error) {
+      console.error('Error selecting files:', error);
+      Alert.alert('Error', 'No se pudieron seleccionar los archivos');
+    }
+  };
+
+  const removeDocument = (index: number) => {
+    Alert.alert(
+      'Eliminar archivo',
+      '¿Estás seguro de que deseas eliminar este archivo?',
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: () => {
+            setDocuments(prev => prev.filter((_, i) => i !== index));
+          },
+        },
+      ]
+    );
   };
 
   const closeDropdowns = () => {
@@ -437,16 +544,45 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         </View>
 
         <View style={styles.formGroup}>
-          <Text style={styles.label}>Adjuntar Documentos Técnicos <Text style={styles.required}>*</Text></Text>
+          <Text style={styles.label}>Adjuntar Documentos Técnicos</Text>
           <View style={styles.uploadArea}>
             <View style={styles.uploadIcon}><Image source={require('../../assets/icons/folder-upload.png')} style={styles.uploadIconImage} resizeMode="contain" /></View>
             <Text style={styles.uploadTitle}>Arrastre archivos o haga clic para subir</Text>
             <Text style={styles.uploadSubtitle}>Pliego Técnico, Ficha Técnica, Oferta Comercial</Text>
-            <TouchableOpacity style={[styles.selectFilesButton, styles.selectFilesButtonDisabled]} onPress={handleSelectFiles}>
-              <Image source={require('../../assets/icons/document.png')} style={[styles.selectFilesIcon, styles.selectFilesIconDisabled]} resizeMode="contain" />
-              <Text style={[styles.selectFilesText, styles.selectFilesTextDisabled]}>Próximamente</Text>
+            <TouchableOpacity
+              style={[styles.selectFilesButton, uploadingFile && styles.submitButtonDisabled]}
+              onPress={handleSelectFiles}
+              disabled={uploadingFile}
+            > {uploadingFile ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <>
+                <Image source={require('../../assets/icons/document.png')} style={styles.selectFilesIcon} resizeMode="contain" />
+                <Text style={styles.selectFilesText}>Seleccionar Archivos</Text>
+              </>
+            )}
             </TouchableOpacity>
           </View>
+
+          {documents.length > 0 && (
+            <View style={styles.documentsContainer}>
+              <Text style={styles.documentsTitle}>Archivos seleccionados ({documents.length})</Text>
+              {documents.map((doc, index) => (
+                <View key={index} style={styles.documentItem}>
+                  <View style={styles.documentIconContainer}>
+                    <Image source={require('../../assets/icons/document.png')} style={styles.documentIcon} resizeMode="contain" />
+                  </View>
+                  <View style={styles.documentInfo}>
+                    <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
+                    <Text style={styles.documentSize}>{formatFileSize(doc.size)}</Text>
+                  </View>
+                  <TouchableOpacity onPress={() => removeDocument(index)} style={styles.removeButton}>
+                    <Text style={styles.removeButtonText}>✕</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
 
         <View style={styles.actionButtons}>
@@ -567,5 +703,70 @@ const styles = StyleSheet.create({
   chipTextSelected: {
     color: '#1E40AF',
     fontWeight: '600',
+  },
+  // Document styles - NEW
+  documentsContainer: {
+    marginTop: 16,
+    padding: 12,
+    backgroundColor: '#F8F9FB',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  documentsTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333333',
+    marginBottom: 12,
+  },
+  documentItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 6,
+    marginBottom: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  documentIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 6,
+    backgroundColor: '#E3F2FD',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  documentIcon: {
+    width: 20,
+    height: 20,
+    tintColor: '#1976D2',
+  },
+  documentInfo: {
+    flex: 1,
+  },
+  documentName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#333333',
+    marginBottom: 2,
+  },
+  documentSize: {
+    fontSize: 12,
+    color: '#666666',
+  },
+  removeButton: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#FEE2E2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  removeButtonText: {
+    fontSize: 18,
+    color: '#DC2626',
+    fontWeight: 'bold',
   },
 });
