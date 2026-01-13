@@ -1,10 +1,6 @@
 import {onDocumentUpdated} from "firebase-functions/v2/firestore";
 import {logger} from "firebase-functions";
-import * as admin from 'firebase-admin';
-// Inicialización segura en caso de que no exista (evita errores en despliegues/paralelos)
-if (!admin.apps || admin.apps.length === 0) {
-  admin.initializeApp();
-}
+import {getClient} from "./adminClient";
 
 /**
  * Se dispara cada vez que un documento en la colección 'providers' es actualizado.
@@ -27,26 +23,30 @@ export const providerStatusAuditLog = onDocumentUpdated("providers/{providerId}"
     message: `El estado del proveedor ${event.params.providerId} cambió de '${beforeData?.status}' a '${afterData?.status}'.`,
     actorUid: actorUid,
     timestamp: event.time, // Usamos el timestamp del evento
-    before: { status: beforeData?.status },
-    after: { status: afterData?.status },
+    before: {status: beforeData?.status},
+    after: {status: afterData?.status},
   };
 
   // Escribe el log en Google Cloud Logging
+  // Comentario: Google Cloud Logging proporciona un registro centralizado para monitoreo
+  // y alertas; es la primera capa para revisar eventos de seguridad y detectar anomalías.
   logger.log("Provider Status Change", logData);
 
   // Guardar registro de auditoría en Firestore para trazabilidad permanente
+  // Comentario: audit_logs almacena registros para auditoría forense y reportes de cumplimiento
+  // (por ejemplo retención y acceso restringido conforme a políticas ISO/IEC 27002).
   try {
-    const db = admin.firestore();
-    db.collection('audit_logs').add({
-      action: 'providerStatusChange',
+    const db = getClient().firestore();
+    db.collection("audit_logs").add({
+      action: "providerStatusChange",
       providerId: event.params.providerId,
       actorUid,
       before: beforeData?.status,
       after: afterData?.status,
       timestamp: event.time,
-    }).catch(e => logger.warn('No se pudo escribir audit log en Firestore', e));
+    }).catch((e: any) => logger.warn("No se pudo escribir audit log en Firestore", e));
   } catch (e) {
-    logger.warn('Error intentando guardar audit log en Firestore', e);
+    logger.warn("Error intentando guardar audit log en Firestore", e);
   }
 });
 

@@ -10,12 +10,14 @@
     "strict": true,
     "target": "es2017",
     "lib": ["es2017"],
-    "types": ["node"],
+    "types": ["node", "mocha", "chai"],
     "typeRoots": ["./node_modules/@types"],
     "skipLibCheck": true
   },
   "compileOnSave": true,
   "include": [
-    "src"
+    "src",
+    "test",
+    "types.d.ts"
   ]
 }
