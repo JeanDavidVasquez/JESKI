@@ -54,6 +54,8 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
 
     const unsubscribe = onSnapshot(q, async (snapshot) => {
       const loadedSuppliers: SupplierUI[] = [];
+      // Import dynamic to avoid cycle, or just use if imported at top
+      const { SupplierResponseService } = require('../services/supplierResponseService');
 
       for (const doc of snapshot.docs) {
         const userData = doc.data() as User;
@@ -69,34 +71,46 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
 
         // Fetch evaluations for this supplier to update status
         try {
-          const evals = await EpiService.getEvaluationsBySupplier(doc.id);
-          // Update status based on latest evaluation
-          const latestEval = evals[0];
+          // Use SupplierResponseService to get the correct evaluation data (from supplier_evaluations or epi_submissions)
+          const latestEval = await SupplierResponseService.getSupplierEvaluation(doc.id);
 
           if (latestEval) {
+            // Calculate progress if missing
+            const totalSections = latestEval.totalSections || (latestEval.progress ? (latestEval.progress.calidadQuestions + latestEval.progress.abastecimientoQuestions) : 10);
+            const completedSections = latestEval.completedSections || (latestEval.progress ? (latestEval.progress.calidadAnswered + latestEval.progress.abastecimientoAnswered) : 0);
+
+            // Prefer existing percentageComplete, fallback to calc
+            let p = latestEval.progress?.percentageComplete;
+            if (p === undefined || p === 0) {
+              if (totalSections > 0) p = (completedSections / totalSections) * 100;
+              else p = 0;
+            }
+            supplier.evalProgress = Math.round(p || 0);
+
             // Map status based on evaluation state
-            if (latestEval.status === 'approved') {
+            if (latestEval.status === 'approved' || latestEval.status === 'epi_approved') {
               supplier.evalStatus = 'Completado';
               supplier.evalColor = '#D1FAE5';
               supplier.evalTextColor = '#065F46';
-              supplier.evalScore = Math.round(latestEval.globalScore || 0);
+              supplier.evalScore = Math.round(latestEval.globalScore || latestEval.calculatedScore || 0);
+              supplier.evalProgress = 100;
             }
-            else if (latestEval.status === 'submitted') {
+            else if (latestEval.status === 'submitted' || latestEval.status === 'epi_submitted') {
               supplier.evalStatus = 'Pendiente';
               supplier.evalColor = '#FEF3C7'; // yellow
               supplier.evalTextColor = '#92400E';
-              // Show score if available, or just wait
-              supplier.evalScore = Math.round(latestEval.globalScore || 0);
+              supplier.evalScore = Math.round(latestEval.globalScore || latestEval.calculatedScore || 0);
+              // If fully submitted, assume near 100% or use actual
+              if (supplier.evalProgress < 100) supplier.evalProgress = 100;
             }
-            else if (['in_progress', 'draft', 'revision_requested'].includes(latestEval.status)) {
+            else if (['in_progress', 'draft', 'rejected', 'revision_requested'].includes(latestEval.status)) {
               supplier.evalStatus = 'Progreso';
               supplier.evalColor = '#BFDBFE';
               supplier.evalTextColor = '#1E40AF';
-              supplier.evalProgress = latestEval.progress?.percentageComplete || 0;
             }
           }
         } catch (e) {
-          console.error(e);
+          console.error('Error fetching evaluation for supplier:', doc.id, e);
         }
 
         loadedSuppliers.push(supplier);

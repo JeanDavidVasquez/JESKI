@@ -1,92 +1,126 @@
+/**
+ * SupplierDashboardScreen - Dashboard principal para proveedores con EPI completado
+ */
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform } from 'react-native';
+import {
+    View,
+    Text,
+    StyleSheet,
+    ScrollView,
+    TouchableOpacity,
+    ActivityIndicator,
+    RefreshControl,
+    Image,
+    Platform,
+    Dimensions,
+} from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../hooks/useAuth';
+import { QuotationService } from '../services/quotationService';
+import { NotificationService } from '../services/notificationService';
 import { SupplierResponseService } from '../services/supplierResponseService';
-import { ScoringService } from '../services/scoringService';
+import { QuotationInvitation, Quotation } from '../types';
 
 interface SupplierDashboardScreenProps {
-    onNavigateBack?: () => void;
-    onNavigateToQuality?: () => void;
-    onNavigateToSupply?: () => void;
+    onNavigateToQuotations: () => void;
+    onNavigateToProfile: () => void;
+    onNavigateToNotifications: () => void;
+    onNavigateToEPIStatus: () => void;
+    onLogout: () => void;
+    user?: any; // Fallback user prop
 }
 
+const { width } = Dimensions.get('window');
+
 export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = ({
-    onNavigateBack,
-    onNavigateToQuality,
-    onNavigateToSupply
+    onNavigateToQuotations,
+    onNavigateToProfile,
+    onNavigateToNotifications,
+    onNavigateToEPIStatus,
+    onLogout,
+    user: userProp,
 }) => {
-    const { user } = useAuth();
+    const { user: contextUser } = useAuth();
+    // Use prop user if available (from navigation), otherwise context user
+    const user = userProp || contextUser;
+
     const [loading, setLoading] = useState(true);
-    const [evaluation, setEvaluation] = useState<any>(null);
-    const [calidadScore, setCalidadScore] = useState(0);
-    const [abastecimientoScore, setAbastecimientoScore] = useState(0);
-    const [globalScore, setGlobalScore] = useState(0);
-    const [classification, setClassification] = useState<any>(null);
-    const [progress, setProgress] = useState(0);
+    const [refreshing, setRefreshing] = useState(false);
+    const [unreadNotifications, setUnreadNotifications] = useState(0);
+    const [stats, setStats] = useState({
+        pendingInvitations: 0,
+        submittedQuotations: 0,
+        wonQuotations: 0,
+        epiScore: 0,
+    });
+    const [recentInvitations, setRecentInvitations] = useState<QuotationInvitation[]>([]);
 
     useEffect(() => {
-        loadDashboard();
-    }, []);
+        if (user?.id) {
+            loadDashboardData();
+        } else {
+            // If no user immediately, wait a bit or stop loading
+            const timer = setTimeout(() => {
+                if (!user?.id) {
+                    console.warn('Dashboard: No user found after timeout');
+                    setLoading(false);
+                }
+            }, 2000);
+            return () => clearTimeout(timer);
+        }
+    }, [user?.id]);
 
-    const loadDashboard = async () => {
-        if (!user?.id) return;
+    const loadDashboardData = async () => {
+        if (!user?.id) {
+            setLoading(false);
+            return;
+        }
 
         try {
             setLoading(true);
-            const eval = await SupplierResponseService.getSupplierEvaluation(user.id);
 
-            if (eval) {
-                setEvaluation(eval);
-                setCalidadScore(eval.calidadScore || 0);
-                setAbastecimientoScore(eval.abastecimientoScore || 0);
+            // Cargar datos en paralelo
+            const [invitations, quotations, unreadCount, epiSubmission] = await Promise.all([
+                QuotationService.getProviderInvitations(user.id),
+                QuotationService.getProviderQuotations(user.id),
+                NotificationService.getUnreadCount(user.id),
+                SupplierResponseService.getEPISubmission(user.id),
+            ]);
 
-                const global = ScoringService.calculateGlobalScore(
-                    eval.calidadScore || 0,
-                    eval.abastecimientoScore || 0
-                );
-                setGlobalScore(global);
+            // Calcular estadísticas
+            const pending = invitations.filter(i => i.status === 'pending' || i.status === 'viewed');
+            const submitted = quotations.filter(q => q.status === 'submitted');
+            const won = quotations.filter(q => q.isWinner);
 
-                const classif = ScoringService.getClassification(global);
-                setClassification(classif);
+            setStats({
+                pendingInvitations: pending.length,
+                submittedQuotations: submitted.length,
+                wonQuotations: won.length,
+                epiScore: epiSubmission?.calculatedScore || user?.epiScore || 0,
+            });
 
-                setProgress(eval.progress || 0);
-            }
+            setRecentInvitations(pending.slice(0, 3));
+            setUnreadNotifications(unreadCount);
         } catch (error) {
             console.error('Error loading dashboard:', error);
         } finally {
             setLoading(false);
+            setRefreshing(false);
         }
     };
 
-    const renderCircularProgress = (score: number, label: string, color: string) => {
-        const size = 120;
-        const strokeWidth = 12;
-        const radius = (size - strokeWidth) / 2;
-        const circumference = radius * 2 * Math.PI;
-        const progress = (score / 100) * circumference;
-
-        return (
-            <View style={styles.circularContainer}>
-                <View style={styles.circularProgress}>
-                    {/* Background circle */}
-                    <View style={[styles.circle, { width: size, height: size, borderRadius: size / 2, borderWidth: strokeWidth, borderColor: '#E5E7EB' }]} />
-                    {/* Progress arc - simplified as overlay */}
-                    <View style={[styles.circleOverlay, { width: size, height: size, borderRadius: size / 2 }]}>
-                        <Text style={styles.scoreText}>{Math.round(score)}</Text>
-                        <Text style={styles.scoreMax}>/100</Text>
-                    </View>
-                </View>
-                <Text style={styles.scoreLabel}>{label}</Text>
-            </View>
-        );
+    const onRefresh = () => {
+        setRefreshing(true);
+        loadDashboardData();
     };
+
+    const displayName = user?.companyName || user?.firstName || 'Proveedor';
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
-                <ActivityIndicator size="large" color="#004CA3" />
+                <ActivityIndicator size="large" color="#003E85" />
             </View>
         );
     }
@@ -97,82 +131,150 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
 
             {/* Header */}
             <View style={styles.header}>
-                {onNavigateBack && (
-                    <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
-                        <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
-                    </TouchableOpacity>
-                )}
-                <Text style={styles.headerTitle}>Mi Evaluación EPI</Text>
+                <View style={styles.headerContent}>
+                    <View>
+                        <Text style={styles.greeting}>Bienvenido,</Text>
+                        <Text style={styles.userName}>{displayName}</Text>
+                    </View>
+                    <View style={styles.headerRight}>
+                        <TouchableOpacity onPress={onNavigateToNotifications} style={styles.notificationButton}>
+                            <Ionicons name="notifications-outline" size={24} color="#FFF" />
+                            {unreadNotifications > 0 && (
+                                <View style={styles.badge}>
+                                    <Text style={styles.badgeText}>{unreadNotifications > 9 ? '9+' : unreadNotifications}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                        <Image
+                            source={require('../../assets/icono_indurama.png')}
+                            style={styles.logo}
+                            resizeMode="contain"
+                        />
+                    </View>
+                </View>
             </View>
 
-            <ScrollView style={styles.content} contentContainerStyle={{ paddingBottom: 40 }}>
-                {/* Global Score Card */}
-                <View style={styles.globalCard}>
-                    <Text style={styles.globalTitle}>Score Global</Text>
-                    <Text style={styles.globalScore}>{Math.round(globalScore)}<Text style={styles.globalMax}>/100</Text></Text>
-
-                    {classification && (
-                        <View style={[styles.classificationBadge, { backgroundColor: ScoringService.getClassificationColor(classification.level) }]}>
-                            <MaterialCommunityIcons
-                                name={classification.level === 'CRECER' ? 'arrow-up-circle' : classification.level === 'MEJORAR' ? 'alert-circle' : 'close-circle'}
-                                size={20}
-                                color="#fff"
-                            />
-                            <Text style={styles.classificationText}>{classification.level}</Text>
+            <ScrollView
+                style={styles.content}
+                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* EPI Score Card */}
+                <TouchableOpacity style={styles.epiCard} onPress={onNavigateToEPIStatus}>
+                    <View style={styles.epiCardContent}>
+                        <View>
+                            <Text style={styles.epiLabel}>Tu Score EPI</Text>
+                            <Text style={styles.epiDescription}>Evaluación de Proveedores Indurama</Text>
                         </View>
-                    )}
-
-                    <Text style={styles.classificationDesc}>
-                        {classification?.description || 'Completa tu evaluación para obtener tu clasificación'}
-                    </Text>
-                </View>
-
-                {/* Progress */}
-                <View style={styles.progressCard}>
-                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 }}>
-                        <Text style={styles.progressLabel}>Progreso de Evaluación</Text>
-                        <Text style={styles.progressPercent}>{Math.round(progress)}%</Text>
+                        <View style={styles.scoreCircle}>
+                            <Text style={styles.scoreValue}>{Math.round(stats.epiScore)}</Text>
+                            <Text style={styles.scoreMax}>/100</Text>
+                        </View>
                     </View>
-                    <View style={styles.progressBar}>
-                        <View style={[styles.progressFill, { width: `${progress}%` }]} />
+                    <View style={styles.epiFooter}>
+                        <Text style={styles.epiFooterText}>Ver detalle de mi evaluación</Text>
+                        <Ionicons name="chevron-forward" size={20} color="#003E85" />
                     </View>
-                </View>
+                </TouchableOpacity>
 
-                {/* Scores by Category */}
-                <View style={styles.scoresContainer}>
-                    <TouchableOpacity onPress={onNavigateToQuality} style={styles.scoreCard}>
-                        {renderCircularProgress(calidadScore, 'Calidad', '#10B981')}
-                        <MaterialCommunityIcons name="chevron-right" size={24} color="#6B7280" style={{ marginTop: 40 }} />
+                {/* Stats Grid */}
+                <Text style={styles.sectionTitle}>Resumen de Cotizaciones</Text>
+                <View style={styles.statsGrid}>
+                    <TouchableOpacity style={styles.statCard} onPress={onNavigateToQuotations}>
+                        <View style={[styles.statIcon, { backgroundColor: '#FFF3E0' }]}>
+                            <Ionicons name="mail-outline" size={24} color="#FF9800" />
+                        </View>
+                        <Text style={styles.statValue}>{stats.pendingInvitations}</Text>
+                        <Text style={styles.statLabel}>Pendientes</Text>
                     </TouchableOpacity>
 
-                    <TouchableOpacity onPress={onNavigateToSupply} style={styles.scoreCard}>
-                        {renderCircularProgress(abastecimientoScore, 'Abastecimiento', '#3B82F6')}
-                        <MaterialCommunityIcons name="chevron-right" size={24} color="#6B7280" style={{ marginTop: 40 }} />
+                    <TouchableOpacity style={styles.statCard} onPress={onNavigateToQuotations}>
+                        <View style={[styles.statIcon, { backgroundColor: '#E3F2FD' }]}>
+                            <Ionicons name="document-text-outline" size={24} color="#2196F3" />
+                        </View>
+                        <Text style={styles.statValue}>{stats.submittedQuotations}</Text>
+                        <Text style={styles.statLabel}>Enviadas</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.statCard} onPress={onNavigateToQuotations}>
+                        <View style={[styles.statIcon, { backgroundColor: '#E8F5E9' }]}>
+                            <Ionicons name="trophy-outline" size={24} color="#4CAF50" />
+                        </View>
+                        <Text style={styles.statValue}>{stats.wonQuotations}</Text>
+                        <Text style={styles.statLabel}>Ganadas</Text>
                     </TouchableOpacity>
                 </View>
 
-                {/* Actions */}
-                {progress < 100 && (
-                    <View style={styles.actionsCard}>
-                        <Text style={styles.actionsTitle}>Acciones Pendientes</Text>
-                        <Text style={styles.actionsDesc}>Completa todos los cuestionarios para obtener tu clasificación final</Text>
-
-                        {calidadScore < 100 && (
-                            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToQuality}>
-                                <MaterialCommunityIcons name="clipboard-text-outline" size={20} color="#004CA3" />
-                                <Text style={styles.actionButtonText}>Completar Cuestionario de Calidad</Text>
+                {/* Recent Invitations */}
+                {recentInvitations.length > 0 && (
+                    <>
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionTitle}>Invitaciones Pendientes</Text>
+                            <TouchableOpacity onPress={onNavigateToQuotations}>
+                                <Text style={styles.seeAllText}>Ver todas</Text>
                             </TouchableOpacity>
-                        )}
+                        </View>
 
-                        {abastecimientoScore < 100 && (
-                            <TouchableOpacity style={styles.actionButton} onPress={onNavigateToSupply}>
-                                <MaterialCommunityIcons name="package-variant" size={20} color="#004CA3" />
-                                <Text style={styles.actionButtonText}>Completar Cuestionario de Abastecimiento</Text>
+                        {recentInvitations.map(invitation => (
+                            <TouchableOpacity key={invitation.id} style={styles.invitationCard} onPress={onNavigateToQuotations}>
+                                <View style={styles.invitationIcon}>
+                                    <Ionicons name="pricetag-outline" size={24} color="#003E85" />
+                                </View>
+                                <View style={styles.invitationContent}>
+                                    <Text style={styles.invitationTitle}>
+                                        Solicitud #{invitation.requestId.slice(-6).toUpperCase()}
+                                    </Text>
+                                    <Text style={styles.invitationDate}>
+                                        {invitation.status === 'pending' ? 'Nueva invitación' : 'Pendiente de cotizar'}
+                                    </Text>
+                                </View>
+                                <Ionicons name="chevron-forward" size={24} color="#CCC" />
                             </TouchableOpacity>
-                        )}
+                        ))}
+                    </>
+                )}
+
+                {/* Empty State */}
+                {recentInvitations.length === 0 && (
+                    <View style={styles.emptyState}>
+                        <Ionicons name="pricetags-outline" size={64} color="#CCC" />
+                        <Text style={styles.emptyTitle}>Sin invitaciones pendientes</Text>
+                        <Text style={styles.emptyText}>
+                            Cuando te inviten a cotizar, aparecerán aquí
+                        </Text>
                     </View>
                 )}
+
+                <View style={{ height: 100 }} />
             </ScrollView>
+
+            {/* Bottom Navigation */}
+            <View style={styles.bottomNav}>
+                <TouchableOpacity style={styles.navItem}>
+                    <Ionicons name="home" size={24} color="#003E85" />
+                    <Text style={[styles.navLabel, styles.navLabelActive]}>Inicio</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={onNavigateToQuotations}>
+                    <Ionicons name="pricetags-outline" size={24} color="#666" />
+                    <Text style={styles.navLabel}>Cotizaciones</Text>
+                    {stats.pendingInvitations > 0 && (
+                        <View style={styles.navBadge}>
+                            <Text style={styles.navBadgeText}>{stats.pendingInvitations}</Text>
+                        </View>
+                    )}
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={onNavigateToProfile}>
+                    <Ionicons name="person-outline" size={24} color="#666" />
+                    <Text style={styles.navLabel}>Perfil</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.navItem} onPress={onLogout}>
+                    <Ionicons name="log-out-outline" size={24} color="#666" />
+                    <Text style={styles.navLabel}>Salir</Text>
+                </TouchableOpacity>
+            </View>
         </View>
     );
 };
@@ -180,7 +282,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F9FAFB',
+        backgroundColor: '#F5F5F5',
     },
     loadingContainer: {
         flex: 1,
@@ -188,179 +290,252 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     header: {
-        backgroundColor: '#004CA3',
-        paddingTop: Platform.OS === 'ios' ? 50 : 30,
+        backgroundColor: '#003E85',
+        paddingTop: Platform.OS === 'ios' ? 50 : 40,
         paddingBottom: 20,
         paddingHorizontal: 20,
+    },
+    headerContent: {
         flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
     },
-    backButton: {
-        marginRight: 12,
+    greeting: {
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
     },
-    headerTitle: {
-        fontSize: 20,
+    userName: {
+        fontSize: 22,
         fontWeight: 'bold',
-        color: '#fff',
-        flex: 1,
+        color: '#FFF',
+    },
+    headerRight: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
+    },
+    notificationButton: {
+        position: 'relative',
+        padding: 8,
+    },
+    badge: {
+        position: 'absolute',
+        top: 4,
+        right: 4,
+        backgroundColor: '#F44336',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    badgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    logo: {
+        width: 40,
+        height: 40,
     },
     content: {
         flex: 1,
         padding: 20,
     },
-    globalCard: {
-        backgroundColor: '#fff',
+    epiCard: {
+        backgroundColor: '#FFF',
         borderRadius: 16,
-        padding: 24,
-        marginBottom: 16,
-        alignItems: 'center',
+        padding: 20,
+        marginBottom: 24,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 4,
+        shadowOpacity: 0.08,
+        shadowRadius: 8,
         elevation: 3,
     },
-    globalTitle: {
-        fontSize: 16,
-        color: '#6B7280',
-        marginBottom: 8,
+    epiCardContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
     },
-    globalScore: {
-        fontSize: 48,
+    epiLabel: {
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#1F2937',
+        color: '#333',
     },
-    globalMax: {
-        fontSize: 24,
-        color: '#9CA3AF',
+    epiDescription: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 4,
     },
-    classificationBadge: {
+    scoreCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#E8F5E9',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    scoreValue: {
+        fontSize: 28,
+        fontWeight: 'bold',
+        color: '#4CAF50',
+    },
+    scoreMax: {
+        fontSize: 12,
+        color: '#4CAF50',
+    },
+    epiFooter: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
-        paddingHorizontal: 16,
-        paddingVertical: 8,
-        borderRadius: 20,
+        justifyContent: 'flex-end',
         marginTop: 16,
+        paddingTop: 16,
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
     },
-    classificationText: {
-        fontSize: 16,
+    epiFooterText: {
+        fontSize: 14,
+        color: '#003E85',
+        fontWeight: '500',
+    },
+    sectionTitle: {
+        fontSize: 18,
         fontWeight: 'bold',
-        color: '#fff',
-    },
-    classificationDesc: {
-        fontSize: 13,
-        color: '#6B7280',
-        textAlign: 'center',
-        marginTop: 12,
-    },
-    progressCard: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 16,
+        color: '#333',
         marginBottom: 16,
     },
-    progressLabel: {
+    sectionHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 16,
+        marginTop: 8,
+    },
+    seeAllText: {
         fontSize: 14,
-        fontWeight: '600',
-        color: '#374151',
+        color: '#003E85',
+        fontWeight: '500',
     },
-    progressPercent: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#004CA3',
-    },
-    progressBar: {
-        height: 8,
-        backgroundColor: '#E5E7EB',
-        borderRadius: 4,
-        overflow: 'hidden',
-    },
-    progressFill: {
-        height: '100%',
-        backgroundColor: '#004CA3',
-        borderRadius: 4,
-    },
-    scoresContainer: {
+    statsGrid: {
         flexDirection: 'row',
         gap: 12,
-        marginBottom: 16,
+        marginBottom: 24,
     },
-    scoreCard: {
+    statCard: {
         flex: 1,
-        backgroundColor: '#fff',
+        backgroundColor: '#FFF',
         borderRadius: 12,
         padding: 16,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
-        shadowRadius: 2,
+        shadowRadius: 4,
         elevation: 2,
     },
-    circularContainer: {
-        alignItems: 'center',
-    },
-    circularProgress: {
-        position: 'relative',
-        alignItems: 'center',
+    statIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
         justifyContent: 'center',
-    },
-    circle: {
-        position: 'absolute',
-    },
-    circleOverlay: {
         alignItems: 'center',
-        justifyContent: 'center',
-    },
-    scoreText: {
-        fontSize: 32,
-        fontWeight: 'bold',
-        color: '#1F2937',
-    },
-    scoreMax: {
-        fontSize: 14,
-        color: '#9CA3AF',
-    },
-    scoreLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#374151',
-        marginTop: 12,
-    },
-    actionsCard: {
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        padding: 20,
-    },
-    actionsTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#1F2937',
         marginBottom: 8,
     },
-    actionsDesc: {
-        fontSize: 13,
-        color: '#6B7280',
-        marginBottom: 16,
+    statValue: {
+        fontSize: 24,
+        fontWeight: 'bold',
+        color: '#333',
     },
-    actionButton: {
+    statLabel: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 4,
+    },
+    invitationCard: {
         flexDirection: 'row',
+        backgroundColor: '#FFF',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 12,
         alignItems: 'center',
-        gap: 12,
-        backgroundColor: '#EFF6FF',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 8,
-        marginBottom: 8,
-        borderWidth: 1,
-        borderColor: '#DBEAFE',
     },
-    actionButtonText: {
-        fontSize: 14,
-        fontWeight: '500',
-        color: '#004CA3',
+    invitationIcon: {
+        width: 48,
+        height: 48,
+        borderRadius: 24,
+        backgroundColor: '#E3F2FD',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 12,
+    },
+    invitationContent: {
         flex: 1,
+    },
+    invitationTitle: {
+        fontSize: 15,
+        fontWeight: '600',
+        color: '#333',
+    },
+    invitationDate: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 4,
+    },
+    emptyState: {
+        alignItems: 'center',
+        paddingVertical: 40,
+    },
+    emptyTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: '#666',
+        marginTop: 16,
+    },
+    emptyText: {
+        fontSize: 14,
+        color: '#999',
+        marginTop: 8,
+        textAlign: 'center',
+    },
+    bottomNav: {
+        flexDirection: 'row',
+        backgroundColor: '#FFF',
+        borderTopWidth: 1,
+        borderTopColor: '#EEE',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+    },
+    navItem: {
+        flex: 1,
+        alignItems: 'center',
+        paddingVertical: 8,
+        position: 'relative',
+    },
+    navLabel: {
+        fontSize: 11,
+        color: '#666',
+        marginTop: 4,
+    },
+    navLabelActive: {
+        color: '#003E85',
+        fontWeight: '600',
+    },
+    navBadge: {
+        position: 'absolute',
+        top: 2,
+        right: '25%',
+        backgroundColor: '#F44336',
+        borderRadius: 8,
+        minWidth: 16,
+        height: 16,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    navBadgeText: {
+        color: '#FFF',
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
 

@@ -76,6 +76,10 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
         switch (status) {
             case 'pending': return 1; // Solicitado OK, Waiting Aprobación
             case 'in_progress': return 2; // Aprobado OK, In Gestión
+            case 'quoting':
+            case 'cotizacion': return 3; // Gestión/Cotizando
+            case 'awarded':
+            case 'adjudicado': return 4; // Ganador seleccionado/Orden
             case 'completed': return 4; // All Done
             case 'rejected': return 1; // Stuck at Aprobación
             default: return 0;
@@ -90,18 +94,31 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
         // Progress ratio across the track (0 to 1)
         const progressRatio = Math.max(0, Math.min((activeStep - 1) / (steps.length - 1), 1));
 
+        let progressColor = '#2196F3';
+        if (status === 'quoting' || status === 'cotizacion') progressColor = '#F59E0B';
+        if (status === 'awarded' || status === 'adjudicado' || status === 'completed') progressColor = '#9C27B0';
+        if (status === 'rejected') progressColor = '#F44336';
+
         return (
             <View style={styles.timelineWrapper}>
                 <View style={styles.timelineContainer}>
-                    <View style={styles.timelineBase} />
-                    <View style={[styles.timelineProgress, { width: `${progressRatio * 100}%` }]} />
+                    <View style={styles.trackWrapper}>
+                        <View style={styles.timelineBase} />
+                        <View style={[styles.timelineProgress, { width: `${progressRatio * 100}%`, backgroundColor: progressColor }]} />
+                    </View>
 
                     {steps.map((step, index) => {
                         const isActive = index < activeStep;
                         const isCurrent = index === activeStep - 1;
 
                         let dotColor = '#E0E0E0';
-                        if (isActive) dotColor = '#2196F3';
+                        let activeColor = '#2196F3'; // Default Blue
+
+                        if (status === 'quoting' || status === 'cotizacion') activeColor = '#F59E0B'; // Orange
+                        if (status === 'awarded' || status === 'adjudicado' || status === 'completed') activeColor = '#9C27B0'; // Purple
+                        if (status === 'rejected') activeColor = '#F44336'; // Red
+
+                        if (isActive) dotColor = activeColor;
                         if (isCurrent && status === 'pending') dotColor = '#FFA726';
                         if (isCurrent && isRejected) dotColor = '#F44336';
 
@@ -133,6 +150,8 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
 
         if (status === 'pending') { label = 'ESPERANDO APROBACIÓN'; color = '#FFA726'; }
         if (status === 'in_progress') { label = 'EN GESTIÓN'; color = '#2196F3'; }
+        if (status === 'quoting' || status === 'cotizacion') { label = 'COTIZANDO'; color = '#F59E0B'; }
+        if (status === 'awarded' || status === 'adjudicado') { label = 'ADJUDICADA'; color = '#9C27B0'; }
         if (status === 'completed') { label = 'LISTO / COMPRA'; color = '#4CAF50'; }
         if (status === 'rejected') { label = 'RECHAZADA'; color = '#F44336'; }
         if (status === 'rectification_required') { label = 'CORRECCIÓN REQUERIDA'; color = '#FF9800'; } // Orange/Warning
@@ -488,23 +507,25 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    timelineBase: {
+    trackWrapper: {
         position: 'absolute',
         top: 18,
         left: 16,
         right: 16,
         height: 4,
-        backgroundColor: '#E0E0E0',
-        borderRadius: 2,
         zIndex: 1,
     },
-    timelineProgress: {
-        position: 'absolute',
-        top: 18,
-        left: 16,
-        height: 4,
-        backgroundColor: '#2196F3',
+    timelineBase: {
+        width: '100%',
+        height: '100%',
+        backgroundColor: '#E0E0E0',
         borderRadius: 2,
+        position: 'absolute',
+    },
+    timelineProgress: {
+        height: '100%',
+        borderRadius: 2,
+        position: 'absolute',
         zIndex: 2,
     },
     timelineLabel: {

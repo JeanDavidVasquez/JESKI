@@ -4,9 +4,9 @@ import { View, StyleSheet } from 'react-native';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { AuthService } from '../services';
-import { LoginScreen, RegisterScreen, RequestsScreen, NewRequestScreen, HistoryScreen, DashboardScreen, SupplierWelcomeScreen, SupplierEvaluationScreen, SupplierCreationScreen, QualityQuestionnaireScreen, SupplyQuestionnaireScreen, PhotoEvidenceScreen, ManagerDashboardScreen, ManagerRequestsScreen, RequestReviewScreen, SupplierDetailScreen, SupplierListScreen, SupplierInviteScreen, SupplierSearchScreen, SupplierTechnicalSheetScreen, AuditScreen, ManagerProfileScreen } from '../screens';
+import { LoginScreen, RegisterScreen, RequestsScreen, NewRequestScreen, HistoryScreen, DashboardScreen, SupplierWelcomeScreen, SupplierEvaluationScreen, SupplierCreationScreen, QualityQuestionnaireScreen, SupplyQuestionnaireScreen, PhotoEvidenceScreen, ManagerDashboardScreen, ManagerRequestsScreen, RequestReviewScreen, SupplierDetailScreen, SupplierListScreen, SupplierInviteScreen, SupplierSearchScreen, SupplierTechnicalSheetScreen, AuditScreen, ManagerProfileScreen, QuotationInviteScreen, ProviderQuotationsScreen, QuotationFormScreen, QuotationCompareScreen, NotificationsScreen, PurchaseOrderScreen } from '../screens';
 import { EPIConfigScreen } from '../screens/EPIConfigScreen';
-import { EPIPendingListScreen } from '../screens/EPIPendingListScreen'; // NEW
+import { EPIPendingListScreen } from '../screens/EPIPendingListScreen';
 import { EPIAuditScreen } from '../screens/EPIAuditScreen';
 import { UserManagementScreen } from '../screens/UserManagementScreen';
 import { RequestDetailScreen } from '../screens/RequestDetailScreen';
@@ -16,6 +16,8 @@ import { SolicitanteHistoryScreen } from '../screens/SolicitanteHistoryScreen';
 import { SolicitanteProfileScreen } from '../screens/SolicitanteProfileScreen';
 import { User, UserRole, Request } from '../types';
 import TermsConditionsScreen from '../screens/TermsConditionsScreen';
+import { SupplierDashboardScreen } from '../screens/SupplierDashboardScreen';
+import { SupplierProfileScreen } from '../screens/SupplierProfileScreen';
 
 export type Screen =
   | 'Login'
@@ -50,8 +52,19 @@ export type Screen =
   | 'ManagerSuppliers'
   | 'PendingApproval'
   | 'ValidateRequest'
-  | 'EPIPendingList' // NEW
-  | 'EPIAudit'; // NEW
+  | 'EPIPendingList'
+  | 'EPIAudit'
+  | 'QuotationInvite'
+  | 'ProviderQuotations'
+  | 'QuotationForm'
+  | 'QuotationCompare'
+  | 'Notifications'
+  | 'SupplierDashboard'
+  | 'QuotationCompare'
+  | 'Notifications'
+  | 'SupplierDashboard'
+  | 'SupplierProfile'
+  | 'PurchaseOrder';
 
 /**
  * Navegación temporal simple con manejo de roles
@@ -67,9 +80,15 @@ export const SimpleNavigator: React.FC = () => {
   const [previousScreen, setPreviousScreen] = useState<Screen | null>(null);
   const [editingRequest, setEditingRequest] = useState<Request | null>(null);
 
-  // NEW: EPI Audit states
+  // EPI Audit states
   const [submissionId, setSubmissionId] = useState<string | null>(null);
   const [auditSupplierId, setAuditSupplierId] = useState<string | null>(null);
+
+  // Quotation states
+  const [quotationInvitationId, setQuotationInvitationId] = useState<string | null>(null);
+  const [quotationRequestId, setQuotationRequestId] = useState<string | null>(null);
+  const [selectedSupplierIdsForInvite, setSelectedSupplierIdsForInvite] = useState<string[]>([]);
+  const [purchaseOrderData, setPurchaseOrderData] = useState<{ requestId: string, quotationId: string } | null>(null);
 
   // Estado para mostrar términos tras responsable EPI
   const [showTerms, setShowTerms] = useState(false);
@@ -232,6 +251,35 @@ export const SimpleNavigator: React.FC = () => {
     setCurrentScreen('EPIAudit');
   };
 
+  // Quotation navigation handlers
+  const navigateToQuotationInvite = (requestId: string) => {
+    setQuotationRequestId(requestId);
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('QuotationInvite');
+  };
+
+  const navigateToQuotationCompare = (requestId: string) => {
+    setQuotationRequestId(requestId);
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('QuotationCompare');
+  };
+
+  const navigateToProviderQuotations = () => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('ProviderQuotations');
+  };
+
+  const navigateToNotifications = () => {
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('Notifications');
+  };
+
+  const navigateToPurchaseOrder = (requestId: string, quotationId: string) => {
+    setPurchaseOrderData({ requestId, quotationId });
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('PurchaseOrder');
+  };
+
   const handleNavigateToRequestDetail = (requestId: string) => {
     setSelectedRequestId(requestId);
     setCurrentScreen('RequestDetail');
@@ -245,7 +293,13 @@ export const SimpleNavigator: React.FC = () => {
     const role = (user.role || '').toLowerCase();
 
     if (role === 'proveedor') {
-      setCurrentScreen('SupplierWelcome');
+      // Verificar si completó EPI
+      const hasCompletedEPI = user.supplierStatus === 'epi_approved' || user.supplierStatus === 'active';
+      if (hasCompletedEPI) {
+        setCurrentScreen('SupplierDashboard');
+      } else {
+        setCurrentScreen('SupplierWelcome');
+      }
       return;
     }
 
@@ -419,13 +473,40 @@ export const SimpleNavigator: React.FC = () => {
           />
         );
 
-      case 'SupplierWelcome':
-        return showTerms ? (
-          <TermsConditionsScreen onAccept={handleAcceptTerms} onReject={handleRejectTerms} />
-        ) : (
-          <SupplierWelcomeScreen
-            onContinueToEvaluation={handleContinueSupplierWelcome}
+      case 'SupplierDashboard':
+        return (
+          <SupplierDashboardScreen
+            onNavigateToQuotations={navigateToProviderQuotations}
+            onNavigateToProfile={() => setCurrentScreen('SupplierProfile')}
+            onNavigateToNotifications={navigateToNotifications}
+            onNavigateToEPIStatus={() => setCurrentScreen('SupplierEvaluation')}
+            onLogout={handleLogout}
+            user={currentUser}
           />
+        );
+
+      case 'SupplierProfile':
+        return (
+          <SupplierProfileScreen
+            onNavigateBack={() => setCurrentScreen('SupplierDashboard')}
+            onNavigateToEPIStatus={() => setCurrentScreen('SupplierEvaluation')}
+            onLogout={handleLogout}
+          />
+        );
+
+      case 'SupplierWelcome':
+        return (
+          <>
+            <SupplierWelcomeScreen
+              onContinueToEvaluation={handleContinueSupplierWelcome}
+            />
+            <TermsConditionsScreen
+              visible={showTerms}
+              mandatory={true}
+              onAccept={handleAcceptTerms}
+              onReject={handleRejectTerms}
+            />
+          </>
         );
       case 'SupplierEvaluation':
         return (
@@ -435,6 +516,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToQuestionnaireQuality={navigateToQualityQuestionnaire}
             onNavigateToQuestionnaireSupply={navigateToSupplyQuestionnaire}
             onNavigateToPhotoEvidence={navigateToPhotoEvidence}
+            onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
             onSignOut={handleLogout}
             user={currentUser}
           />
@@ -508,7 +590,7 @@ export const SimpleNavigator: React.FC = () => {
             onApproved={() => {
               setSubmissionId(null);
               setAuditSupplierId(null);
-              setCurrentScreen('EPIPendingList');
+              setCurrentScreen('ManagerDashboard');
             }}
           />
         );
@@ -526,7 +608,12 @@ export const SimpleNavigator: React.FC = () => {
               setCurrentScreen('SupplierSearch');
             }}
             onNavigateToUserManagement={navigateToUserManagement}
-            onNavigateToEPIPendingList={navigateToEPIPendingList} // NEW
+            onNavigateToEPIPendingList={navigateToEPIPendingList}
+            onNavigateToQuotationCompare={(requestId: string) => {
+              setQuotationRequestId(requestId);
+              setPreviousScreen('ManagerDashboard');
+              setCurrentScreen('QuotationCompare');
+            }}
           />
         );
       case 'ManagerRequests':
@@ -542,7 +629,28 @@ export const SimpleNavigator: React.FC = () => {
             }}
             onNavigateToReview={navigateToRequestReview}
             onNavigateToProfile={navigateToManagerProfile}
+            onNavigateToQuotationCompare={(requestId: string) => {
+              setQuotationRequestId(requestId);
+              setPreviousScreen('ManagerRequests');
+              setCurrentScreen('QuotationCompare');
+            }}
             initialFilter={requestsFilter}
+
+          />
+        );
+      case 'PurchaseOrder':
+        return (
+          <PurchaseOrderScreen
+            requestId={purchaseOrderData?.requestId || ''}
+            quotationId={purchaseOrderData?.quotationId || ''}
+            onBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('QuotationCompare');
+              }
+            }}
           />
         );
       case 'RequestReview':
@@ -617,7 +725,12 @@ export const SimpleNavigator: React.FC = () => {
               // This way, RequestReview can still go back to the original screen (Dashboard/Requests)
               setCurrentScreen('RequestReview');
             }}
-            onContinueToQuotation={() => console.log('Continuar a cotización')}
+            onContinueToQuotation={(selectedIds) => {
+              setSelectedSupplierIdsForInvite(selectedIds);
+              setQuotationRequestId(reviewRequestId);
+              setPreviousScreen('SupplierSearch');
+              setCurrentScreen('QuotationInvite');
+            }}
             onNavigateToDetail={navigateToSupplierDetail}
             onNavigateToInvite={navigateToSupplierInvite}
           />
@@ -744,6 +857,100 @@ export const SimpleNavigator: React.FC = () => {
                 setPreviousScreen(null);
               } else {
                 setCurrentScreen('ManagerDashboard');
+              }
+            }}
+          />
+        );
+      case 'QuotationInvite':
+        return (
+          <QuotationInviteScreen
+            requestId={quotationRequestId || ''}
+            gestorId={currentUser?.id || ''}
+            initialSelectedSuppliers={selectedSupplierIdsForInvite}
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerDashboard');
+              }
+            }}
+            onSuccess={() => {
+              setQuotationRequestId(null);
+              setSelectedSupplierIdsForInvite([]);
+              setCurrentScreen('ManagerDashboard');
+            }}
+          />
+        );
+      case 'ProviderQuotations':
+        return (
+          <ProviderQuotationsScreen
+            supplierId={currentUser?.id || ''}
+            onNavigateBack={() => setCurrentScreen('SupplierDashboard')}
+            onNavigateToQuotationForm={(invitationId, requestId) => {
+              setQuotationInvitationId(invitationId);
+              setQuotationRequestId(requestId);
+              setCurrentScreen('QuotationForm');
+            }}
+          />
+        );
+      case 'QuotationForm':
+        return (
+          <QuotationFormScreen
+            invitationId={quotationInvitationId || ''}
+            requestId={quotationRequestId || ''}
+            supplierId={currentUser?.id || ''}
+            supplierName={currentUser?.companyName || currentUser?.firstName || ''}
+            onNavigateBack={() => setCurrentScreen('ProviderQuotations')}
+            onSuccess={() => {
+              setQuotationInvitationId(null);
+              setQuotationRequestId(null);
+              setCurrentScreen('ProviderQuotations');
+            }}
+            onNavigateToPurchaseOrder={navigateToPurchaseOrder}
+          />
+        );
+      case 'QuotationCompare':
+        return (
+          <QuotationCompareScreen
+            requestId={quotationRequestId || ''}
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerDashboard');
+              }
+            }}
+            onSuccess={() => {
+              setQuotationRequestId(null);
+              setCurrentScreen('ManagerDashboard');
+            }}
+            onNavigateToPurchaseOrder={navigateToPurchaseOrder}
+          />
+        );
+      case 'Notifications':
+        return (
+          <NotificationsScreen
+            userId={currentUser?.id || ''}
+            onNavigateBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else if (currentUser?.role === UserRole.PROVEEDOR) {
+                setCurrentScreen('SupplierWelcome');
+              } else if (currentUser?.role === UserRole.GESTOR) {
+                setCurrentScreen('ManagerDashboard');
+              } else {
+                setCurrentScreen('SolicitanteDashboard');
+              }
+            }}
+            onNavigateToRequest={(requestId) => {
+              setQuotationRequestId(requestId);
+              if (currentUser?.role === UserRole.PROVEEDOR) {
+                setCurrentScreen('ProviderQuotations');
+              } else {
+                setCurrentScreen('QuotationCompare');
               }
             }}
           />

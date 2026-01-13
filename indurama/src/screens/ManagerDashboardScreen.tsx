@@ -29,7 +29,7 @@ interface RequestData {
   title: string;
   description: string;
   time: string;
-  type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda';
+  type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada';
   user?: string;
   department?: string;
   userAvatar?: string;
@@ -55,7 +55,8 @@ interface ManagerDashboardScreenProps {
   onNavigateToValidateRequest?: (requestId: string) => void;
   onNavigateToSearch?: (requestId: string) => void;
   onNavigateToUserManagement?: () => void;
-  onNavigateToEPIPendingList?: () => void; // NEW
+  onNavigateToEPIPendingList?: () => void;
+  onNavigateToQuotationCompare?: (requestId: string) => void;
 }
 
 const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
@@ -66,7 +67,8 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   onNavigateToValidateRequest,
   onNavigateToSearch,
   onNavigateToUserManagement,
-  onNavigateToEPIPendingList // NEW
+  onNavigateToEPIPendingList,
+  onNavigateToQuotationCompare
 }) => {
   const { user } = useAuth();
   const [stats, setStats] = useState<DashboardStats>({
@@ -101,12 +103,18 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
       const recent = await getRecentRequests(5);
       const mappedRecent = recent.map(r => {
         // Map priority/status to dashboard 'type'
-        let type: 'nueva' | 'urgente' | 'cotizacion' = 'nueva';
+        let type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada' = 'nueva';
 
         if (r.priority === RequestPriority.HIGH || r.priority === RequestPriority.URGENT) {
           type = 'urgente';
+        } else if (r.status === RequestStatus.QUOTING) {
+          type = 'cotizacion';
+        } else if (r.status === RequestStatus.AWARDED) {
+          type = 'adjudicada';
+        } else if (r.status === RequestStatus.COMPLETED) {
+          type = 'finalizada';
         } else if (r.status === RequestStatus.IN_PROGRESS) {
-          type = 'busqueda' as any;
+          type = 'busqueda';
         } else if (r.status === RequestStatus.PENDING) {
           type = 'nueva';
         }
@@ -230,7 +238,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   };
 
   // Función para obtener el color del badge según el tipo
-  const getBadgeColor = (type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda') => {
+  const getBadgeColor = (type: string) => {
     switch (type) {
       case 'nueva':
         return '#3B82F6';
@@ -240,13 +248,17 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         return '#F59E0B';
       case 'busqueda':
         return '#10B981'; // Green for search
+      case 'adjudicada':
+        return '#8B5CF6'; // Purple for awarded
+      case 'finalizada':
+        return '#6B7280'; // Gray for completed
       default:
         return '#999999';
     }
   };
 
   // Función para obtener el texto del badge
-  const getBadgeText = (type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda') => {
+  const getBadgeText = (type: string) => {
     switch (type) {
       case 'nueva':
         return 'NUEVA';
@@ -256,6 +268,10 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         return 'COTIZACION';
       case 'busqueda':
         return 'BÚSQUEDA';
+      case 'adjudicada':
+        return 'ADJUDICADA';
+      case 'finalizada':
+        return 'FINALIZADA';
       default:
         return '';
     }
@@ -351,14 +367,21 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
                   <View
                     style={[
                       styles.progressFill,
-                      { width: `${request.progress}%` }
+                      { width: `75%`, backgroundColor: '#F59E0B' }
                     ]}
                   />
                 </View>
-                <Text style={styles.progressText}>
-                  {request.progressCount}
+                <Text style={[styles.progressText, { color: '#F59E0B', fontWeight: 'bold' }]}>
+                  Cotizando
                 </Text>
               </View>
+              {/* Action Button for Quotation Phase */}
+              <TouchableOpacity
+                style={[styles.validateButton, { backgroundColor: '#F59E0B', marginTop: 10 }]}
+                onPress={() => onNavigateToQuotationCompare && onNavigateToQuotationCompare(request.id)}
+              >
+                <Text style={styles.validateButtonText}>Ver Cotizaciones</Text>
+              </TouchableOpacity>
             </View>
           </>
         )}
@@ -401,17 +424,51 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
           </>
         )}
 
-        {request.type === 'nueva' && request.action && (
-          <View style={styles.actionButtonContainer}>
-            <TouchableOpacity
-              style={styles.validateButton}
-              onPress={() => onNavigateToValidateRequest && onNavigateToValidateRequest(request.id)}
-            >
-              <Text style={styles.validateButtonText}>{request.action}</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-      </TouchableOpacity>
+        {(request.type === 'adjudicada' || request.type === 'finalizada') && (
+          <>
+            <View style={styles.userInfoRow}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>{request.userAvatar}</Text>
+              </View>
+              <View>
+                <Text style={styles.requestUser}>{request.user}</Text>
+                <Text style={styles.requestDepartment}>• {request.department}</Text>
+              </View>
+            </View>
+
+            <View style={styles.progressSection}>
+              <Text style={styles.progressLabel}>{request.description}</Text>
+              <View style={styles.progressRow}>
+                <View style={styles.progressBarContainer}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: '100%', backgroundColor: request.type === 'adjudicada' ? '#8B5CF6' : '#6B7280' }
+                    ]}
+                  />
+                </View>
+                <Text style={[styles.progressText, { color: request.type === 'adjudicada' ? '#8B5CF6' : '#6B7280', fontWeight: 'bold' }]}>
+                  {request.type === 'adjudicada' ? 'Adjudicada' : 'Finalizada'}
+                </Text>
+              </View>
+            </View>
+          </>
+        )
+        }
+
+        {
+          request.type === 'nueva' && request.action && (
+            <View style={styles.actionButtonContainer}>
+              <TouchableOpacity
+                style={styles.validateButton}
+                onPress={() => onNavigateToValidateRequest && onNavigateToValidateRequest(request.id)}
+              >
+                <Text style={styles.validateButtonText}>{request.action}</Text>
+              </TouchableOpacity>
+            </View>
+          )
+        }
+      </TouchableOpacity >
     );
   };
 

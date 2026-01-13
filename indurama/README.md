@@ -16,7 +16,9 @@ Aplicación móvil para la gestión de proveedores de Indurama.
     Esto solucionará los errores de configuración de TypeScript.
 
 2.  **Configurar Variables de Entorno**:
-    Asegúrate de que `src/services/firebaseConfig.ts` tenga las credenciales correctas.
+    *   Duplica el archivo `.env.example` y renómbralo a `.env`.
+    *   Solicita las claves de API al administrador del proyecto y agrégalas en el archivo `.env`.
+    *   **Nota:** El archivo `.env` nunca debe subirse al repositorio.
 
 ## Ejecución
 

@@ -106,6 +106,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     requiredTags: [] as string[],
     customRequiredTags: [] as string[],
     industry: '',
+    deliveryLocationSuggestion: '',
   });
 
   // Populate form if editing
@@ -123,6 +124,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         requiredTags: initialRequest.requiredTags || [],
         customRequiredTags: initialRequest.customRequiredTags || [],
         industry: initialRequest.industry || '',
+        deliveryLocationSuggestion: initialRequest.deliveryLocationSuggestion || '',
       });
       // Load existing documents
       if (initialRequest.documents) {
@@ -241,6 +243,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         requiredTags: formData.requiredTags,
         customRequiredTags: formData.customRequiredTags,
         industry: formData.industry,
+        // Location
+        deliveryLocationSuggestion: formData.deliveryLocationSuggestion,
         // Add documents
         documents: uploadedDocuments,
         status: 'pending',
@@ -443,6 +447,17 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         <View style={styles.formGroup}>
           <Text style={styles.label}>Sugerencia de Proveedor</Text>
           <TextInput style={styles.textInput} placeholder="Ingresar Sugerencia de Proveedor" placeholderTextColor="#999" value={formData.supplierSuggestion} onChangeText={(text) => setFormData({ ...formData, supplierSuggestion: text })} />
+        </View>
+
+        <View style={styles.formGroup}>
+          <Text style={styles.label}>Ubicación Sugerida de Entrega</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: Planta 2, Bodega Central, Oficina Quito..."
+            placeholderTextColor="#999"
+            value={formData.deliveryLocationSuggestion}
+            onChangeText={(text) => setFormData({ ...formData, deliveryLocationSuggestion: text })}
+          />
         </View>
 
         {/* Supplier Search Criteria Section - NEW */}

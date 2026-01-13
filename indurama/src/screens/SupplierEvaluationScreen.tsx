@@ -35,6 +35,7 @@ interface SupplierEvaluationScreenProps {
   onNavigateToPhotoEvidence?: () => void;
   taskCompletedFromCreation?: boolean;
   onSignOut?: () => void;
+  onNavigateToDashboard?: () => void;
   user?: any; // NEW: Accept user as prop
 }
 
@@ -49,6 +50,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   onNavigateToPhotoEvidence,
   taskCompletedFromCreation,
   onSignOut,
+  onNavigateToDashboard,
   user: userProp
 }) => {
   console.log('Rendering SupplierEvaluationScreen');
@@ -460,6 +462,14 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
               <Text style={styles.submittedSubtext}>
                 Tu evaluación está siendo revisada por el gestor
               </Text>
+
+              <TouchableOpacity
+                style={styles.dashboardButton}
+                onPress={onNavigateToDashboard}
+              >
+                <Text style={styles.dashboardButtonText}>Ir al Dashboard</Text>
+                <Text style={styles.dashboardButtonIcon}>→</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
@@ -1054,6 +1064,28 @@ const styles = StyleSheet.create({
         elevation: 0,
       },
     }),
+  },
+  dashboardButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#003E85',
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    borderRadius: 8,
+    marginTop: 16,
+    alignSelf: 'center',
+  },
+  dashboardButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    marginRight: 8,
+  },
+  dashboardButtonIcon: {
+    color: '#FFFFFF',
+    fontSize: 20,
+    fontWeight: 'bold',
   },
   submitButtonText: {
     color: '#FFFFFF',

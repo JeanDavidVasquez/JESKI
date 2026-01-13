@@ -286,9 +286,9 @@ export const getUserRequestStats = async (userId: string): Promise<{
             const status = req.status;
             if (status === RequestStatus.PENDING || status === RequestStatus.RECTIFICATION_REQUIRED) {
                 stats.pending++;
-            } else if (status === RequestStatus.IN_PROGRESS) {
+            } else if (status === RequestStatus.IN_PROGRESS || status === RequestStatus.QUOTING || (status as string) === 'cotizacion') {
                 stats.inProgress++;
-            } else if (status === RequestStatus.COMPLETED) {
+            } else if (status === RequestStatus.COMPLETED || status === RequestStatus.AWARDED || (status as string) === 'adjudicado') {
                 stats.completed++;
             } else if (status === RequestStatus.REJECTED) {
                 stats.rejected++;

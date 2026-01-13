@@ -5,15 +5,23 @@ import { Ionicons } from '@expo/vector-icons';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { Request, RequestStatus } from '../types';
+
 import { getRelativeTime } from '../services/requestService';
+import { theme } from '../styles/theme';
 
 interface RequestDetailScreenProps {
   requestId: string;
   onBack: () => void;
-  onNavigateToEdit?: (request: Request) => void; // New prop for editing
+  onNavigateToEdit?: (request: Request) => void;
+  onNavigateToPurchaseOrder?: (requestId: string, quotationId: string) => void;
 }
 
-export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ requestId, onBack, onNavigateToEdit }) => {
+export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
+  requestId,
+  onBack,
+  onNavigateToEdit,
+  onNavigateToPurchaseOrder
+}) => {
   const [request, setRequest] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -104,6 +112,24 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
       icon: 'close-circle-outline',
       active: true
     });
+  } else if (request.status === RequestStatus.QUOTING || (request.status as string) === 'cotizacion') {
+    timelineEvents.push({
+      title: 'En Cotización',
+      user: 'Proveedores Invitados',
+      role: 'Proceso',
+      date: (request as any).quotationStartedAt || request.updatedAt,
+      icon: 'pricetags-outline',
+      active: true
+    });
+  } else if (request.status === RequestStatus.AWARDED || (request.status as string) === 'adjudicado') {
+    timelineEvents.push({
+      title: 'Adjudicada',
+      user: 'Gestor de Compras',
+      role: 'Gestor',
+      date: (request as any).adjudicatedAt || request.updatedAt,
+      icon: 'ribbon-outline',
+      active: true
+    });
   } else if (request.status === RequestStatus.RECTIFICATION_REQUIRED) {
     timelineEvents.push({
       title: 'Corrección Requerida',
@@ -146,7 +172,21 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
         />
       </View>
 
+
+
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+
+        {/* Action Buttons for View/Print Order */}
+        {request.status === 'awarded' && request.winnerQuotationId && onNavigateToPurchaseOrder && (
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: theme.colors.primary, marginBottom: 16 }]}
+            onPress={() => onNavigateToPurchaseOrder(request.id, request.winnerQuotationId!)}
+          >
+            <Ionicons name="document-text-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+            <Text style={styles.actionButtonText}>Ver Orden de Compra</Text>
+          </TouchableOpacity>
+        )}
+
         <Text style={styles.mainTitle} numberOfLines={2}>
           {request.description}
         </Text>
@@ -317,7 +357,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({ reques
 
         <View style={{ height: 40 }} />
       </ScrollView>
-    </View>
+    </View >
   );
 };
 
@@ -541,5 +581,18 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
     padding: 10,
     borderRadius: 8
+  },
+  actionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+  },
+  actionButtonText: {
+    color: '#FFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   }
 });

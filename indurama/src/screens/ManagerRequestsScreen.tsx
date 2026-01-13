@@ -26,6 +26,7 @@ interface ManagerRequestsScreenProps {
   onNavigateToSearch?: (requestId: string) => void;
   onNavigateToReview?: (requestId: string) => void;
   onNavigateToProfile?: () => void;
+  onNavigateToQuotationCompare?: (requestId: string) => void;
   initialFilter?: 'all' | 'pending' | 'completed';
 }
 
@@ -35,6 +36,7 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
   onNavigateToReview,
   onNavigateToSearch,
   onNavigateToProfile,
+  onNavigateToQuotationCompare,
   initialFilter = 'pending'
 }) => {
   const [searchText, setSearchText] = useState('');
@@ -73,10 +75,16 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
 
       // Filter
       switch (currentFilter) {
-        case 'pending': // Shows Pending and In Progress
-          return request.status === RequestStatus.PENDING || request.status === RequestStatus.IN_PROGRESS;
-        case 'completed': // Shows Completed and Rejected
-          return request.status === RequestStatus.COMPLETED || request.status === RequestStatus.REJECTED;
+        case 'pending': // Shows Pending, In Progress, and Quoting
+          return request.status === RequestStatus.PENDING ||
+            request.status === RequestStatus.IN_PROGRESS ||
+            request.status === RequestStatus.QUOTING ||
+            (request.status as string) === 'cotizacion'; // Legacy support
+        case 'completed': // Shows Completed, Rejected, and Awarded
+          return request.status === RequestStatus.COMPLETED ||
+            request.status === RequestStatus.REJECTED ||
+            request.status === RequestStatus.AWARDED ||
+            (request.status as string) === 'adjudicado'; // Legacy support
         default:
           return true;
       }
@@ -150,11 +158,20 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
         <TouchableOpacity
           style={[
             styles.actionButton,
-            // Change button color/text based on status if desired
-            (request.status === RequestStatus.IN_PROGRESS) && { backgroundColor: '#10B981' }
+            (request.status === RequestStatus.IN_PROGRESS) && { backgroundColor: '#10B981' },
+            (request.status === RequestStatus.QUOTING || (request.status as string) === 'cotizacion') && { backgroundColor: '#F59E0B' },
+            (request.status === RequestStatus.AWARDED || (request.status as string) === 'adjudicado') && { backgroundColor: '#8B5CF6' }
           ]}
           onPress={() => {
-            if (request.status === RequestStatus.IN_PROGRESS && onNavigateToSearch) {
+            if (
+              (request.status === RequestStatus.QUOTING ||
+                (request.status as string) === 'cotizacion' ||
+                request.status === RequestStatus.AWARDED ||
+                (request.status as string) === 'adjudicado') &&
+              onNavigateToQuotationCompare
+            ) {
+              onNavigateToQuotationCompare(request.id);
+            } else if (request.status === RequestStatus.IN_PROGRESS && onNavigateToSearch) {
               onNavigateToSearch(request.id);
             } else {
               onNavigateToReview && onNavigateToReview(request.id);
@@ -162,7 +179,13 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
           }}
         >
           <Text style={styles.actionButtonText}>
-            {request.status === RequestStatus.IN_PROGRESS ? 'Gestionar Proveedores' : 'Revisar y Decidir'}
+            {(request.status === RequestStatus.QUOTING || (request.status as string) === 'cotizacion')
+              ? 'Ver Cotizaciones'
+              : request.status === RequestStatus.IN_PROGRESS
+                ? 'Gestionar Proveedores'
+                : (request.status === RequestStatus.AWARDED || (request.status as string) === 'adjudicado')
+                  ? 'Ver Resumen'
+                  : 'Revisar y Decidir'}
           </Text>
         </TouchableOpacity>
       </View>

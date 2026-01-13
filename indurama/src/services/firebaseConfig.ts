@@ -4,6 +4,15 @@ import * as firebaseAuth from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import {
+  API_KEY,
+  AUTH_DOMAIN,
+  PROJECT_ID,
+  STORAGE_BUCKET,
+  MESSAGING_SENDER_ID,
+  APP_ID,
+  MEASUREMENT_ID
+} from '@env';
 
 /**
  * Configuración de Firebase para la aplicación Indurama
@@ -11,13 +20,13 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
  */
 
 const firebaseConfig = {
-  apiKey: "AIzaSyB7VxftGmsUaS42d1T9YRYDgSU3SOOhjrY",
-  authDomain: "indurama-aadc3.firebaseapp.com",
-  projectId: "indurama-aadc3",
-  storageBucket: "indurama-aadc3.firebasestorage.app",
-  messagingSenderId: "994674499679",
-  appId: "1:994674499679:web:e342aaf59903f817977bea",
-  measurementId: "G-8R2GRQ6901"
+  apiKey: API_KEY,
+  authDomain: AUTH_DOMAIN,
+  projectId: PROJECT_ID,
+  storageBucket: STORAGE_BUCKET,
+  messagingSenderId: MESSAGING_SENDER_ID,
+  appId: APP_ID,
+  measurementId: MEASUREMENT_ID
 };
 
 // Inicializar Firebase (solo una vez)

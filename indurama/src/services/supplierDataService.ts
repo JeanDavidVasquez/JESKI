@@ -347,6 +347,7 @@ export interface SupplierSummary {
     phone?: string;
     status?: string;
     certifications?: string[];
+    productCategories?: string[]; // Added to support category display
 }
 
 export const getSuppliersList = async (): Promise<SupplierSummary[]> => {
@@ -404,6 +405,7 @@ export const getSuppliersList = async (): Promise<SupplierSummary[]> => {
                 score: Math.round((submission.calculatedScore ?? submission.globalScore ?? 0) as number),
                 phone: profileData?.centralPhone || userData.phone || '',
                 certifications: userData.certifications || [], // From user data
+                productCategories: userData.productCategories || [], // Map from user data
                 status: undefined
             };
         });

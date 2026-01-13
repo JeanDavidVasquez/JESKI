@@ -98,7 +98,7 @@ export interface EPISubmission {
   id: string;
   supplierId: string;
 
-  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'revision_requested';
+  status: 'draft' | 'submitted' | 'under_review' | 'approved' | 'revision_requested' | 'quoting' | 'awarded';
 
   // Snapshot de respuestas al momento del envío
   qualityResponses: any[]; // Array de respuestas de calidad
@@ -324,6 +324,8 @@ export interface DashboardStats {
 export enum RequestStatus {
   PENDING = 'pending',
   IN_PROGRESS = 'in_progress',
+  QUOTING = 'quoting',
+  AWARDED = 'awarded',
   COMPLETED = 'completed',
   REJECTED = 'rejected',
   // Legacy values (mantener para compatibilidad)
@@ -407,6 +409,10 @@ export interface Request extends BaseEntity {
 
   // Custom search criteria - NEW
   customRequiredTags?: string[]; // Tags personalizados de búsqueda
+
+  // Location
+  deliveryLocationSuggestion?: string; // Ubicación sugerida por el solicitante
+  winnerQuotationId?: string; // ID de cotización ganadora
 }
 
 /**
@@ -432,4 +438,128 @@ export interface RequestTimelineEvent {
   createdBy: string; // ID del usuario
   createdAt: Date;
   metadata?: Record<string, any>; // Datos adicionales del evento
+}
+
+// ============================================
+// QUOTATION SYSTEM TYPES
+// ============================================
+
+/**
+ * Estados de invitación a cotizar
+ */
+export type QuotationInvitationStatus = 'pending' | 'viewed' | 'quoted' | 'declined' | 'expired';
+
+/**
+ * Interface Invitación a Cotizar
+ */
+export interface QuotationInvitation {
+  id: string;
+  requestId: string;
+  supplierId: string;
+  gestorId: string;
+  status: QuotationInvitationStatus;
+  message?: string;
+  dueDate: any; // Timestamp
+  createdAt: any; // Timestamp
+  viewedAt?: any; // Timestamp
+  quotationId?: string;
+  deliveryAddress?: string; // Dirección de entrega oficial para cotizar
+}
+
+/**
+ * Estados de cotización
+ */
+export type QuotationStatus = 'submitted' | 'selected' | 'rejected' | 'cancelled';
+
+/**
+ * Comentarios / Q&A dentro de una cotización
+ */
+export interface QuotationComment {
+  id: string;
+  requestId: string;
+  quotationId?: string; // Opcional: si es específico de una oferta
+  supplierId: string;   // Contexto de la conversación (quién es el proveedor involucrado)
+  authorId: string;
+  authorName: string;
+  authorRole: 'gestor' | 'proveedor';
+  message: string;
+  createdAt: any; // Timestamp
+  read: boolean;
+}
+
+/**
+ * Cotización/Oferta enviada por un proveedor
+ */
+export interface Quotation {
+  id: string;
+  invitationId: string;        // Referencia a la invitación
+  requestId: string;           // Solicitud original
+  supplierId: string;          // Proveedor que cotiza
+  supplierName?: string;       // Nombre del proveedor (denormalizado)
+
+  // Datos de la oferta
+  totalAmount: number;
+  currency: 'USD' | 'EUR';
+  deliveryDays: number;        // Días de entrega
+  paymentTerms: string;        // "30 días", "Contado", etc.
+  validUntil: any;             // Vigencia de la oferta (Firestore Timestamp)
+  notes?: string;              // Observaciones
+  attachments?: string[];      // URLs de archivos adjuntos
+
+  // Estado
+  status: QuotationStatus;
+  isWinner: boolean;
+
+  // Ranking calculado
+  rankingScore?: number;       // Puntaje de ranking (0-100)
+
+  // Tracking
+  submittedAt: any;
+  selectedAt?: any;
+}
+
+/**
+ * Comentario en una cotización
+ */
+export interface QuotationComment {
+  id: string;
+  quotationId?: string;
+  invitationId?: string;
+  requestId: string;
+  authorId: string;
+  authorName: string;
+  authorRole: 'gestor' | 'proveedor';
+  message: string;
+  createdAt: any;
+}
+
+// ============================================
+// NOTIFICATION SYSTEM TYPES
+// ============================================
+
+/**
+ * Tipos de notificación
+ */
+export type NotificationType =
+  | 'quotation_invitation'      // Proveedor recibe invitación a cotizar
+  | 'quotation_received'        // Gestor recibe cotización
+  | 'quotation_winner'          // Proveedor ganó
+  | 'quotation_not_selected'    // Proveedor no fue seleccionado
+  | 'request_status_change'     // Cambio de estado de solicitud
+  | 'supplier_selected'         // Notificar al solicitante que se eligió proveedor
+  | 'comment_received';         // Nuevo comentario
+
+/**
+ * Notificación in-app
+ */
+export interface AppNotification {
+  id: string;
+  userId: string;              // Destinatario
+  type: NotificationType;
+  title: string;
+  message: string;
+  relatedId?: string;          // ID de solicitud/cotización relacionada
+  relatedType?: 'request' | 'quotation' | 'invitation';
+  read: boolean;
+  createdAt: any;
 }

@@ -4,6 +4,7 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
+  Pressable,
   Text,
   Dimensions,
   Platform,
@@ -109,8 +110,22 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
         if (evalDoc.exists()) {
           const data = evalDoc.data();
-          if (data.photoEvidence && data.photoEvidence.length > 0) {
-            // Mark all as completed if evidence exists
+
+          // Load saved category photos if available
+          if (data.photoEvidenceByCategory) {
+            setCategoryPhotos(data.photoEvidenceByCategory);
+
+            // Update categories with actual photo counts
+            setCategories(prev => prev.map(cat => {
+              const photos = data.photoEvidenceByCategory[cat.id] || [];
+              return {
+                ...cat,
+                photosCount: photos.length,
+                status: photos.length > 0 ? 'completed' : 'pending'
+              };
+            }));
+          } else if (data.photoEvidence && data.photoEvidence.length > 0) {
+            // Backward compatibility: if only old format exists
             setCategories(prev => prev.map(cat => ({
               ...cat,
               status: 'completed',
@@ -124,7 +139,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
     };
 
     loadEvidenceData();
-  }, [user?.id]);
+  }, [supplierId]);
 
   const handleGoBack = () => {
     if (onNavigateBack) {
@@ -142,14 +157,30 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   };
 
   const handleAccept = async () => {
-    if (!user?.id) {
-      Alert.alert('Error', 'No se pudo identificar el usuario');
+    console.log('=== DEBUG handleAccept START ===');
+    console.log('User:', user);
+    console.log('Supplier ID resolved:', supplierId);
+    console.log('Category Photos:', categoryPhotos);
+
+    if (!supplierId) {
+      console.error('❌ Error: No supplier ID found');
+      if (Platform.OS === 'web') {
+        window.alert('Error: No se pudo identificar el usuario (ID no encontrado).');
+      } else {
+        Alert.alert('Error', 'No se pudo identificar el usuario');
+      }
       return;
     }
 
-    // Check if at least one photo uploaded per category
-    const hasAllPhotos = categories.every(cat => cat.photosCount > 0);
-    if (!hasAllPhotos) {
+    // Check if at least one photo uploaded per category using categoryPhotos state
+    const categoryIds = ['1', '2', '3'];
+    const missingCategories = categoryIds.filter(
+      catId => !categoryPhotos[catId] || categoryPhotos[catId].length === 0
+    );
+
+    console.log('missingCategories:', missingCategories);
+
+    if (missingCategories.length > 0) {
       Alert.alert(
         'Fotos Requeridas',
         'Debes subir al menos una foto para cada categoría antes de continuar.'
@@ -164,7 +195,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       // Flatten all photos from all categories
       const allPhotos = Object.values(categoryPhotos).flat();
 
-      const evalRef = doc(db, 'supplier_evaluations', user.id);
+      const evalRef = doc(db, 'supplier_evaluations', supplierId);
 
       // Save real photo evidence URLs
       await setDoc(evalRef, {
@@ -460,9 +491,19 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
       {/* Bottom Button */}
       <View style={styles.bottomContainer}>
-        <TouchableOpacity style={styles.acceptButton} onPress={handleAccept}>
+        <Pressable
+          style={({ pressed }) => [
+            styles.acceptButton,
+            pressed && { opacity: 0.8 },
+            Platform.OS === 'web' && { cursor: 'pointer' }
+          ]}
+          onPress={() => {
+            console.log('🔴 Button pressed!');
+            handleAccept();
+          }}
+        >
           <Text style={styles.acceptButtonText}>Aceptar</Text>
-        </TouchableOpacity>
+        </Pressable>
       </View>
 
       {/* Modal de Epi Enviada */}

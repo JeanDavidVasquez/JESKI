@@ -61,7 +61,15 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
         let filtered = data;
 
         if (filter !== 'all') {
-            filtered = filtered.filter(r => r.status === filter);
+            if (filter === 'pending') {
+                filtered = filtered.filter(r => r.status === 'pending' || r.status === 'rectification_required');
+            } else if (filter === 'in_progress') {
+                filtered = filtered.filter(r => r.status === 'in_progress' || r.status === 'quoting' || (r.status as string) === 'cotizacion');
+            } else if (filter === 'completed') {
+                filtered = filtered.filter(r => r.status === 'completed' || r.status === 'awarded' || (r.status as string) === 'adjudicado');
+            } else {
+                filtered = filtered.filter(r => r.status === filter);
+            }
         }
 
         if (search) {
@@ -81,7 +89,12 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
     const getStatusBadge = (status: string) => {
         const configs = {
             pending: { label: 'Pendiente', color: '#FFA726' },
+            rectification_required: { label: 'Corregir', color: '#FF9800' },
             in_progress: { label: 'En Progreso', color: '#2196F3' },
+            quoting: { label: 'Cotizando', color: '#F59E0B' },
+            cotizacion: { label: 'Cotizando', color: '#F59E0B' },
+            awarded: { label: 'Adjudicada', color: '#9C27B0' },
+            adjudicado: { label: 'Adjudicada', color: '#9C27B0' },
             completed: { label: 'Completada', color: '#4CAF50' },
             rejected: { label: 'Rechazada', color: '#F44336' },
         };
