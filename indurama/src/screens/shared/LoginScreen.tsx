@@ -10,15 +10,16 @@ import {
   Image,
   TextInput,
   Text,
+  ActivityIndicator,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
 import { AuthService } from '../../services';
 import { SupplierResponseService } from '../../services/supplierResponseService';
 import { User } from '../../types';
 
 const { width, height } = Dimensions.get('window');
-const isWeb = Platform.OS === 'web';
 const isMobile = width < 768;
 
 interface LoginScreenProps {
@@ -38,8 +39,8 @@ type FeedbackMessage = {
 };
 
 /**
- * Pantalla de inicio de sesión mejorada
- * Responsive design para web y móvil con Firebase
+ * LoginScreen - Pantalla de inicio de sesión
+ * Diseño limpio y profesional (mismo estilo que Register)
  */
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onNavigateToRegister,
@@ -47,6 +48,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
@@ -101,6 +103,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setErrors({});
     setLoading(true);
     setFeedback(null);
+
     try {
       const result = await AuthService.signIn(normalizedEmail, password);
 
@@ -110,21 +113,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           title: '¡Bienvenido!',
           text: result.message || 'Inicio de sesión exitoso'
         });
-        // Check EPI status for suppliers
+
         let targetRoute: string | undefined = undefined;
 
         if (result.data.role === 'proveedor') {
           try {
-            // Visual feedback could be added here if checking takes time
             const submission = await SupplierResponseService.getEPISubmission(result.data.id);
-            // "Llena" normally means submitted or approved
             const isEpiCompleted = submission && (submission.status === 'submitted' || submission.status === 'approved' || submission.status === 'reviewed');
-
             targetRoute = isEpiCompleted ? 'SupplierDashboard' : 'SupplierWelcome';
-            console.log(`Login Redirect: Supplier EPI ${isEpiCompleted ? 'Complete' : 'Pending'} -> ${targetRoute}`);
           } catch (error) {
             console.error('Error checking EPI status:', error);
-            targetRoute = 'SupplierWelcome'; // Fallback
+            targetRoute = 'SupplierWelcome';
           }
         }
 
@@ -152,32 +151,32 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             case 'auth/user-not-found':
               return {
                 title: 'Correo no registrado',
-                text: `No encontramos una cuenta asociada a ${normalizedEmail}. Verifica si lo escribiste bien o regístrate.`
+                text: `No encontramos una cuenta asociada a ${normalizedEmail}.`
               };
             case 'auth/invalid-email':
               return {
                 title: 'Correo inválido',
-                text: 'Revisa el formato de tu correo. Debe parecerse a usuario@indurama.com.'
+                text: 'Revisa el formato de tu correo.'
               };
             case 'auth/wrong-password':
               return {
                 title: 'Contraseña incorrecta',
-                text: 'La contraseña que ingresaste no coincide con tu cuenta. Inténtalo de nuevo o recupera tu acceso.'
+                text: 'La contraseña ingresada no coincide.'
               };
             case 'auth/too-many-requests':
               return {
                 title: 'Demasiados intentos',
-                text: 'Hemos bloqueado temporalmente los intentos. Espera unos minutos antes de volver a intentar.'
+                text: 'Espera unos minutos antes de volver a intentar.'
               };
             case 'auth/network-request-failed':
               return {
                 title: 'Sin conexión',
-                text: 'No pudimos conectar con el servidor. Revisa tu conexión a internet.'
+                text: 'Revisa tu conexión a internet.'
               };
             default:
               return {
                 title: 'No pudimos iniciar sesión',
-                text: result.error || 'Verifica tus credenciales e intenta nuevamente.'
+                text: result.error || 'Verifica tus credenciales.'
               };
           }
         })();
@@ -192,7 +191,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       setFeedback({
         type: 'error',
         title: 'Error inesperado',
-        text: 'Ocurrió un problema al iniciar sesión. Intenta nuevamente.'
+        text: 'Ocurrió un problema. Intenta nuevamente.'
       });
     } finally {
       setLoading(false);
@@ -200,7 +199,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   };
 
   const handleForgotPassword = () => {
-    // Implementar lógica de recuperación de contraseña
     console.log('Forgot password');
   };
 
@@ -220,12 +218,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           bounces={false}
         >
           <View style={styles.mainContainer}>
-            {/* Header Section */}
+            {/* Header Section - Title only (logo goes at bottom) */}
             <View style={styles.headerSection}>
-              <Text style={styles.loginTitle}>
-                LOGIN
-              </Text>
-
+              <Text style={styles.loginTitle}>LOGIN</Text>
               <Text style={styles.subtitle}>
                 Sistema de Gestión de Proveedores
               </Text>
@@ -233,42 +228,71 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
             {/* Form Section */}
             <View style={styles.formContainer}>
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={[
-                    styles.directInput,
-                    errors.email && styles.inputError
-                  ]}
-                  placeholder="Email"
-                  value={email}
-                  onChangeText={handleEmailChange}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  placeholderTextColor="#999999"
-                />
+              {/* Email Input */}
+              <View style={styles.inputWrapper}>
+                <View style={[
+                  styles.inputContainer,
+                  errors.email && styles.inputError
+                ]}>
+                  <Ionicons
+                    name="mail-outline"
+                    size={20}
+                    color="#9CA3AF"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.directInput}
+                    placeholder="Correo electrónico"
+                    value={email}
+                    onChangeText={handleEmailChange}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    placeholderTextColor="#999999"
+                  />
+                </View>
                 {errors.email && (
-                  <Text style={styles.inputErrorText}>{errors.email}</Text>
+                  <Text style={styles.errorText}>{errors.email}</Text>
                 )}
               </View>
 
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={[
-                    styles.directInput,
-                    errors.password && styles.inputError
-                  ]}
-                  placeholder="Password"
-                  value={password}
-                  onChangeText={handlePasswordChange}
-                  secureTextEntry={true}
-                  placeholderTextColor="#999999"
-                />
+              {/* Password Input */}
+              <View style={styles.inputWrapper}>
+                <View style={[
+                  styles.inputContainer,
+                  errors.password && styles.inputError
+                ]}>
+                  <Ionicons
+                    name="lock-closed-outline"
+                    size={20}
+                    color="#9CA3AF"
+                    style={styles.inputIcon}
+                  />
+                  <TextInput
+                    style={styles.directInput}
+                    placeholder="Contraseña"
+                    value={password}
+                    onChangeText={handlePasswordChange}
+                    secureTextEntry={!showPassword}
+                    placeholderTextColor="#999999"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.eyeButton}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#9CA3AF"
+                    />
+                  </TouchableOpacity>
+                </View>
                 {errors.password && (
-                  <Text style={styles.inputErrorText}>{errors.password}</Text>
+                  <Text style={styles.errorText}>{errors.password}</Text>
                 )}
               </View>
 
+              {/* Forgot Password */}
               <TouchableOpacity
                 style={styles.forgotPasswordLink}
                 onPress={handleForgotPassword}
@@ -278,53 +302,44 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 </Text>
               </TouchableOpacity>
 
+              {/* Feedback Message */}
               {feedback && (
-                <View
-                  style={[
-                    styles.feedbackContainer,
-                    feedback.type === 'success'
-                      ? styles.feedbackSuccess
-                      : styles.feedbackError
-                  ]}
-                >
-                  <Text
-                    style={[
-                      styles.feedbackTitle,
-                      feedback.type === 'success'
-                        ? styles.feedbackTitleSuccess
-                        : styles.feedbackTitleError
-                    ]}
-                  >
+                <View style={[
+                  styles.feedbackContainer,
+                  feedback.type === 'success' ? styles.feedbackSuccess : styles.feedbackError
+                ]}>
+                  <Text style={[
+                    styles.feedbackTitle,
+                    feedback.type === 'success' ? styles.feedbackTitleSuccess : styles.feedbackTitleError
+                  ]}>
                     {feedback.title}
                   </Text>
                   <Text style={styles.feedbackMessage}>{feedback.text}</Text>
                 </View>
               )}
 
+              {/* Login Button */}
               <TouchableOpacity
-                style={styles.loginButton}
+                style={styles.submitButton}
                 onPress={handleLogin}
                 disabled={loading}
               >
-                <Text style={styles.loginButtonText}>
-                  {loading ? 'Cargando...' : 'Login'}
-                </Text>
+                {loading ? (
+                  <ActivityIndicator size="small" color="#FFF" />
+                ) : (
+                  <Text style={styles.submitButtonText}>Iniciar Sesión</Text>
+                )}
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.registerLink} onPress={onNavigateToRegister}>
-                <Text
-                  style={{
-                    fontSize: 16,
-                    color: '#666666',
-                    textAlign: 'center'
-                  }}
-                >
-                  ¿No tienes cuenta? Regístrate aquí
+              {/* Register Link */}
+              <TouchableOpacity style={styles.loginLink} onPress={onNavigateToRegister}>
+                <Text style={{ fontSize: 14, color: '#666666', textAlign: 'center' }}>
+                  ¿No tienes cuenta? <Text style={{ fontWeight: 'bold', color: theme.colors.primary }}>Regístrate aquí</Text>
                 </Text>
               </TouchableOpacity>
             </View>
 
-            {/* Bottom Branding */}
+            {/* Bottom Section - Logo (same as Register) */}
             <View style={styles.bottomSection}>
               <View style={styles.brandContainer}>
                 <Image
@@ -344,7 +359,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5', // Fondo gris claro como el prototipo
+    backgroundColor: '#f5f5f5',
   },
   keyboardView: {
     flex: 1,
@@ -384,18 +399,18 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
     marginBottom: theme.spacing[16],
   },
-  inputContainer: {
+  inputWrapper: {
     marginBottom: theme.spacing[4],
   },
-  directInput: {
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
     backgroundColor: '#ffffff',
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: '#e0e0e0',
     height: isMobile ? 56 : 60,
-    fontSize: isMobile ? 16 : 18,
     paddingHorizontal: theme.spacing[4],
-    color: '#333333',
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
@@ -411,13 +426,26 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  inputError: {
-    borderColor: theme.colors.error,
+  inputIcon: {
+    marginRight: 12,
   },
-  inputErrorText: {
-    marginTop: theme.spacing[1],
-    fontSize: isMobile ? 12 : 14,
-    color: theme.colors.error,
+  directInput: {
+    flex: 1,
+    fontSize: isMobile ? 16 : 18,
+    color: '#333333',
+    height: '100%',
+  },
+  eyeButton: {
+    padding: 4,
+  },
+  inputError: {
+    borderColor: '#e53935',
+  },
+  errorText: {
+    color: '#e53935',
+    marginTop: 6,
+    marginLeft: 6,
+    fontSize: 13,
   },
   forgotPasswordLink: {
     alignSelf: 'flex-end',
@@ -429,38 +457,6 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
     color: theme.colors.primary,
     textAlign: 'center',
-  },
-  loginButton: {
-    height: isMobile ? 56 : 60,
-    borderRadius: theme.borderRadius.lg,
-    backgroundColor: theme.colors.primary,
-    marginBottom: theme.spacing[6],
-    justifyContent: 'center',
-    alignItems: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: theme.colors.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 8,
-      },
-      android: {
-        elevation: 4,
-      },
-      web: {
-        boxShadow: `0 4px 12px ${theme.colors.primary}30`,
-      },
-    }),
-  },
-  loginButtonText: {
-    color: '#ffffff',
-    fontSize: isMobile ? 16 : 18,
-    fontWeight: '600',
-    textAlign: 'center',
-  },
-  registerLink: {
-    alignItems: 'center',
-    paddingVertical: theme.spacing[4],
   },
   feedbackContainer: {
     borderRadius: theme.borderRadius.lg,
@@ -493,6 +489,39 @@ const styles = StyleSheet.create({
     color: '#333333',
     lineHeight: 20,
   },
+  submitButton: {
+    height: isMobile ? 56 : 60,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.primary,
+    marginBottom: theme.spacing[6],
+    justifyContent: 'center',
+    alignItems: 'center',
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: `0 4px 12px ${theme.colors.primary}30`,
+      },
+    }),
+  },
+  submitButtonText: {
+    color: '#ffffff',
+    fontSize: isMobile ? 16 : 18,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  loginLink: {
+    alignItems: 'center',
+    paddingVertical: theme.spacing[4],
+    marginBottom: theme.spacing[8],
+  },
   bottomSection: {
     alignItems: 'center',
     justifyContent: 'center',
@@ -503,13 +532,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoImage: {
-    width: isMobile ? 140 : 36,
-    height: isMobile ? 90 : 36,
-    marginRight: theme.spacing[2],
-  },
-  brandText: {
-    fontSize: isMobile ? 24 : 28,
-    letterSpacing: 1,
-    color: theme.colors.primary,
+    width: isMobile ? 140 : 96,
+    height: isMobile ? 90 : 96,
   },
 });
