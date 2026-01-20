@@ -413,6 +413,18 @@ export interface Request extends BaseEntity {
   // Location
   deliveryLocationSuggestion?: string; // Ubicación sugerida por el solicitante
   winnerQuotationId?: string; // ID de cotización ganadora
+
+  // Receipt Confirmation (Solicitante confirms delivery)
+  receivedAt?: any;             // Timestamp when solicitante confirmed receipt
+  receivedConfirmedBy?: string; // ID of user who confirmed receipt
+
+  // Payment Details
+  selectedQuotationId?: string;
+  paymentStatus?: 'pending' | 'paid' | 'verified';
+  paymentReference?: string;
+  paymentDate?: any; // Timestamp
+  paymentNotes?: string;
+  proofFileUrl?: string; // URL of the proof of payment document
 }
 
 /**

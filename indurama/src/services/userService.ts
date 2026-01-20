@@ -78,4 +78,21 @@ export class UserService {
             return { success: false, error: error.message };
         }
     }
+
+    /**
+     * Actualiza datos de un usuario (rol, estado, etc.)
+     */
+    static async updateUser(userId: string, data: Partial<User>): Promise<ApiResponse<void>> {
+        try {
+            const userRef = doc(db, 'users', userId);
+            await updateDoc(userRef, {
+                ...data,
+                updatedAt: serverTimestamp()
+            });
+
+            return { success: true, message: 'Usuario actualizado exitosamente' };
+        } catch (error: any) {
+            return { success: false, error: error.message };
+        }
+    }
 }

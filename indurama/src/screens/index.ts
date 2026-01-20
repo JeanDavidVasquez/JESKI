@@ -1,38 +1,12 @@
-// Exportaciones de pantallas
-export { SplashScreen } from './SplashScreen';
-export { LoginScreen } from './LoginScreen';
-export { RegisterScreen } from './RegisterScreen';
-export { RequestsScreen } from './RequestsScreen';
-export { NewRequestScreen } from './NewRequestScreen';
-export { HistoryScreen } from './HistoryScreen';
-export { RequestDetailScreen } from './RequestDetailScreen';
-export { ProfileScreen } from './ProfileScreen';
-export { SupplierWelcomeScreen } from './SupplierWelcomeScreen';
-export { SupplierEvaluationScreen } from './SupplierEvaluationScreen';
-export { SupplierCreationScreen } from './SupplierCreationScreen';
-export { QualityQuestionnaireScreen } from './QualityQuestionnaireScreen';
-export { SupplyQuestionnaireScreen } from './SupplyQuestionnaireScreen';
-export { PhotoEvidenceScreen } from './PhotoEvidenceScreen';
-export { default as ManagerDashboardScreen } from './ManagerDashboardScreen';
-export { ManagerRequestsScreen } from './ManagerRequestsScreen';
-export { RequestReviewScreen } from './RequestReviewScreen';
-export { default as SupplierDetailScreen } from './SupplierDetailScreen';
-export { DashboardScreen } from './DashboardScreen';
-export { SupplierListScreen } from './SupplierListScreen';
-export { SupplierInviteScreen } from './SupplierInviteScreen';
-export { SupplierSearchScreen } from './SupplierSearchScreen';
-export { default as SupplierTechnicalSheetScreen } from './SupplierTechnicalSheetScreen';
-export { default as AuditScreen } from './AuditScreen';
-export { ManagerProfileScreen } from './ManagerProfileScreen';
+// Main barrel export - Re-exports from all role modules
+// Shared (Auth & Common)
+export * from './shared';
 
-// Quotation System Screens
-export { QuotationInviteScreen } from './QuotationInviteScreen';
-export { ProviderQuotationsScreen } from './ProviderQuotationsScreen';
-export { QuotationFormScreen } from './QuotationFormScreen';
-export { PurchaseOrderScreen } from './PurchaseOrderScreen';
-export { QuotationCompareScreen } from './QuotationCompareScreen';
-export { NotificationsScreen } from './NotificationsScreen';
+// Solicitante (Requester)
+export * from './solicitante';
 
-// Supplier Dashboard Screens
-export { SupplierDashboardScreen } from './SupplierDashboardScreen';
-export { SupplierProfileScreen } from './SupplierProfileScreen';
+// Gestor (Manager)
+export * from './gestor';
+
+// Proveedor (Supplier)
+export * from './proveedor';

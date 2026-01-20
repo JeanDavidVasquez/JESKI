@@ -1,10 +1,11 @@
 export interface EpiQuestion {
     id: string;
     text: string;
-    // Weight is now calculated automatically: sectionWeight / questionCount
-    // weight field removed - points calculated dynamically
+    weight: number; // Re-added: UI allows manual weight configuration
+    evidence?: string;
     evidenceRequired?: boolean; // Si requiere adjuntar evidencia
     evidenceDescription?: string; // Descripción de evidencia esperada
+    isNew?: boolean; // UI State
 }
 
 export interface EpiSection {

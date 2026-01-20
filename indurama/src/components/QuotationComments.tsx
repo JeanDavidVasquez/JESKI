@@ -22,15 +22,18 @@ interface QuotationCommentsProps {
     supplierId: string;
     currentUserRole: 'gestor' | 'proveedor';
     quotationId?: string; // Optional, link to specific quote if exists
+    user?: any; // User object passed directly (fallback if Auth Provider issues)
 }
 
 export const QuotationComments: React.FC<QuotationCommentsProps> = ({
     requestId,
     supplierId,
     currentUserRole,
-    quotationId
+    quotationId,
+    user: propUser
 }) => {
-    const { user } = useAuth();
+    const { user: authUser } = useAuth();
+    const user = propUser || authUser; // Prefer prop if provided
     const [comments, setComments] = useState<QuotationComment[]>([]);
     const [loading, setLoading] = useState(true);
     const [sending, setSending] = useState(false);
@@ -69,7 +72,13 @@ export const QuotationComments: React.FC<QuotationCommentsProps> = ({
     };
 
     const handleSend = async () => {
-        if (!message.trim() || !user) return;
+        if (!message.trim()) return;
+
+        if (!user) {
+            console.error('No user found in QuotationComments');
+            Alert.alert('Error', 'No se puede enviar el mensaje. Sesión no válida.');
+            return;
+        }
 
         try {
             setSending(true);

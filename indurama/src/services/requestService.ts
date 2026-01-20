@@ -187,6 +187,29 @@ export const updateRequestStatus = async (
 };
 
 /**
+ * Confirm receipt of a request (Solicitante confirms they received the product/service)
+ * Changes status from 'awarded' to 'completed'
+ */
+export const confirmReceipt = async (
+    requestId: string,
+    userId: string
+): Promise<void> => {
+    try {
+        const requestRef = doc(db, 'requests', requestId);
+        await updateDoc(requestRef, {
+            status: RequestStatus.COMPLETED,
+            receivedAt: serverTimestamp(),
+            receivedConfirmedBy: userId,
+            completedAt: serverTimestamp(),
+            updatedAt: serverTimestamp()
+        });
+    } catch (error) {
+        console.error(`Error confirming receipt for request ${requestId}:`, error);
+        throw error;
+    }
+};
+
+/**
  * Assign request to manager
  */
 export const assignRequest = async (
@@ -299,5 +322,87 @@ export const getUserRequestStats = async (userId: string): Promise<{
     } catch (error) {
         console.error(`Error fetching stats for user ${userId}:`, error);
         throw error;
+    }
+};
+
+/**
+ * Get efficiency metrics for Dashboard
+ * Calculates: Approval Rate, Average Time, Average Cost
+ */
+export const getEfficiencyMetrics = async (): Promise<{
+    approvalRate: number;
+    averageTimeDays: number;
+    averageCost: number;
+}> => {
+    try {
+        const requestsRef = collection(db, 'requests');
+        const snapshot = await getDocs(requestsRef);
+        const requests = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Request));
+
+        const total = requests.length;
+        if (total === 0) return { approvalRate: 0, averageTimeDays: 0, averageCost: 0 };
+
+        // 1. Approval Rate: (Completed + Awarded) / Total (excluding Drafts maybe? No, total requests)
+        // Let's count "Successful" ones vs Total.
+        // Successful = Completed, Awarded, In Progress, Quoting (Active or Done)
+        // Rejected = Rejected.
+        // Approval Rate = (Total - Rejected) / Total ? Or specifically Completed/Awarded?
+        // Let's use: (Completed + Awarded) / Total * 100 for "Efficiency" in delivery.
+        const completedOrAwarded = requests.filter(r =>
+            r.status === RequestStatus.COMPLETED ||
+            r.status === RequestStatus.AWARDED ||
+            (r.status as string) === 'adjudicado'
+        ).length;
+
+        const approvalRate = Math.round((completedOrAwarded / total) * 100);
+
+        // 2. Average Time (Days)
+        // For completed requests: completedAt - createdAt
+        const completedRequests = requests.filter(r =>
+            r.status === RequestStatus.COMPLETED && r.completedAt && r.createdAt
+        );
+
+        let totalTimeMs = 0;
+        let timeCount = 0;
+
+        if (completedRequests.length > 0) {
+            completedRequests.forEach(req => {
+                // Handle Firestore Timestamp or Date object
+                const start = (req.createdAt as any).toDate ? (req.createdAt as any).toDate() : new Date(req.createdAt);
+                const end = (req.completedAt as any).toDate ? (req.completedAt as any).toDate() : new Date(req.completedAt);
+
+                const diff = end.getTime() - start.getTime();
+                if (diff > 0) {
+                    totalTimeMs += diff;
+                    timeCount++;
+                }
+            });
+        }
+
+        const averageTimeDays = timeCount > 0 ? Math.round(totalTimeMs / (1000 * 60 * 60 * 24) / timeCount) : 0;
+
+        // 3. Average Cost
+        // Average of actualCost or estimatedCost if actual not present
+        let totalCost = 0;
+        let costCount = 0;
+
+        completedRequests.forEach(req => {
+            if (req.actualCost) {
+                totalCost += req.actualCost;
+                costCount++;
+            }
+        });
+
+        const averageCost = costCount > 0 ? Math.round(totalCost / costCount) : 0;
+
+        return {
+            approvalRate,
+            averageTimeDays,
+            averageCost
+        };
+
+    } catch (error) {
+        console.error('Error calculating efficiency metrics:', error);
+        return { approvalRate: 0, averageTimeDays: 0, averageCost: 0 };
     }
 };

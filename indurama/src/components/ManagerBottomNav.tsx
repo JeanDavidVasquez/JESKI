@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, Image, StyleSheet, Platform } from 'react-native';
+import { useResponsive } from '../styles/responsive';
 
 interface ManagerBottomNavProps {
     currentScreen: 'Dashboard' | 'Requests' | 'Suppliers' | 'Profile';
@@ -16,6 +17,10 @@ export const ManagerBottomNav: React.FC<ManagerBottomNavProps> = ({
     onNavigateToSuppliers,
     onNavigateToProfile,
 }) => {
+    const { isDesktopView } = useResponsive();
+
+    if (isDesktopView) return null;
+
     return (
         <View style={styles.bottomNavigation}>
             <TouchableOpacity

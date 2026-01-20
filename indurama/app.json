@@ -16,7 +16,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.edisson2407.indurama", 
+      "package": "com.edisson2407.indurama",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
@@ -30,6 +30,9 @@
       "eas": {
         "projectId": "d2b947fa-5aa0-4c23-9da7-bf9cd38367c4"
       }
-    }
+    },
+    "plugins": [
+      "expo-asset"
+    ]
   }
 }

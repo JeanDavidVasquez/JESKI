@@ -3,7 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Platform } from 'react-native';
 import 'react-native-gesture-handler';
 import { SimpleNavigator } from './src/navigation/SimpleNavigator';
-import { SplashScreen } from './src/screens/SplashScreen';
+import { SplashScreen } from './src/screens';
 import { AuthProvider } from './src/context/AuthContext';
 
 // Usando un navegador simple temporal para evitar errores de React Navigation v7

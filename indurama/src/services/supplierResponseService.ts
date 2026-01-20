@@ -113,21 +113,11 @@ export const SupplierResponseService = {
     async getSupplierEvaluation(supplierId: string): Promise<SupplierEvaluation | null> {
         try {
             console.log('🔍 Buscando evaluación para supplier:', supplierId);
-            
-            // 1. Intentar obtener de supplier_evaluations
-            const evalRef = doc(db, COLLECTION_NAME, supplierId);
-            const evalDoc = await getDoc(evalRef);
 
-            if (evalDoc.exists()) {
-                console.log('✅ Evaluación encontrada en supplier_evaluations');
-                return { id: evalDoc.id, ...evalDoc.data() } as SupplierEvaluation;
-            }
-
-            console.log('⚠️ No encontrado en supplier_evaluations, buscando en epi_submissions...');
-
-            // 2. Si no existe, intentar obtener de epi_submissions
+            // 1. Intentar obtener de epi_submissions (Prioridad: Auditoría/Submission final)
+            // Primero verificamos si hay una submission enviada o auditada, ya que contiene la info más reciente de puntuación
             const submission = await this.getEPISubmission(supplierId);
-            
+
             if (submission) {
                 console.log('✅ Submission encontrada en epi_submissions');
                 // Convertir submission a formato SupplierEvaluation
@@ -158,6 +148,17 @@ export const SupplierResponseService = {
                     updatedAt: submission.updatedAt?.toMillis?.() || Date.now(),
                     photoEvidence: submission.photoEvidence || []
                 } as SupplierEvaluation;
+            }
+
+            console.log('⚠️ No hay submission, buscando en supplier_evaluations (Borrador)...');
+
+            // 2. Si no existe submission, buscar en supplier_evaluations (Borrador/En Progreso)
+            const evalRef = doc(db, COLLECTION_NAME, supplierId);
+            const evalDoc = await getDoc(evalRef);
+
+            if (evalDoc.exists()) {
+                console.log('✅ Evaluación encontrada en supplier_evaluations');
+                return { id: evalDoc.id, ...evalDoc.data() } as SupplierEvaluation;
             }
 
             console.log('❌ No se encontró evaluación en ninguna colección');
@@ -581,13 +582,50 @@ export const SupplierResponseService = {
                 canSearchMatch: true,
                 epiApprovedAt: serverTimestamp(),
                 epiApprovedBy: gestorId,
-                approved: true, 
-                isValidated: true 
+                approved: true,
+                isValidated: true
             });
 
             console.log('EPI approved successfully');
         } catch (error) {
             console.error('Error approving EPI:', error);
+            throw error;
+        }
+    },
+
+    /**
+     * Reject EPI submission
+     */
+    async rejectEPI(
+        submissionId: string,
+        supplierId: string,
+        gestorId: string,
+        comments?: string
+    ): Promise<void> {
+        try {
+            const submissionRef = doc(db, 'epi_submissions', submissionId);
+            const userRef = doc(db, 'users', supplierId);
+
+            // Update submission
+            await updateDoc(submissionRef, {
+                status: 'rejected',
+                reviewedAt: serverTimestamp(),
+                reviewedBy: gestorId,
+                reviewComments: comments || '',
+                canEdit: false,
+            });
+
+            // Update user
+            await updateDoc(userRef, {
+                supplierStatus: 'rejected',
+                epiApprovedAt: serverTimestamp(),
+                epiApprovedBy: gestorId,
+                approved: false,
+            });
+
+            console.log('EPI rejected successfully');
+        } catch (error) {
+            console.error('Error rejecting EPI:', error);
             throw error;
         }
     },

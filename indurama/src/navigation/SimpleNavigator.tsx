@@ -4,20 +4,57 @@ import { View, StyleSheet } from 'react-native';
 import { collection, addDoc, serverTimestamp, updateDoc, doc } from 'firebase/firestore';
 import { db } from '../services/firebaseConfig';
 import { AuthService } from '../services';
-import { LoginScreen, RegisterScreen, RequestsScreen, NewRequestScreen, HistoryScreen, DashboardScreen, SupplierWelcomeScreen, SupplierEvaluationScreen, SupplierCreationScreen, QualityQuestionnaireScreen, SupplyQuestionnaireScreen, PhotoEvidenceScreen, ManagerDashboardScreen, ManagerRequestsScreen, RequestReviewScreen, SupplierDetailScreen, SupplierListScreen, SupplierInviteScreen, SupplierSearchScreen, SupplierTechnicalSheetScreen, AuditScreen, ManagerProfileScreen, QuotationInviteScreen, ProviderQuotationsScreen, QuotationFormScreen, QuotationCompareScreen, NotificationsScreen, PurchaseOrderScreen } from '../screens';
-import { EPIConfigScreen } from '../screens/EPIConfigScreen';
-import { EPIPendingListScreen } from '../screens/EPIPendingListScreen';
-import { EPIAuditScreen } from '../screens/EPIAuditScreen';
-import { UserManagementScreen } from '../screens/UserManagementScreen';
-import { RequestDetailScreen } from '../screens/RequestDetailScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
-import { SolicitanteDashboardScreen } from '../screens/SolicitanteDashboardScreen';
-import { SolicitanteHistoryScreen } from '../screens/SolicitanteHistoryScreen';
-import { SolicitanteProfileScreen } from '../screens/SolicitanteProfileScreen';
+
+// Consolidated imports from role-based modules
+import {
+  // Shared
+  LoginScreen,
+  RegisterScreen,
+  TermsConditionsScreen,
+  NotificationsScreen,
+  ProfileScreen,
+  // Solicitante
+  SolicitanteDashboardScreen,
+  SolicitanteHistoryScreen,
+  SolicitanteProfileScreen,
+  NewRequestScreen,
+  RequestsScreen,
+  RequestDetailScreen,
+  HistoryScreen,
+  // Gestor
+  ManagerDashboardScreen,
+  ManagerRequestsScreen,
+  ManagerProfileScreen,
+  RequestReviewScreen,
+  QuotationInviteScreen,
+  QuotationCompareScreen,
+  PurchaseOrderScreen,
+  PaymentScreen,
+  SupplierListScreen,
+  SupplierDetailScreen,
+  SupplierSearchScreen,
+  SupplierInviteScreen,
+  EPIConfigScreen,
+  EPIPendingListScreen,
+  EPIAuditScreen,
+  UserManagementScreen,
+  DashboardScreen,
+  // Proveedor
+  SupplierWelcomeScreen,
+  SupplierDashboardScreen,
+  SupplierProfileScreen,
+  SupplierCreationScreen,
+  SupplierEvaluationScreen,
+  SupplierTechnicalSheetScreen,
+  QualityQuestionnaireScreen,
+  SupplyQuestionnaireScreen,
+  PhotoEvidenceScreen,
+  AuditScreen,
+  ProviderQuotationsScreen,
+  QuotationFormScreen,
+} from '../screens';
 import { User, UserRole, Request } from '../types';
-import TermsConditionsScreen from '../screens/TermsConditionsScreen';
-import { SupplierDashboardScreen } from '../screens/SupplierDashboardScreen';
-import { SupplierProfileScreen } from '../screens/SupplierProfileScreen';
+
 
 export type Screen =
   | 'Login'
@@ -64,7 +101,8 @@ export type Screen =
   | 'Notifications'
   | 'SupplierDashboard'
   | 'SupplierProfile'
-  | 'PurchaseOrder';
+  | 'PurchaseOrder'
+  | 'Payment';
 
 /**
  * Navegación temporal simple con manejo de roles
@@ -89,6 +127,7 @@ export const SimpleNavigator: React.FC = () => {
   const [quotationRequestId, setQuotationRequestId] = useState<string | null>(null);
   const [selectedSupplierIdsForInvite, setSelectedSupplierIdsForInvite] = useState<string[]>([]);
   const [purchaseOrderData, setPurchaseOrderData] = useState<{ requestId: string, quotationId: string } | null>(null);
+  const [paymentRequestId, setPaymentRequestId] = useState<string | null>(null);
 
   // Estado para mostrar términos tras responsable EPI
   const [showTerms, setShowTerms] = useState(false);
@@ -117,14 +156,9 @@ export const SimpleNavigator: React.FC = () => {
 
   const handleContinueSupplierWelcome = async (data: { fullName: string; email: string; position: string }) => {
     setEpiResponsableData(data);
-
-    // Check if user already accepted terms
-    if (currentUser?.termsAccepted) {
-      await logEpiSession(data);
-      setCurrentScreen('SupplierEvaluation');
-    } else {
-      setShowTerms(true);
-    }
+    // Terms are accepted at registration, proceed directly
+    await logEpiSession(data);
+    setCurrentScreen('SupplierEvaluation');
   };
 
   const handleAcceptTerms = async () => {
@@ -280,20 +314,32 @@ export const SimpleNavigator: React.FC = () => {
     setCurrentScreen('PurchaseOrder');
   };
 
+  const navigateToPayment = (requestId: string) => {
+    setPaymentRequestId(requestId);
+    setPreviousScreen(currentScreen);
+    setCurrentScreen('Payment');
+  };
+
   const handleNavigateToRequestDetail = (requestId: string) => {
     setSelectedRequestId(requestId);
     setCurrentScreen('RequestDetail');
   };
 
-  const handleLogin = (user: User) => {
+  const handleLogin = (user: User, targetRoute?: string) => {
     setCurrentUser(user);
     console.log('User logged in:', user.email, 'Role:', user.role);
+
+    if (targetRoute) {
+      setCurrentScreen(targetRoute as Screen);
+      return;
+    }
 
     // Redireccionar según el rol del usuario (Normalized)
     const role = (user.role || '').toLowerCase();
 
     if (role === 'proveedor') {
-      // Verificar si completó EPI
+      // Logic now handled by LoginScreen via targetRoute, but keep fallback just in case
+      // Verificar si completó EPI (Legacy local check)
       const hasCompletedEPI = user.supplierStatus === 'epi_approved' || user.supplierStatus === 'active';
       if (hasCompletedEPI) {
         setCurrentScreen('SupplierDashboard');
@@ -440,6 +486,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToHistory={navigateToHistory}
             onNavigateToRequests={navigateBackToRequests}
             onLogout={handleLogout}
+            user={currentUser ?? undefined}
           />
         );
 
@@ -490,6 +537,8 @@ export const SimpleNavigator: React.FC = () => {
           <SupplierProfileScreen
             onNavigateBack={() => setCurrentScreen('SupplierDashboard')}
             onNavigateToEPIStatus={() => setCurrentScreen('SupplierEvaluation')}
+            onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
+            onNavigateToQuotations={navigateToProviderQuotations}
             onLogout={handleLogout}
           />
         );
@@ -498,7 +547,7 @@ export const SimpleNavigator: React.FC = () => {
         return (
           <>
             <SupplierWelcomeScreen
-              onContinueToEvaluation={handleContinueSupplierWelcome}
+              onNavigateToDashboard={handleContinueSupplierWelcome}
             />
             <TermsConditionsScreen
               visible={showTerms}
@@ -614,6 +663,7 @@ export const SimpleNavigator: React.FC = () => {
               setPreviousScreen('ManagerDashboard');
               setCurrentScreen('QuotationCompare');
             }}
+            onNavigateToPayment={navigateToPayment}
           />
         );
       case 'ManagerRequests':
@@ -634,6 +684,7 @@ export const SimpleNavigator: React.FC = () => {
               setPreviousScreen('ManagerRequests');
               setCurrentScreen('QuotationCompare');
             }}
+            onNavigateToPayment={navigateToPayment}
             initialFilter={requestsFilter}
 
           />
@@ -650,6 +701,24 @@ export const SimpleNavigator: React.FC = () => {
               } else {
                 setCurrentScreen('QuotationCompare');
               }
+            }}
+            onNavigateToRegisterPayment={() => navigateToPayment(purchaseOrderData?.requestId || '')}
+          />
+        );
+      case 'Payment':
+        return (
+          <PaymentScreen
+            requestId={paymentRequestId || ''}
+            onBack={() => {
+              if (previousScreen) {
+                setCurrentScreen(previousScreen);
+                setPreviousScreen(null);
+              } else {
+                setCurrentScreen('ManagerRequests');
+              }
+            }}
+            onPaymentComplete={() => {
+              setCurrentScreen('ManagerRequests');
             }}
           />
         );
@@ -876,9 +945,9 @@ export const SimpleNavigator: React.FC = () => {
               }
             }}
             onSuccess={() => {
-              setQuotationRequestId(null);
+              // Redirect to QuotationCompareScreen to monitor progress
               setSelectedSupplierIdsForInvite([]);
-              setCurrentScreen('ManagerDashboard');
+              setCurrentScreen('QuotationCompare');
             }}
           />
         );
@@ -887,6 +956,9 @@ export const SimpleNavigator: React.FC = () => {
           <ProviderQuotationsScreen
             supplierId={currentUser?.id || ''}
             onNavigateBack={() => setCurrentScreen('SupplierDashboard')}
+            onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
+            onNavigateToProfile={() => setCurrentScreen('SupplierProfile')}
+            onLogout={handleLogout}
             onNavigateToQuotationForm={(invitationId, requestId) => {
               setQuotationInvitationId(invitationId);
               setQuotationRequestId(requestId);
@@ -927,6 +999,12 @@ export const SimpleNavigator: React.FC = () => {
               setCurrentScreen('ManagerDashboard');
             }}
             onNavigateToPurchaseOrder={navigateToPurchaseOrder}
+            onNavigateToSearch={(requestId) => {
+              setReviewRequestId(requestId);
+              setPreviousScreen('QuotationCompare');
+              setCurrentScreen('SupplierSearch');
+            }}
+            currentUser={currentUser}
           />
         );
       case 'Notifications':

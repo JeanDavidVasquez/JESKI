@@ -49,16 +49,19 @@ export const QuotationService = {
         const invitationIds: string[] = [];
 
         for (const supplierId of supplierIds) {
-            const invitation: Omit<QuotationInvitation, 'id'> = {
+            // Build invitation object, excluding undefined values (Firebase doesn't allow undefined)
+            const invitation: Record<string, any> = {
                 requestId,
                 supplierId,
                 gestorId,
                 status: 'pending',
-                message,
-                deliveryAddress,
                 dueDate: Timestamp.fromDate(dueDate),
                 createdAt: serverTimestamp(),
             };
+
+            // Only add optional fields if they have values
+            if (message) invitation.message = message;
+            if (deliveryAddress) invitation.deliveryAddress = deliveryAddress;
 
             const docRef = await addDoc(collection(db, INVITATIONS_COLLECTION), invitation);
             invitationIds.push(docRef.id);

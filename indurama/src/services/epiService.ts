@@ -17,7 +17,8 @@ const defaultConfig: EpiConfig = {
                 questions: [
                     {
                         id: 'default_q1',
-                        text: '¿El proveedor cuenta con certificación ISO 9001? (Pregunta de ejemplo)'
+                        text: '¿El proveedor cuenta con certificación ISO 9001? (Pregunta de ejemplo)',
+                        weight: 0
                     }
                 ]
             }
@@ -33,7 +34,8 @@ const defaultConfig: EpiConfig = {
                 questions: [
                     {
                         id: 'default_q2',
-                        text: '¿El proveedor cumple con los tiempos de entrega? (Pregunta de ejemplo)'
+                        text: '¿El proveedor cumple con los tiempos de entrega? (Pregunta de ejemplo)',
+                        weight: 0
                     }
                 ]
             }
