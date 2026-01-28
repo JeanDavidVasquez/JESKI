@@ -32,8 +32,9 @@ module.exports = {
     "object-curly-spacing": ["error", "never"],
     "max-len": [
       "error",
-      {code: 120, ignoreStrings: true, ignoreTemplateLiterals: true},
+      { code: 120, ignoreStrings: true, ignoreTemplateLiterals: true },
     ],
+    "linebreak-style": "off",
 
 
   },

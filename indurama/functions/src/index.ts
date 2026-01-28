@@ -222,6 +222,17 @@ export const onRequestCreated = onDocumentCreated(
         });
         logger.info(`Email de nueva solicitud enviado a ${gestorEmails.length} gestores`);
       }
+
+      // Notificar al solicitante (Confirmación de recepción)
+      const solicitanteEmail = requestData.userEmail;
+      if (solicitanteEmail) {
+        await EmailService.sendRequestCreatedConfirmation(solicitanteEmail, {
+          code: requestData.code || "N/A",
+          title: requestData.title || "Sin título",
+          userName: requestData.userName || "Usuario",
+        });
+        logger.info(`Email de confirmación enviado a solicitante: ${solicitanteEmail}`);
+      }
     } catch (error) {
       logger.error("Error en onRequestCreated trigger:", error);
     }

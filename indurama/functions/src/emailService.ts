@@ -33,7 +33,7 @@ const sendEmail = async (
   html: string
 ): Promise<boolean> => {
   const transporter = createTransporter();
-  
+
   if (!transporter) {
     logger.warn(`Email no enviado (transportador no configurado): ${subject} a ${to}`);
     return false;
@@ -41,7 +41,7 @@ const sendEmail = async (
 
   try {
     const emailFrom = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@indurama.com';
-    
+
     await transporter.sendMail({
       from: `"Indurama - Sistema de Solicitudes" <${emailFrom}>`,
       to: Array.isArray(to) ? to.join(', ') : to,
@@ -164,7 +164,7 @@ export const sendNewRequestNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `🔔 Nueva Solicitud: ${requestData.code}`;
-  
+
   const content = `
     <p>Hola,</p>
     <p>Se ha creado una nueva solicitud que requiere tu atención:</p>
@@ -199,7 +199,7 @@ export const sendRequestApprovedNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `✅ Solicitud Aprobada: ${requestData.code}`;
-  
+
   const content = `
     <p>Hola,</p>
     <p>¡Buenas noticias! Tu solicitud ha sido aprobada:</p>
@@ -234,7 +234,7 @@ export const sendQuotationInvitationNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `📋 Invitación a Cotizar: ${requestData.code}`;
-  
+
   const content = `
     <p>Estimado/a ${proveedorName},</p>
     <p>Has sido seleccionado para participar en el siguiente proceso de cotización:</p>
@@ -268,7 +268,7 @@ export const sendQuotationStartedNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `🔄 Proceso de Cotización Iniciado: ${requestData.code}`;
-  
+
   const content = `
     <p>Hola,</p>
     <p>Tu solicitud ha entrado en proceso de cotización:</p>
@@ -302,7 +302,7 @@ export const sendWinnerNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `🏆 ¡Felicitaciones! Fuiste seleccionado: ${requestData.code}`;
-  
+
   const content = `
     <p>Estimado/a ${proveedorName},</p>
     <p>¡Excelentes noticias! Tu cotización ha sido seleccionada como ganadora:</p>
@@ -337,7 +337,7 @@ export const sendSupplierSelectedNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `✅ Proveedor Seleccionado: ${requestData.code}`;
-  
+
   const content = `
     <p>Hola,</p>
     <p>Se ha seleccionado un proveedor para tu solicitud:</p>
@@ -372,7 +372,7 @@ export const sendReceiptConfirmedNotification = async (
   }
 ): Promise<boolean> => {
   const subject = `📦 Recepción Confirmada: ${requestData.code}`;
-  
+
   const content = `
     <p>Hola,</p>
     <p>Se ha confirmado la recepción del producto/servicio:</p>
@@ -393,6 +393,39 @@ export const sendReceiptConfirmedNotification = async (
   return sendEmail(recipients, subject, html);
 };
 
+/**
+ * Notificación de confirmación de creación (para Solicitante)
+ */
+export const sendRequestCreatedConfirmation = async (
+  solicitanteEmail: string,
+  requestData: {
+    code: string;
+    title: string;
+    userName: string;
+  }
+): Promise<boolean> => {
+  const subject = `📥 Solicitud Recibida: ${requestData.code}`;
+
+  const content = `
+    <p>Hola ${requestData.userName},</p>
+    <p>Hemos recibido tu solicitud correctamente:</p>
+    <div class="info-box">
+      <p><strong>Código:</strong> ${requestData.code}</p>
+      <p><strong>Título:</strong> ${requestData.title}</p>
+      <p><strong>Estado:</strong> Pendiente de Revisión</p>
+    </div>
+    <p>Un gestor revisará tu solicitud pronto. Te notificaremos cualquier cambio.</p>
+  `;
+
+  const html = getEmailTemplate(
+    'Solicitud Recibida',
+    content,
+    { text: 'Ver Mis Solicitudes', url: 'https://tu-app.com/mis-solicitudes' }
+  );
+
+  return sendEmail(solicitanteEmail, subject, html);
+};
+
 export const EmailService = {
   sendNewRequestNotification,
   sendRequestApprovedNotification,
@@ -401,4 +434,5 @@ export const EmailService = {
   sendWinnerNotification,
   sendSupplierSelectedNotification,
   sendReceiptConfirmedNotification,
+  sendRequestCreatedConfirmation,
 };
