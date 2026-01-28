@@ -13,7 +13,8 @@ En el contexto de *Indurama*, este mapa refleja los módulos y flujos esenciales
 
 ## Mapa de Capacidades de la Aplicación de Gestión de Proveedores
 
-![Mapa de Capacidades](https://github.com/user-attachments/assets/2432be3d-cfee-4c62-a592-401680cd4908)
+![Mapa de Capacidades](https://github.com/user-attachments/assets/f335fd6b-0dcf-48c0-a57a-996e4be7f9bd)
+
 
 
 Este mapa de capacidades ha sido diseñado para una *aplicación móvil* enfocada en la *gestión integral de proveedores* de Indurama.  
