@@ -199,6 +199,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
             navItems={navItems}
             title="INDURAMA"
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <View style={styles.container}>
                 <StatusBar style="light" />
@@ -237,9 +238,9 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                     style={styles.scrollView}
                     contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingBottom: 40 }}
                     refreshControl={
-                        <RefreshControl 
-                            refreshing={refreshing} 
-                            onRefresh={onRefresh} 
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={onRefresh}
                             tintColor="#003E85"
                             colors={['#003E85']}
                         />
@@ -247,7 +248,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                     showsVerticalScrollIndicator={false}
                 >
                     <View style={styles.contentConstraint}>
-                        
+
                         {/* Tarjeta EPI Score Rediseñada */}
                         <AnimatedCard delay={0}>
                             <TouchableOpacity
@@ -324,8 +325,8 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             isTablet && styles.statsRowTablet
                         ]}>
                             <AnimatedCard style={styles.statCard} delay={100}>
-                                <TouchableOpacity 
-                                    style={styles.statCardInner} 
+                                <TouchableOpacity
+                                    style={styles.statCardInner}
                                     onPress={onNavigateToQuotations}
                                     activeOpacity={0.9}
                                 >
@@ -346,8 +347,8 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             </AnimatedCard>
 
                             <AnimatedCard style={styles.statCard} delay={200}>
-                                <TouchableOpacity 
-                                    style={styles.statCardInner} 
+                                <TouchableOpacity
+                                    style={styles.statCardInner}
                                     onPress={onNavigateToQuotations}
                                     activeOpacity={0.9}
                                 >
@@ -368,8 +369,8 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             </AnimatedCard>
 
                             <AnimatedCard style={styles.statCard} delay={300}>
-                                <TouchableOpacity 
-                                    style={styles.statCardInner} 
+                                <TouchableOpacity
+                                    style={styles.statCardInner}
                                     onPress={onNavigateToQuotations}
                                     activeOpacity={0.9}
                                 >
@@ -401,7 +402,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                         </Text>
                                     </View>
                                     {recentInvitations.length > 0 && (
-                                        <TouchableOpacity 
+                                        <TouchableOpacity
                                             onPress={onNavigateToQuotations}
                                             style={styles.seeAllButton}
                                         >
@@ -506,16 +507,16 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
     },
     headerGradient: {
-        paddingTop: Platform.OS === 'ios' ? 60 : 50,
-        paddingBottom: 90,
+        paddingTop: Platform.OS === 'ios' ? 50 : 40,
+        paddingBottom: 50,
         width: '100%',
         alignItems: 'center',
         borderBottomLeftRadius: 40,
         borderBottomRightRadius: 40,
     },
     headerWeb: {
-        paddingTop: 40,
-        paddingBottom: 110,
+        paddingTop: 30,
+        paddingBottom: 60,
     },
     headerFlex: {
         flexDirection: 'row',
@@ -599,7 +600,7 @@ const styles = StyleSheet.create({
     scrollView: {
         flex: 1,
     },
-    
+
     // Tarjeta Principal EPI
     mainCard: {
         backgroundColor: '#FFFFFF',
@@ -757,7 +758,7 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
-    
+
     // Section Title
     sectionTitle: {
         fontSize: 20,
@@ -772,7 +773,7 @@ const styles = StyleSheet.create({
         marginTop: 2,
         fontWeight: '500',
     },
-    
+
     // Stats Cards
     statsRow: {
         flexDirection: 'row',
@@ -840,7 +841,7 @@ const styles = StyleSheet.create({
         height: '100%',
         borderRadius: 2,
     },
-    
+
     // Recent Section
     recentSection: {
         backgroundColor: '#FFFFFF',
@@ -958,7 +959,7 @@ const styles = StyleSheet.create({
         color: '#6B7280',
         fontWeight: '600',
     },
-    
+
     // Empty State
     emptyContainer: {
         alignItems: 'center',

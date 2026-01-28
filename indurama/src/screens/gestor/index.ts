@@ -16,3 +16,4 @@ export { EPIAuditScreen } from './EPIAuditScreen';
 export { UserManagementScreen } from './UserManagementScreen';
 export { DashboardScreen } from './DashboardScreen';
 export { PaymentScreen } from './PaymentScreen';
+export { ManagerNotificationsScreen } from './ManagerNotificationsScreen';

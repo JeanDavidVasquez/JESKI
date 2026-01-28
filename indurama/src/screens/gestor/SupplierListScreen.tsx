@@ -26,6 +26,7 @@ interface SupplierListScreenProps {
   onNavigateToProfile?: () => void;
   onNavigateToInvite?: () => void;
   onNavigateToDetail?: (supplierId: string) => void;
+  onNavigateToNotifications?: () => void;
 }
 
 interface SupplierUI extends User {
@@ -42,6 +43,7 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
   onNavigateToProfile,
   onNavigateToInvite,
   onNavigateToDetail,
+  onNavigateToNotifications,
 }) => {
   const { width, isDesktopView } = useResponsive();
   const [searchText, setSearchText] = useState('');
@@ -174,6 +176,7 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
       currentScreen="Suppliers"
       navItems={navItems}
       logo={require('../../../assets/icono_indurama.png')}
+      onNavigateToNotifications={onNavigateToNotifications}
     >
       <StatusBar style="dark" />
 

@@ -25,6 +25,7 @@ interface SolicitanteDashboardScreenProps {
     onNavigateToHistory: () => void;
     onNavigateToProfile: () => void;
     onNavigateToRequestDetail?: (requestId: string) => void;
+    onNavigateToNotifications?: () => void;
 }
 
 export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProps> = ({
@@ -32,6 +33,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
     onNavigateToHistory,
     onNavigateToProfile,
     onNavigateToRequestDetail,
+    onNavigateToNotifications,
 }) => {
     const { user } = useAuth();
     const { isDesktopView, isMobileView } = useResponsive();
@@ -235,6 +237,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
             currentScreen="Dashboard"
             navItems={navItems}
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <StatusBar style="dark" />
 

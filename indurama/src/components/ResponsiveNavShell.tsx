@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Platform, Animated, LayoutAnimation } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useResponsive } from '../styles/responsive';
+import { NotificationBell } from './';
 
 /**
  * Generic navigation item for sidebar/bottom nav
@@ -20,6 +21,8 @@ interface ResponsiveNavShellProps {
     title?: string;
     subtitle?: string;
     logo?: any;
+    onNavigateToNotifications?: () => void;
+    userId?: string; // Optional userId for robust notification count
 }
 
 /**
@@ -34,6 +37,8 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
     title = 'INDURAMA',
     subtitle,
     logo,
+    onNavigateToNotifications,
+    userId,
 }) => {
     const { isDesktopView, width } = useResponsive();
     const [collapsed, setCollapsed] = useState(false);
@@ -82,7 +87,7 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
 
                     {/* Navigation Items */}
                     <View style={styles.sidebarNav}>
-                        {navItems.map((item) => {
+                        {navItems.slice(0, -1).map((item) => {
                             const isActive = currentScreen === item.key;
                             return (
                                 <TouchableOpacity
@@ -108,8 +113,66 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
                                             {item.label}
                                         </Text>
                                     )}
+                                </TouchableOpacity>
+                            );
+                        })}
 
-                                    {/* Tooltip-like effect or indicator could go here for collapsed state */}
+                        {/* Notification Bell - Before last item (Profile) */}
+                        <TouchableOpacity
+                            style={[styles.sidebarItem, collapsed && styles.sidebarItemCollapsed]}
+                            onPress={() => {
+                                console.log('Notification clicked in sidebar', onNavigateToNotifications);
+                                if (onNavigateToNotifications) {
+                                    onNavigateToNotifications();
+                                }
+                            }}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.iconContainer}>
+                                <NotificationBell
+                                    onPress={() => {
+                                        console.log('NotificationBell clicked in sidebar');
+                                        if (onNavigateToNotifications) {
+                                            onNavigateToNotifications();
+                                        }
+                                    }}
+                                    color="#6B7280"
+                                    size={22}
+                                    userId={userId} // Pass userId here
+                                />
+                            </View>
+                            {!collapsed && (
+                                <Text style={styles.sidebarLabel}>Notificaciones</Text>
+                            )}
+                        </TouchableOpacity>
+
+                        {/* Last item (Profile) */}
+                        {navItems.slice(-1).map((item) => {
+                            const isActive = currentScreen === item.key;
+                            return (
+                                <TouchableOpacity
+                                    key={item.key}
+                                    style={[
+                                        styles.sidebarItem,
+                                        isActive && styles.sidebarItemActive,
+                                        collapsed && styles.sidebarItemCollapsed
+                                    ]}
+                                    onPress={item.onPress}
+                                    activeOpacity={0.7}
+                                >
+                                    <View style={[styles.iconContainer, isActive && styles.iconContainerActive]}>
+                                        <Ionicons
+                                            name={item.iconName}
+                                            size={22}
+                                            color={isActive ? '#FFFFFF' : '#6B7280'}
+                                        />
+                                    </View>
+
+                                    {!collapsed && (
+                                        <Text style={[styles.sidebarLabel, isActive && styles.sidebarLabelActive]}>
+                                            {item.label}
+                                        </Text>
+                                    )}
                                 </TouchableOpacity>
                             );
                         })}
@@ -143,7 +206,53 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
 
             {/* Bottom Navigation */}
             <View style={styles.bottomNavigation}>
-                {navItems.map((item) => {
+                {/* First half of nav items */}
+                {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => {
+                    const isActive = currentScreen === item.key;
+                    return (
+                        <TouchableOpacity
+                            key={item.key}
+                            style={styles.bottomNavItem}
+                            onPress={item.onPress}
+                        >
+                            <Ionicons
+                                name={item.iconName}
+                                size={24}
+                                color={isActive ? PRIMARY_COLOR : '#9CA3AF'}
+                            />
+                            <Text style={[styles.bottomNavLabel, isActive && styles.bottomNavLabelActive]}>
+                                {item.label}
+                            </Text>
+                        </TouchableOpacity>
+                    );
+                })}
+
+                {/* Notification Bell in Center */}
+                <TouchableOpacity
+                    style={styles.bottomNavItem}
+                    onPress={() => {
+                        console.log('Notification clicked in bottom nav', onNavigateToNotifications);
+                        if (onNavigateToNotifications) {
+                            onNavigateToNotifications();
+                        }
+                    }}
+                >
+                    <NotificationBell
+                        onPress={() => {
+                            console.log('NotificationBell clicked in bottom nav');
+                            if (onNavigateToNotifications) {
+                                onNavigateToNotifications();
+                            }
+                        }}
+                        color="#9CA3AF"
+                        size={24}
+                        userId={userId} // Pass userId here as well
+                    />
+                    <Text style={styles.bottomNavLabel}>Notificaciones</Text>
+                </TouchableOpacity>
+
+                {/* Second half of nav items */}
+                {navItems.slice(Math.ceil(navItems.length / 2)).map((item) => {
                     const isActive = currentScreen === item.key;
                     return (
                         <TouchableOpacity
@@ -185,7 +294,6 @@ const styles = StyleSheet.create({
         borderRightColor: '#E5E7EB',
         paddingTop: 24,
         flexDirection: 'column',
-        transition: 'width 0.3s ease', // Smooth transition for web
         ...Platform.select({
             web: {
                 boxShadow: '2px 0 8px rgba(0,0,0,0.03)',
@@ -327,23 +435,21 @@ const styles = StyleSheet.create({
             },
             android: {
                 elevation: 8,
-            },
+            }
         }),
     },
     bottomNavItem: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        paddingVertical: 8,
     },
     bottomNavLabel: {
         fontSize: 10,
-        marginTop: 4,
+        marginTop: 2,
         color: '#9CA3AF',
-        fontWeight: '500',
     },
     bottomNavLabelActive: {
         color: PRIMARY_COLOR,
-        fontWeight: '700',
+        fontWeight: '600',
     },
 });

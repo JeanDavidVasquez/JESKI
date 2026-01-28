@@ -16,9 +16,10 @@ import {
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
-import { collection, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
+import { NotificationService } from '../../services/notificationService';
 import { uploadRequestFile, formatFileSize, validateFileSize, UploadedFile } from '../../services/fileUploadService';
 import { generateRequestCode } from '../../services/requestService';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -185,7 +186,27 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         };
         await updateDoc(requestRef, updateData as any);
       } else {
-        await addDoc(collection(db, 'requests'), requestData);
+        const docRef = await addDoc(collection(db, 'requests'), requestData);
+
+        // Create notification for all managers (gestores)
+        try {
+          const managersQuery = query(collection(db, 'users'), where('role', '==', 'gestor'));
+          const managersSnapshot = await getDocs(managersQuery);
+
+          for (const managerDoc of managersSnapshot.docs) {
+            await NotificationService.create({
+              userId: managerDoc.id,
+              type: 'new_request',
+              title: 'Nueva Solicitud',
+              message: `${user.companyName || user.email} ha creado una nueva solicitud.`,
+              relatedId: docRef.id,
+              relatedType: 'request'
+            });
+          }
+        } catch (notifError) {
+          console.error('Error creating notifications:', notifError);
+          // Don't fail the request creation if notifications fail
+        }
       }
 
       setShowSuccessModal(true);

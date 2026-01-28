@@ -12,3 +12,4 @@ export { PhotoEvidenceScreen } from './PhotoEvidenceScreen';
 export { default as AuditScreen } from './AuditScreen';
 export { ProviderQuotationsScreen } from './ProviderQuotationsScreen';
 export { QuotationFormScreen } from './QuotationFormScreen';
+export { SupplierNotificationsScreen } from './SupplierNotificationsScreen';

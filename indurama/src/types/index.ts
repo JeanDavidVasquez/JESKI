@@ -559,7 +559,10 @@ export type NotificationType =
   | 'quotation_not_selected'    // Proveedor no fue seleccionado
   | 'request_status_change'     // Cambio de estado de solicitud
   | 'supplier_selected'         // Notificar al solicitante que se eligió proveedor
-  | 'comment_received';         // Nuevo comentario
+  | 'comment_received'          // Nuevo comentario
+  | 'new_request'               // Nueva solicitud creada por solicitante
+  | 'supplier_registered'       // Nuevo proveedor registrado
+  | 'epi_submitted';            // Proveedor envió evaluación EPI
 
 /**
  * Notificación in-app

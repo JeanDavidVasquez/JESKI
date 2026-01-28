@@ -1,10 +1,10 @@
 // Firebase Functions v2 (COMPATIBLE con firebase-functions v7)
 
-import {onCall} from "firebase-functions/v2/https";
-import {logger} from "firebase-functions";
-import {getClient} from "./adminClient";
+import { onCall } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
+import { getClient } from "./adminClient";
 
-import {providerStatusAuditLog} from "./audit";
+import { providerStatusAuditLog } from "./audit";
 
 /**
  * Callable: asigna rol PROVEEDOR al usuario autenticado
@@ -15,7 +15,7 @@ import {providerStatusAuditLog} from "./audit";
  * Cumple con ISO 27002 A.9 (Control de Acceso) y OWASP A01 (Broken Access Control).
  */
 export const assignInitialRole = onCall(async (request) => {
-  const {auth, data, app} = request;
+  const { auth, data, app } = request;
 
   // App Check enforcement (rechaza llamadas sin token válido)
   // Seguridad: Firebase App Check se utiliza para atestación de la app cliente y mitiga
@@ -86,7 +86,7 @@ export const assignInitialRole = onCall(async (request) => {
       // No fallamos la operación principal por no poder guardar el log
     }
 
-    return {message: `Rol ${requestedRole} asignado correctamente.`};
+    return { message: `Rol ${requestedRole} asignado correctamente.` };
   } catch (error: any) {
     logger.error("Error de seguridad en asignación de rol", error);
     if (error.code === "already-exists") {
@@ -109,7 +109,7 @@ type TokenWithRole = {
 };
 
 export const setUserRole = onCall<SetUserRoleData>(async (request) => {
-  const {data, auth, app} = request;
+  const { data, auth, app } = request;
 
   // App Check enforcement (rechaza llamadas sin token válido)
   // Seguridad: App Check protege el backend de clientes no autorizados (bots/scripts).
@@ -128,7 +128,7 @@ export const setUserRole = onCall<SetUserRoleData>(async (request) => {
     );
   }
 
-  const {email, newRole} = data ?? {};
+  const { email, newRole } = data ?? {};
   const validRoles = new Set([
     "ADMIN",
     "GESTOR",
@@ -166,7 +166,7 @@ export const setUserRole = onCall<SetUserRoleData>(async (request) => {
       logger.warn("No se pudo guardar registro de auditoría en Firestore (setUserRole):", auditErr);
     }
 
-    return {message: `Éxito! ${email} ahora tiene el rol ${newRole}.`};
+    return { message: `Éxito! ${email} ahora tiene el rol ${newRole}.` };
   } catch (error) {
     logger.error("Error en setUserRole:", error);
     throw new Error("internal: Ocurrió un error al procesar la solicitud.");
@@ -176,4 +176,285 @@ export const setUserRole = onCall<SetUserRoleData>(async (request) => {
 /**
  * Firestore trigger (2nd gen)
  */
-export {providerStatusAuditLog};
+export { providerStatusAuditLog };
+
+/**
+ * Email Notification Triggers
+ * Estos triggers envían notificaciones por email en eventos clave del flujo de solicitudes
+ */
+import { onDocumentCreated, onDocumentUpdated } from "firebase-functions/v2/firestore";
+import { EmailService } from "./emailService";
+
+/**
+ * Trigger: Nueva solicitud creada
+ * Notifica a todos los gestores cuando se crea una nueva solicitud
+ */
+export const onRequestCreated = onDocumentCreated(
+  "requests/{requestId}",
+  async (event) => {
+    try {
+      const requestData = event.data?.data();
+      if (!requestData) return;
+
+      const client = getClient();
+
+      // Obtener todos los gestores
+      const usersSnapshot = await client.firestore()
+        .collection("users")
+        .where("role", "==", "gestor")
+        .get();
+
+      const gestorEmails: string[] = [];
+      usersSnapshot.forEach((doc: any) => {
+        const userData = doc.data();
+        if (userData.email) {
+          gestorEmails.push(userData.email);
+        }
+      });
+
+      if (gestorEmails.length > 0) {
+        await EmailService.sendNewRequestNotification(gestorEmails, {
+          code: requestData.code || "N/A",
+          title: requestData.title || "Sin título",
+          userName: requestData.userName || "Usuario",
+          department: requestData.department || "N/A",
+          priority: requestData.priority || "media",
+        });
+        logger.info(`Email de nueva solicitud enviado a ${gestorEmails.length} gestores`);
+      }
+    } catch (error) {
+      logger.error("Error en onRequestCreated trigger:", error);
+    }
+  }
+);
+
+/**
+ * Trigger: Solicitud actualizada
+ * Detecta cambios de estado y envía notificaciones apropiadas
+ */
+export const onRequestUpdated = onDocumentUpdated(
+  "requests/{requestId}",
+  async (event) => {
+    try {
+      const beforeData = event.data?.before.data();
+      const afterData = event.data?.after.data();
+
+      if (!beforeData || !afterData) return;
+
+      const client = getClient();
+
+      // Caso 1: Solicitud aprobada (cambio a 'in_progress' o 'approved')
+      if (
+        beforeData.status !== afterData.status &&
+        (afterData.status === "in_progress" || afterData.status === "approved")
+      ) {
+        const solicitanteEmail = afterData.userEmail;
+        if (solicitanteEmail) {
+          await EmailService.sendRequestApprovedNotification(
+            solicitanteEmail,
+            {
+              code: afterData.code || "N/A",
+              title: afterData.title || "Sin título",
+              reviewedByName: afterData.reviewedByName,
+            }
+          );
+          logger.info(`Email de aprobación enviado a ${solicitanteEmail}`);
+        }
+      }
+
+      // Caso 2: Recepción confirmada (receivedAt se establece)
+      if (!beforeData.receivedAt && afterData.receivedAt) {
+        // Obtener email del proveedor ganador
+        let proveedorEmail = "";
+        let supplierName = "Proveedor";
+
+        if (afterData.winnerId) {
+          const supplierDoc = await client.firestore()
+            .collection("users")
+            .doc(afterData.winnerId)
+            .get();
+
+          if (supplierDoc.exists) {
+            const supplierData = supplierDoc.data();
+            proveedorEmail = supplierData?.email || "";
+            supplierName = `${supplierData?.firstName || ""} ${supplierData?.lastName || ""}`.trim() ||
+              supplierData?.companyName || "Proveedor";
+          }
+        }
+
+        // Obtener emails de gestores
+        const gestoresSnapshot = await client.firestore()
+          .collection("users")
+          .where("role", "==", "gestor")
+          .get();
+
+        const recipients: string[] = [];
+        if (proveedorEmail) recipients.push(proveedorEmail);
+
+        gestoresSnapshot.forEach((doc: any) => {
+          const userData = doc.data();
+          if (userData.email) recipients.push(userData.email);
+        });
+
+        if (recipients.length > 0) {
+          await EmailService.sendReceiptConfirmedNotification(
+            recipients,
+            {
+              code: afterData.code || "N/A",
+              title: afterData.title || "Sin título",
+              supplierName,
+              confirmedBy: afterData.userName || "Usuario",
+            }
+          );
+          logger.info(`Email de recepción confirmada enviado a ${recipients.length} destinatarios`);
+        }
+      }
+    } catch (error) {
+      logger.error("Error en onRequestUpdated trigger:", error);
+    }
+  }
+);
+
+/**
+ * Callable Function: Enviar emails de cotización
+ * Permite al cliente enviar emails relacionados con cotizaciones
+ */
+type SendQuotationEmailData = {
+  type: 'invitation' | 'winner' | 'supplier_selected' | 'quotation_started';
+  requestId: string;
+  requestCode?: string;
+  requestTitle?: string;
+  requestDescription?: string;
+  supplierIds?: string[];
+  supplierId?: string;
+  solicitanteEmail?: string;
+  dueDate?: string;
+  amount?: number;
+  currency?: string;
+  supplierCount?: number;
+};
+
+export const sendQuotationEmail = onCall<SendQuotationEmailData>(async (request) => {
+  const { data, auth } = request;
+
+  if (!auth) {
+    throw new Error("unauthenticated: Debes iniciar sesión.");
+  }
+
+  try {
+    const client = getClient();
+
+    switch (data.type) {
+      case 'invitation':
+        // Enviar invitaciones a proveedores
+        if (data.supplierIds && data.requestCode && data.requestTitle) {
+          for (const supplierId of data.supplierIds) {
+            const supplierDoc = await client.firestore()
+              .collection("users")
+              .doc(supplierId)
+              .get();
+
+            if (supplierDoc.exists) {
+              const supplierData = supplierDoc.data();
+              const supplierEmail = supplierData?.email;
+              const supplierName = `${supplierData?.firstName || ""} ${supplierData?.lastName || ""}`.trim() ||
+                supplierData?.companyName || "Proveedor";
+
+              if (supplierEmail) {
+                await EmailService.sendQuotationInvitationNotification(
+                  supplierEmail,
+                  supplierName,
+                  {
+                    code: data.requestCode,
+                    title: data.requestTitle,
+                    description: data.requestDescription || "",
+                    dueDate: data.dueDate || "Por definir",
+                  }
+                );
+              }
+            }
+          }
+        }
+        break;
+
+      case 'quotation_started':
+        // Notificar al solicitante que comenzó la cotización
+        if (data.solicitanteEmail && data.requestCode && data.requestTitle) {
+          await EmailService.sendQuotationStartedNotification(
+            data.solicitanteEmail,
+            {
+              code: data.requestCode,
+              title: data.requestTitle,
+              supplierCount: data.supplierCount || 0,
+            }
+          );
+        }
+        break;
+
+      case 'winner':
+        // Notificar al proveedor ganador
+        if (data.supplierId && data.requestCode && data.requestTitle) {
+          const supplierDoc = await client.firestore()
+            .collection("users")
+            .doc(data.supplierId)
+            .get();
+
+          if (supplierDoc.exists) {
+            const supplierData = supplierDoc.data();
+            const supplierEmail = supplierData?.email;
+            const supplierName = `${supplierData?.firstName || ""} ${supplierData?.lastName || ""}`.trim() ||
+              supplierData?.companyName || "Proveedor";
+
+            if (supplierEmail) {
+              await EmailService.sendWinnerNotification(
+                supplierEmail,
+                supplierName,
+                {
+                  code: data.requestCode,
+                  title: data.requestTitle,
+                  amount: data.amount || 0,
+                  currency: data.currency || "USD",
+                }
+              );
+            }
+          }
+        }
+        break;
+
+      case 'supplier_selected':
+        // Notificar al solicitante sobre proveedor seleccionado
+        if (data.solicitanteEmail && data.requestCode && data.requestTitle && data.supplierId) {
+          const supplierDoc = await client.firestore()
+            .collection("users")
+            .doc(data.supplierId)
+            .get();
+
+          let supplierName = "Proveedor";
+          if (supplierDoc.exists) {
+            const supplierData = supplierDoc.data();
+            supplierName = `${supplierData?.firstName || ""} ${supplierData?.lastName || ""}`.trim() ||
+              supplierData?.companyName || "Proveedor";
+          }
+
+          await EmailService.sendSupplierSelectedNotification(
+            data.solicitanteEmail,
+            {
+              code: data.requestCode,
+              title: data.requestTitle,
+              supplierName,
+              amount: data.amount || 0,
+              currency: data.currency || "USD",
+            }
+          );
+        }
+        break;
+    }
+
+    return { success: true, message: "Email enviado correctamente" };
+  } catch (error) {
+    logger.error("Error en sendQuotationEmail:", error);
+    throw new Error("internal: Error al enviar email");
+  }
+});
+
+

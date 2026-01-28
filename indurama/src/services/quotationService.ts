@@ -25,6 +25,7 @@ import {
     QuotationInvitationStatus,
 } from '../types';
 import { NotificationService } from './notificationService';
+import { EmailHelperService } from './emailHelperService';
 
 const INVITATIONS_COLLECTION = 'quotation_invitations';
 const QUOTATIONS_COLLECTION = 'quotations';
@@ -83,6 +84,26 @@ export const QuotationService = {
             quotationStartedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+
+        // Enviar emails de invitación (no bloqueante)
+        try {
+            const requestDoc = await getDoc(doc(db, 'requests', requestId));
+            if (requestDoc.exists()) {
+                const requestData = requestDoc.data();
+                await EmailHelperService.sendQuotationInvitations(
+                    requestId,
+                    requestData.code || 'N/A',
+                    requestData.title || 'Sin título',
+                    requestData.description || '',
+                    supplierIds,
+                    requestData.userEmail || '',
+                    dueDate.toLocaleDateString('es-ES')
+                );
+            }
+        } catch (emailError) {
+            console.error('Error enviando emails de invitación:', emailError);
+            // No fallar la operación principal si falla el email
+        }
 
         return invitationIds;
     },
@@ -347,6 +368,26 @@ export const QuotationService = {
             adjudicatedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
+
+        // Enviar emails de ganador (no bloqueante)
+        try {
+            const requestDoc = await getDoc(doc(db, 'requests', requestId));
+            if (requestDoc.exists()) {
+                const requestData = requestDoc.data();
+                await EmailHelperService.sendWinnerNotifications(
+                    requestId,
+                    requestData.code || 'N/A',
+                    requestData.title || 'Sin título',
+                    winner.supplierId,
+                    requestData.userEmail || '',
+                    winner.totalAmount,
+                    winner.currency
+                );
+            }
+        } catch (emailError) {
+            console.error('Error enviando emails de ganador:', emailError);
+            // No fallar la operación principal si falla el email
+        }
     },
 
     // ============================================

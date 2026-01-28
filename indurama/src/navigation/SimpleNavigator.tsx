@@ -17,6 +17,7 @@ import {
   SolicitanteDashboardScreen,
   SolicitanteHistoryScreen,
   SolicitanteProfileScreen,
+  SolicitanteNotificationsScreen,
   NewRequestScreen,
   RequestsScreen,
   RequestDetailScreen,
@@ -25,6 +26,7 @@ import {
   ManagerDashboardScreen,
   ManagerRequestsScreen,
   ManagerProfileScreen,
+  ManagerNotificationsScreen,
   RequestReviewScreen,
   QuotationInviteScreen,
   QuotationCompareScreen,
@@ -52,6 +54,7 @@ import {
   AuditScreen,
   ProviderQuotationsScreen,
   QuotationFormScreen,
+  SupplierNotificationsScreen,
 } from '../screens';
 import { User, UserRole, Request } from '../types';
 
@@ -318,6 +321,7 @@ export const SimpleNavigator: React.FC = () => {
   };
 
   const navigateToNotifications = () => {
+    console.log('navigateToNotifications called, currentScreen:', currentScreen);
     setPreviousScreen(currentScreen);
     setCurrentScreen('Notifications');
   };
@@ -512,6 +516,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToHistory={() => setCurrentScreen('SolicitanteHistory')}
             onNavigateToProfile={() => setCurrentScreen('SolicitanteProfile')}
             onNavigateToRequestDetail={handleNavigateToRequestDetail}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
       case 'SolicitanteHistory':
@@ -678,6 +683,8 @@ export const SimpleNavigator: React.FC = () => {
               setCurrentScreen('QuotationCompare');
             }}
             onNavigateToPayment={navigateToPayment}
+            onNavigateToNotifications={navigateToNotifications}
+            currentUserOverride={currentUser} // Pass robust user session
           />
         );
       case 'ManagerRequests':
@@ -700,7 +707,7 @@ export const SimpleNavigator: React.FC = () => {
             }}
             onNavigateToPayment={navigateToPayment}
             initialFilter={requestsFilter}
-
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
       case 'PurchaseOrder':
@@ -783,6 +790,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToProfile={navigateToManagerProfile}
             onNavigateToInvite={navigateToSupplierInvite}
             onNavigateToDetail={navigateToSupplierDetail}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
       case 'SupplierInvite':
@@ -1022,6 +1030,44 @@ export const SimpleNavigator: React.FC = () => {
           />
         );
       case 'Notifications':
+        // Use role-specific notification screens
+        if (currentUser?.role === UserRole.PROVEEDOR) {
+          return (
+            <SupplierNotificationsScreen
+              onNavigateToQuotations={navigateToProviderQuotations}
+              onNavigateToProfile={() => setCurrentScreen('SupplierProfile')}
+              onNavigateToNotifications={navigateToNotifications}
+              onLogout={handleLogout}
+            />
+          );
+        }
+
+        if (currentUser?.role === UserRole.GESTOR) {
+          return (
+            <ManagerNotificationsScreen
+              onNavigateToDashboard={() => setCurrentScreen('ManagerDashboard')}
+              onNavigateToRequests={() => navigateToManagerRequests()}
+              onNavigateToSuppliers={navigateToSupplierList}
+              onNavigateToProfile={navigateToManagerProfile}
+              onNavigateToNotifications={navigateToNotifications}
+              currentUserOverride={currentUser}
+            />
+          );
+        }
+
+        if (currentUser?.role === UserRole.SOLICITANTE) {
+          return (
+            <SolicitanteNotificationsScreen
+              onNavigateToDashboard={() => setCurrentScreen('SolicitanteDashboard')}
+              onNavigateToNewRequest={() => setCurrentScreen('NewRequest')}
+              onNavigateToHistory={() => setCurrentScreen('SolicitanteHistory')}
+              onNavigateToProfile={() => setCurrentScreen('SolicitanteProfile')}
+              onNavigateToNotifications={navigateToNotifications}
+            />
+          );
+        }
+
+        // Fallback to generic NotificationsScreen for other roles
         return (
           <NotificationsScreen
             userId={currentUser?.id || ''}
@@ -1029,21 +1075,13 @@ export const SimpleNavigator: React.FC = () => {
               if (previousScreen) {
                 setCurrentScreen(previousScreen);
                 setPreviousScreen(null);
-              } else if (currentUser?.role === UserRole.PROVEEDOR) {
-                setCurrentScreen('SupplierWelcome');
-              } else if (currentUser?.role === UserRole.GESTOR) {
-                setCurrentScreen('ManagerDashboard');
               } else {
-                setCurrentScreen('SolicitanteDashboard');
+                setCurrentScreen('Login');
               }
             }}
             onNavigateToRequest={(requestId) => {
               setQuotationRequestId(requestId);
-              if (currentUser?.role === UserRole.PROVEEDOR) {
-                setCurrentScreen('ProviderQuotations');
-              } else {
-                setCurrentScreen('QuotationCompare');
-              }
+              setCurrentScreen('QuotationCompare');
             }}
           />
         );

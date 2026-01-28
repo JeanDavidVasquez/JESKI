@@ -28,6 +28,7 @@ interface ManagerRequestsScreenProps {
   onNavigateToProfile?: () => void;
   onNavigateToQuotationCompare?: (requestId: string) => void;
   onNavigateToPayment?: (requestId: string) => void;
+  onNavigateToNotifications?: () => void;
   initialFilter?: 'all' | 'pending' | 'completed';
 }
 
@@ -39,6 +40,7 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
   onNavigateToProfile,
   onNavigateToQuotationCompare,
   onNavigateToPayment,
+  onNavigateToNotifications,
   initialFilter = 'pending'
 }) => {
   const { width, isDesktopView, isMobileView } = useResponsive();
@@ -291,6 +293,7 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
       currentScreen="Requests"
       navItems={navItems}
       logo={require('../../../assets/icono_indurama.png')}
+      onNavigateToNotifications={onNavigateToNotifications}
     >
       <StatusBar style="dark" />
 

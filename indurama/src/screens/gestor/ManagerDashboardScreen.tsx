@@ -68,6 +68,7 @@ interface ManagerDashboardScreenProps {
   onNavigateToEPIPendingList?: () => void;
   onNavigateToQuotationCompare?: (requestId: string) => void;
   onNavigateToPayment?: (requestId: string) => void;
+  currentUserOverride?: any; // New prop for robust auth
 }
 
 const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
@@ -80,9 +81,11 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
   onNavigateToUserManagement,
   onNavigateToEPIPendingList,
   onNavigateToQuotationCompare,
-  onNavigateToPayment
+  onNavigateToPayment,
+  currentUserOverride
 }) => {
   const { user } = useAuth();
+  const activeUser = currentUserOverride || user; // Use override if present
   const { width, isMobileView, isDesktopView } = useResponsive();
 
   const [stats, setStats] = useState<DashboardStats>({
@@ -450,13 +453,15 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
       currentScreen="Dashboard"
       navItems={navItems}
       logo={require('../../../assets/icono_indurama.png')}
+      onNavigateToNotifications={onNavigateToNotifications}
+      userId={activeUser?.id} // Pass robust userId
     >
       <StatusBar style="dark" />
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.title}>DASHBOARD</Text>
-            <Text style={styles.subtitle}>Bienvenido, {user?.firstName || 'Gestor'}</Text>
+            <Text style={styles.subtitle}>Bienvenido, {activeUser?.firstName || 'Gestor'}</Text>
           </View>
           <View style={styles.logoContainer}>
             <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
