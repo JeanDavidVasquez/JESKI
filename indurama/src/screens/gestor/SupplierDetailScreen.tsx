@@ -14,14 +14,15 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { doc, getDoc } from 'firebase/firestore';
 import { ref, getDownloadURL } from 'firebase/storage'; // <--- IMPORTANTE
-import { db, storage } from '../../services/firebaseConfig'; // <--- IMPORTANTE: Asegurate de importar 'storage'
+import { db, storage } from '../../services/firebaseConfig';
+import { loadSupplierEpiData } from './../../services/supplierDataService'; // <--- IMPORTANTE: Asegurate de importar 'storage'
 import { SupplierResponseService } from '../../services/supplierResponseService';
 import { EpiService } from '../../services/epiService';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { theme } from '../../styles/theme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-type DetailTab = 'Resumen' | 'Respuestas' | 'Evidencias' | 'Historial';
+type DetailTab = 'Resumen' | 'Datos EPI' | 'Respuestas' | 'Evidencias' | 'Historial';
 
 interface SupplierDetailScreenProps {
   supplierId: string;
@@ -50,8 +51,9 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
 
   const [activeTab, setActiveTab] = useState<DetailTab>('Resumen');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
+  const [epiFormData, setEpiFormData] = useState<any>(null);
 
-  const tabs: DetailTab[] = ['Resumen', 'Respuestas', 'Evidencias', 'Historial'];
+  const tabs: DetailTab[] = ['Resumen', 'Datos EPI', 'Respuestas', 'Evidencias', 'Historial'];
 
   useEffect(() => {
     loadData();
@@ -187,6 +189,14 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
         console.log("No se pudo cargar config, usando defaults");
       }
 
+      // 4. Cargar datos completos del formulario EPI
+      try {
+        const epiData = await loadSupplierEpiData(supplierId);
+        setEpiFormData(epiData);
+      } catch (e) {
+        console.log("No se pudo cargar EPI data:", e);
+      }
+
     } catch (error) {
       console.error('Error cargando detalles:', error);
     } finally {
@@ -237,73 +247,97 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
 
   /* --- RENDERIZADO --- */
 
-  const renderResumenTab = () => (
-    <View style={[styles.tabContent, isDesktopView && styles.tabContentDesktop]}>
-      {/* Columna Izquierda / Superior: Datos */}
-      <View style={[styles.card, isDesktopView && { flex: 1, marginTop: 0 }]}>
-        <View style={styles.cardHeader}>
-          <View style={styles.cardHeaderLeft}>
-            <Ionicons name="business" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-            <Text style={styles.cardTitle}>DATOS DEL PROVEEDOR</Text>
-          </View>
-        </View>
+  const renderResumenTab = () => {
+    // Usar datos completos de EPI si están disponibles, sino usar supplierData básico
+    const generalData = epiFormData?.general || {};
+    const displayName = generalData.companyName || supplierData?.companyName || 'N/A';
+    const displayRUC = generalData.ruc || supplierData?.ruc || supplierData?.id || 'N/A';
+    const displayEmail = supplierData?.email || 'N/A';
+    const displayPhone = generalData.contactPersonPhone || supplierData?.phone || 'N/A';
+    const displayAddress = generalData.address || 'N/A';
+    const displayCity = generalData.city || 'N/A';
+    const displayCountry = generalData.country || 'N/A';
 
-        <View style={styles.dataRow}>
-          <Text style={styles.dataLabel}>Empresa</Text>
-          <Text style={styles.dataValue}>{supplierData?.companyName || 'N/A'}</Text>
-        </View>
-        <View style={styles.dataRow}>
-          <Text style={styles.dataLabel}>RUC / ID</Text>
-          <Text style={styles.dataValue}>{supplierData?.ruc || supplierData?.id || 'N/A'}</Text>
-        </View>
-        <View style={styles.dataRow}>
-          <Text style={styles.dataLabel}>Email</Text>
-          <Text style={styles.dataValue}>{supplierData?.email || 'N/A'}</Text>
-        </View>
-        <View style={styles.dataRow}>
-          <Text style={styles.dataLabel}>Teléfono</Text>
-          <Text style={styles.dataValue}>{supplierData?.phone || 'N/A'}</Text>
-        </View>
-      </View>
-
-      {/* Columna Derecha / Inferior: Métricas */}
-      {epiSubmission && (
+    return (
+      <View style={[styles.tabContent, isDesktopView && styles.tabContentDesktop]}>
+        {/* Columna Izquierda / Superior: Datos */}
         <View style={[styles.card, isDesktopView && { flex: 1, marginTop: 0 }]}>
-          <View style={styles.evaluationHeader}>
-            <Text style={styles.evaluationTitle}>Métricas de Evaluación</Text>
-            <Text style={styles.autoText}>Auto-evaluación</Text>
-          </View>
-
-          <View style={styles.progressItem}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Calidad</Text>
-              <Text style={styles.progressValue}>{Math.round(epiSubmission.calidadScore || 0)}/100</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.calidadScore || 0, 100)}%`, backgroundColor: theme.colors.primary }]} />
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="business" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>DATOS DEL PROVEEDOR</Text>
             </View>
           </View>
 
-          <View style={styles.progressItem}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Abastecimiento</Text>
-              <Text style={styles.progressValue}>{Math.round(epiSubmission.abastecimientoScore || 0)}/100</Text>
-            </View>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.abastecimientoScore || 0, 100)}%`, backgroundColor: '#00BCD4' }]} />
-            </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Empresa</Text>
+            <Text style={styles.dataValue}>{displayName}</Text>
           </View>
-
-          {onNavigateToAudit && (
-            <TouchableOpacity style={styles.auditButton} onPress={() => onNavigateToAudit(epiSubmission.id)}>
-              <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#3B82F6" style={{ marginRight: 8 }} />
-              <Text style={styles.auditText}>Realizar Auditoría / Recalibrar</Text>
-            </TouchableOpacity>
-          )}
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>RUC</Text>
+            <Text style={styles.dataValue}>{displayRUC}</Text>
+          </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Email</Text>
+            <Text style={styles.dataValue}>{displayEmail}</Text>
+          </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Teléfono</Text>
+            <Text style={styles.dataValue}>{displayPhone}</Text>
+          </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Dirección</Text>
+            <Text style={styles.dataValue}>{displayAddress}</Text>
+          </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Ciudad</Text>
+            <Text style={styles.dataValue}>{displayCity}</Text>
+          </View>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>País</Text>
+            <Text style={styles.dataValue}>{displayCountry}</Text>
+          </View>
         </View>
-      )}
-    </View>
-  );
+
+        {/* Columna Derecha / Inferior: Métricas */}
+        {epiSubmission && (
+          <View style={[styles.card, isDesktopView && { flex: 1, marginTop: 0 }]}>
+            <View style={styles.evaluationHeader}>
+              <Text style={styles.evaluationTitle}>Métricas de Evaluación</Text>
+              <Text style={styles.autoText}>Auto-evaluación</Text>
+            </View>
+
+            <View style={styles.progressItem}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Calidad</Text>
+                <Text style={styles.progressValue}>{Math.round(epiSubmission.calidadScore || 0)}/100</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.calidadScore || 0, 100)}%`, backgroundColor: theme.colors.primary }]} />
+              </View>
+            </View>
+
+            <View style={styles.progressItem}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Abastecimiento</Text>
+                <Text style={styles.progressValue}>{Math.round(epiSubmission.abastecimientoScore || 0)}/100</Text>
+              </View>
+              <View style={styles.progressBar}>
+                <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.abastecimientoScore || 0, 100)}%`, backgroundColor: '#00BCD4' }]} />
+              </View>
+            </View>
+
+            {onNavigateToAudit && (
+              <TouchableOpacity style={styles.auditButton} onPress={() => onNavigateToAudit(epiSubmission.id)}>
+                <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#3B82F6" style={{ marginRight: 8 }} />
+                <Text style={styles.auditText}>Realizar Auditoría / Recalibrar</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
+      </View>
+    );
+  };
 
   const renderEvidenciasTab = () => {
     // Usamos las listas procesadas que ya tienen 'finalUri'
@@ -452,6 +486,197 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
     );
   };
 
+  const renderDatosEpiContent = () => {
+    if (!epiFormData) return null;
+    const { general, operations, systems, questionnaire, checklist } = epiFormData;
+
+    const renderField = (label: string, value: any) => (
+      <View style={styles.dataRow}>
+        <Text style={styles.dataLabel}>{label}</Text>
+        <Text style={value ? styles.dataValue : styles.emptyFieldText}>
+          {value || 'No proporcionado'}
+        </Text>
+      </View>
+    );
+
+    return (
+      <>
+        {/* SECCION 1: DATOS GENERALES */}
+        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="business" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>1. DATOS GENERALES</Text>
+            </View>
+          </View>
+          {renderField('Empresa', general?.companyName)}
+          {renderField('RUC', general?.ruc)}
+          {renderField('Dirección', general?.address)}
+          {renderField('Ciudad', general?.city)}
+          {renderField('País', general?.country)}
+          {renderField('Representante Legal', general?.legalRepresentative)}
+          {renderField('Forma Jurídica', general?.legalForm)}
+          {renderField('Tipo de Proveedor', general?.supplierType)}
+          {renderField('Tiempo en Mercado', general?.marketTime)}
+          {renderField('Contacto', general?.contactPersonName)}
+        </View>
+
+        {/* SECCION 2: OPERACIONES */}
+        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="stats-chart" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>2. OPERACIONES Y VENTAS</Text>
+            </View>
+          </View>
+          {renderField('Enfoque Principal', operations?.mainFocus)}
+          {renderField('Productos/Servicios', operations?.productsOrServices)}
+
+          {operations?.productTags && operations.productTags.length > 0 && (
+            <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
+              <Text style={[styles.dataLabel, { marginBottom: 8 }]}>Productos</Text>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {operations.productTags.map((tag: string, i: number) => (
+                  <View key={i} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                    <Text style={{ color: '#FFF', fontSize: 12 }}>{tag}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          )}
+
+          {operations?.mainClients && operations.mainClients.length > 0 && (
+            <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
+              <Text style={[styles.dataLabel, { marginBottom: 8, fontWeight: '600' }]}>Principales Clientes</Text>
+              {operations.mainClients.map((c: any, i: number) => (
+                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
+                  <Text style={{ flex: 1, fontSize: 14, color: '#374151' }}>{c.name || 'No especificado'}</Text>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.primary }}>{c.share || '-'}%</Text>
+                </View>
+              ))}
+            </View>
+          )}
+
+          {renderField('Ventas 2023', operations?.sales2023)}
+          {renderField('Ventas 2024', operations?.sales2024)}
+          {renderField('Ventas 2025', operations?.sales2025)}
+          {renderField('Empleados', operations?.employeesCount)}
+          {renderField('Certificaciones', operations?.certifications)}
+        </View>
+
+        {/* SECCION 3: SISTEMAS */}
+        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="hardware-chip" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>3. SISTEMAS Y CONTACTOS</Text>
+            </View>
+          </View>
+
+          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
+            <Text style={[styles.dataLabel, { marginBottom: 12, fontWeight: '600' }]}>Sistemas Implementados</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+              {['ERP', 'CRM', 'MRP', 'WMS', 'SCM', 'BI'].map((sys) => (
+                <View key={sys} style={{ flexDirection: 'row', alignItems: 'center', width: '45%' }}>
+                  <Ionicons
+                    name={systems?.[`has${sys}`] ? "checkbox" : "square-outline"}
+                    size={20}
+                    color={systems?.[`has${sys}`] ? "#10B981" : "#9CA3AF"}
+                  />
+                  <Text style={{ marginLeft: 8, fontSize: 14, color: '#374151' }}>{sys}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+
+          {systems?.additionalContacts && systems.additionalContacts.length > 0 && (
+            <View style={{ paddingHorizontal: 16 }}>
+              <Text style={[styles.dataLabel, { marginBottom: 8, fontWeight: '600' }]}>Contactos Adicionales</Text>
+              {systems.additionalContacts.map((ct: any, i: number) => (
+                <View key={i} style={{ backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, marginBottom: 8 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 4 }}>{ct.name}</Text>
+                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Cargo: {ct.position || 'N/A'}</Text>
+                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Tel: {ct.phone}</Text>
+                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Email: {ct.email}</Text>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* SECCION 4: CUESTIONARIO */}
+        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="help-circle" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>4. CUESTIONARIO</Text>
+            </View>
+          </View>
+
+          {questionnaire?.responses && questionnaire.responses.length > 0 ? (
+            questionnaire.responses.map((item: any, i: number) => (
+              <View key={i} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
+                <Text style={{ fontSize: 14, color: '#374151', marginBottom: 6 }}>{i + 1}. {item.question}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Ionicons
+                    name={item.answer === 'Si' ? "checkmark-circle" : "close-circle"}
+                    size={18}
+                    color={item.answer === 'Si' ? "#10B981" : "#EF4444"}
+                  />
+                  <Text style={{ marginLeft: 6, fontSize: 14, fontWeight: '600', color: item.answer === 'Si' ? "#10B981" : "#EF4444" }}>
+                    {item.answer || 'No respondida'}
+                  </Text>
+                </View>
+              </View>
+            ))
+          ) : (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={styles.emptyFieldText}>No hay respuestas al cuestionario</Text>
+            </View>
+          )}
+        </View>
+
+        {/* SECCION 5: CHECKLIST */}
+        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="documents" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>5. CHECKLIST DE DOCUMENTOS</Text>
+            </View>
+          </View>
+
+          {checklist?.items && checklist.items.length > 0 ? (
+            checklist.items.map((item: any, i: number) => (
+              <TouchableOpacity
+                key={i}
+                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E5E7EB' }}
+                onPress={() => item.uri && handleOpenDocument(item.uri)}
+                disabled={!item.uri}
+              >
+                <Ionicons
+                  name={item.uri ? "checkmark-circle" : "close-circle-outline"}
+                  size={24}
+                  color={item.uri ? "#10B981" : "#9CA3AF"}
+                />
+                <View style={{ flex: 1, marginLeft: 12 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{item.name}</Text>
+                  <Text style={{ fontSize: 12, color: item.uri ? '#10B981' : '#EF4444', marginTop: 2 }}>
+                    {item.uri ? '✓ Cargado' : 'No cargado'}
+                  </Text>
+                </View>
+                {item.uri && <Ionicons name="open-outline" size={20} color="#3B82F6" />}
+              </TouchableOpacity>
+            ))
+          ) : (
+            <View style={{ padding: 20, alignItems: 'center' }}>
+              <Text style={styles.emptyFieldText}>No hay documentos</Text>
+            </View>
+          )}
+        </View>
+      </>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -539,6 +764,20 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
           >
             <View style={{ width: '100%', maxWidth: 1200, marginTop: isDesktopView ? 30 : 0 }}>
               {activeTab === 'Resumen' && renderResumenTab()}
+
+              {activeTab === 'Datos EPI' && !epiFormData && (
+                <View style={styles.emptyContainer}>
+                  <Ionicons name="document-outline" size={60} color="#ccc" style={{ marginBottom: 10 }} />
+                  <Text style={styles.emptyText}>No hay datos EPI disponibles.</Text>
+                </View>
+              )}
+
+              {activeTab === 'Datos EPI' && epiFormData && (
+                <View style={{ paddingBottom: 40 }}>
+                  <Text style={[styles.sectionHeaderTitle, { color: theme.colors.primary, marginBottom: 20 }]}>DATOS FORMULARIO EPI</Text>
+                  {renderDatosEpiContent()}
+                </View>
+              )}
 
               {activeTab === 'Respuestas' && epiSubmission && (
                 <View style={{ paddingBottom: 40 }}>
@@ -710,6 +949,11 @@ const styles = StyleSheet.create({
   // Responsive Styles
   tabContent: { flexDirection: 'column', gap: 16 },
   tabContentDesktop: { flexDirection: 'row', gap: 24, alignItems: 'flex-start' },
+  emptyFieldText: {
+    fontSize: 14,
+    color: '#9CA3AF',
+    fontStyle: 'italic',
+  },
 });
 
 export default SupplierDetailScreen;

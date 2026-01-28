@@ -10,11 +10,149 @@ import {
     writeBatch
 } from 'firebase/firestore';
 import { db } from './firebaseConfig';
+import {
+    SupplierEpiData,
+    SupplierGeneralData,
+    SupplierOperationsData,
+    SupplierSystemsData,
+    SupplierQuestionnaireData,
+    SupplierChecklistData
+} from '../types/supplierEpi';
 
 /**
  * Supplier Data Service
- * Manages supplier data across Firestore subcollections
+ * Manages supplier data across Firestore subcollections (EPI Sections)
  */
+
+// ========== Save Sections ==========
+
+export const saveSupplierGeneralData = async (userId: string, data: SupplierGeneralData) => {
+    await setDoc(doc(db, 'users', userId, 'epiData', 'general'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const saveSupplierOperationsData = async (userId: string, data: SupplierOperationsData) => {
+    await setDoc(doc(db, 'users', userId, 'epiData', 'operations'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const saveSupplierSystemsData = async (userId: string, data: SupplierSystemsData) => {
+    await setDoc(doc(db, 'users', userId, 'epiData', 'systems'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const saveSupplierQuestionnaireData = async (userId: string, data: SupplierQuestionnaireData) => {
+    await setDoc(doc(db, 'users', userId, 'epiData', 'questionnaire'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+export const saveSupplierChecklistData = async (userId: string, data: SupplierChecklistData) => {
+    await setDoc(doc(db, 'users', userId, 'epiData', 'checklist'), { ...data, updatedAt: serverTimestamp() }, { merge: true });
+};
+
+// ========== Load Complete Data ==========
+
+export const loadSupplierEpiData = async (userId: string): Promise<Partial<SupplierEpiData>> => {
+    try {
+        const epiRef = collection(db, 'users', userId, 'epiData');
+        const snapshot = await getDocs(epiRef);
+
+        const data: any = {};
+
+        snapshot.forEach(doc => {
+            data[doc.id] = doc.data();
+        });
+
+        // Also load legacy CompanyProfile if general is missing
+        if (!data.general) {
+            const legacyProfile = await getDoc(doc(db, 'users', userId, 'companyProfile', 'main'));
+            if (legacyProfile.exists()) {
+                const lp = legacyProfile.data();
+                data.general = {
+                    companyName: '', // Usually in user doc, need to fetch user doc for this? No, keep simple.
+                    address: lp.fiscalAddress || '',
+                    phone: lp.centralPhone || '',
+                    website: lp.website || '',
+                    city: lp.city || '',
+                    country: lp.country || '',
+                    postalCode: lp.postalCode || '',
+                    ruc: lp.ruc || ''
+                };
+            }
+        }
+
+        return data as Partial<SupplierEpiData>;
+    } catch (error) {
+        console.error("Error loading EPI data:", error);
+        return {};
+    }
+};
+
+/**
+ * Save all supplier data in a single batch operation (atomic)
+ * Handles legacy collections for backward compatibility if needed, 
+ * but primarily saves to 'epiData' subcollection.
+ */
+export const saveAllSupplierEpiData = async (
+    userId: string,
+    data: Partial<SupplierEpiData>,
+    legacyContacts?: any
+): Promise<void> => {
+    const batch = writeBatch(db);
+
+    if (data.general) {
+        batch.set(doc(db, 'users', userId, 'epiData', 'general'), { ...data.general, updatedAt: serverTimestamp() }, { merge: true });
+
+        // Sync legacy profile for compatibility with other screens
+        batch.set(doc(db, 'users', userId, 'companyProfile', 'main'), {
+            fiscalAddress: data.general.address,
+            centralPhone: data.general.phone,
+            website: data.general.website,
+            city: data.general.city,
+            country: data.general.country,
+            ruc: data.general.ruc,
+            postalCode: data.general.postalCode,
+            updatedAt: serverTimestamp()
+        }, { merge: true });
+    }
+
+    if (data.operations) {
+        batch.set(doc(db, 'users', userId, 'epiData', 'operations'), { ...data.operations, updatedAt: serverTimestamp() }, { merge: true });
+
+        // Sync productTags to root user document for search optimization
+        if (data.operations.productTags) {
+            batch.set(doc(db, 'users', userId), { productTags: data.operations.productTags }, { merge: true });
+        }
+    }
+
+    if (data.systems) {
+        batch.set(doc(db, 'users', userId, 'epiData', 'systems'), { ...data.systems, updatedAt: serverTimestamp() }, { merge: true });
+
+        // Sync legacy contacts if provided or extracted from systems
+        if (data.systems.generalManager) {
+            batch.set(doc(db, 'users', userId, 'contacts', 'general_manager'), { ...data.systems.generalManager, type: 'general_manager' }, { merge: true });
+        }
+        if (data.systems.commercial) {
+            batch.set(doc(db, 'users', userId, 'contacts', 'commercial'), { ...data.systems.commercial, type: 'commercial' }, { merge: true });
+        }
+        if (data.systems.quality) {
+            batch.set(doc(db, 'users', userId, 'contacts', 'quality'), { ...data.systems.quality, type: 'quality' }, { merge: true });
+        }
+    }
+
+    if (data.questionnaire) {
+        batch.set(doc(db, 'users', userId, 'epiData', 'questionnaire'), { ...data.questionnaire, updatedAt: serverTimestamp() }, { merge: true });
+    }
+
+    if (data.checklist) {
+        batch.set(doc(db, 'users', userId, 'epiData', 'checklist'), { ...data.checklist, updatedAt: serverTimestamp() }, { merge: true });
+    }
+
+    await batch.commit();
+};
+
+
+// ==========================================
+// LEGACY SUPPORT
+// ==========================================
+
+
 
 // ========== Company Profile ==========
 
@@ -383,36 +521,39 @@ export const getSuppliersList = async (): Promise<SupplierSummary[]> => {
             const userId = docSnap.id;
 
             // Get EPI submission for this supplier (most recent)
-            const submission = submissionsMap.get(userId);
-
-            // FILTER: Only include approved suppliers (those with approved EPI submissions)
-            if (!submission || submission.status !== 'approved') {
-                return null; // Will be filtered out
-            }
+            const submission = submissionsMap.get(userId) || {};
 
             // Fetch company profile for location and category
             const profileRef = doc(db, 'users', userId, 'companyProfile', 'main');
             const profileSnap = await getDoc(profileRef);
             const profileData = profileSnap.exists() ? profileSnap.data() as CompanyProfileData : null;
 
+            const score = Math.round((submission.calculatedScore ?? submission.globalScore ?? 0) as number);
+
+            // STRICT FILTER: Only show suppliers with Score > 80 AND (Approved or Active)
+            const isApproved = userData.supplierStatus === 'epi_approved' || userData.supplierStatus === 'active' || userData.approved === true;
+
+            if (!isApproved || score <= 80) {
+                return null;
+            }
+
             return {
                 id: userId,
                 name: userData.companyName || (userData.firstName ? `${userData.firstName} ${userData.lastName || ''}` : 'Proveedor'),
                 email: userData.email || '',
                 location: profileData?.city ? `${profileData.city}, ${profileData.country || ''}` : 'Ubicación no disponible',
-                tags: profileData?.category ? [profileData.category] : [],
-                // Use whichever field exists: calculatedScore or globalScore
-                score: Math.round((submission.calculatedScore ?? submission.globalScore ?? 0) as number),
+                tags: userData.productTags && userData.productTags.length > 0 ? userData.productTags : (profileData?.category ? [profileData.category] : []),
+                score: score,
                 phone: profileData?.centralPhone || userData.phone || '',
                 certifications: userData.certifications || [], // From user data
                 productCategories: userData.productCategories || [], // Map from user data
-                status: undefined
+                status: userData.supplierStatus
             };
         });
 
         const results = await Promise.all(promises);
 
-        // Filter out null values (non-approved suppliers)
+        // Filter out null values (non-approved or low score suppliers)
         return results.filter(s => s !== null) as SupplierSummary[];
 
     } catch (error) {

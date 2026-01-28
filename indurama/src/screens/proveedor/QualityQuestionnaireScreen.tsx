@@ -410,11 +410,23 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
             <Text style={{ textAlign: 'center', marginTop: 20, color: '#64748B' }}>No hay preguntas disponibles.</Text>
           ) : (
             <View style={styles.questionContainer}>
+              {/* Locked Banner inside */}
+              {isLocked && (
+                <View style={styles.lockedBanner}>
+                  <Ionicons name="lock-closed" size={20} color="#D97706" />
+                  <Text style={styles.lockedText}>Evaluación enviada - Solo lectura</Text>
+                </View>
+              )}
+
               <View style={styles.questionHeader}>
-                <Text style={styles.questionSection}>
-                  {currentSection?.title || 'Sección'}
-                </Text>
+                <View style={styles.sectionBadge}>
+                  <Ionicons name="document-text-outline" size={16} color="#003E85" />
+                  <Text style={styles.questionSection}>
+                    {currentSection?.title || 'Sección'}
+                  </Text>
+                </View>
                 <View style={styles.pointsBadge}>
+                  <Ionicons name="star" size={14} color="#F59E0B" />
                   <Text style={styles.pointsText}>{currentQuestion?.maxPoints || 0} pts</Text>
                 </View>
               </View>
@@ -546,7 +558,12 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveAndExit} disabled={saving}>
-            {saving ? <ActivityIndicator color="#003E85" /> : (
+            {saving ? (
+              <>
+                <ActivityIndicator color="#003E85" size="small" />
+                <Text style={[styles.saveButtonText, { marginLeft: 6 }]}>Guardando...</Text>
+              </>
+            ) : (
               <>
                 <Ionicons name="save-outline" size={18} color="#003E85" />
                 <Text style={styles.saveButtonText}>Guardar</Text>
@@ -566,9 +583,10 @@ export const QualityQuestionnaireScreen: React.FC<QualityQuestionnaireScreenProp
             <TouchableOpacity
               style={[styles.navButton, styles.finishButton]}
               onPress={onNavigateToSupplyQuestionnaire || handleSaveAndExit}
+              disabled={saving}
             >
-              <Text style={styles.nextButtonText}>Finalizar</Text>
-              <Ionicons name="checkmark" size={20} color="#FFF" />
+              <Text style={styles.nextButtonText}>{saving ? 'Guardando...' : 'Finalizar'}</Text>
+              {!saving && <Ionicons name="checkmark" size={20} color="#FFF" />}
             </TouchableOpacity>
           )}
         </View>
@@ -780,51 +798,87 @@ const styles = StyleSheet.create({
     paddingTop: 24,
     paddingBottom: 100, // Space for footer
   },
+
+  // Locked Banner
+  lockedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#FED7AA',
+    gap: 8,
+  },
+  lockedText: {
+    color: '#9A3412',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+
+  // Questions
   questionContainer: {
     width: '100%',
-    maxWidth: 800,
+    maxWidth: 900,
     backgroundColor: '#FFFFFF',
-    borderRadius: 16,
-    padding: 24,
+    borderRadius: 20,
+    padding: 28,
     marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
     ...Platform.select({
-      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12 },
-      android: { elevation: 3 },
-      web: { boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' },
+      ios: { shadowColor: '#003E85', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16 },
+      android: { elevation: 4 },
+      web: { boxShadow: '0 6px 24px rgba(0, 62, 133, 0.08)' },
     }),
   },
   questionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  sectionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#EFF6FF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
   },
   questionSection: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
+    fontWeight: '700',
+    color: '#003E85',
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
   pointsBadge: {
-    backgroundColor: '#EFF6FF',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
     borderWidth: 1,
-    borderColor: '#DBEAFE',
+    borderColor: '#FDE68A',
   },
   pointsText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#003E85',
+    fontSize: 13,
+    fontWeight: '800',
+    color: '#D97706',
   },
   questionText: {
-    fontSize: 16,
+    fontSize: 17,
+    lineHeight: 26,
     fontWeight: '500',
-    color: '#1E293B',
-    lineHeight: 24,
-    marginBottom: 24,
+    color: '#0F172A',
+    marginBottom: 28,
   },
   inputLabel: {
     fontSize: 13,
@@ -846,27 +900,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    borderWidth: 1,
+    paddingVertical: 14,
+    paddingHorizontal: 18,
+    borderRadius: 14,
+    borderWidth: 2,
     borderColor: '#E2E8F0',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: '#FFFFFF',
     gap: 8,
+    ...Platform.select({
+      ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
+      android: { elevation: 1 },
+      web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)', cursor: 'pointer' },
+    }),
   },
   answerButtonYes: {
     // base
   },
   answerButtonYesSelected: {
-    backgroundColor: '#22C55E',
-    borderColor: '#22C55E',
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+    ...Platform.select({
+      ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 3 },
+      web: { boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)', transform: 'translateY(-1px)' },
+    }),
   },
   answerButtonNo: {
     // base
   },
   answerButtonNoSelected: {
-    backgroundColor: '#EF4444',
-    borderColor: '#EF4444',
+    backgroundColor: '#F43F5E',
+    borderColor: '#F43F5E',
+    ...Platform.select({
+      ios: { shadowColor: '#F43F5E', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 3 },
+      web: { boxShadow: '0 4px 16px rgba(244, 63, 94, 0.3)', transform: 'translateY(-1px)' },
+    }),
   },
   answerButtonNA: {
     // base
@@ -874,14 +943,20 @@ const styles = StyleSheet.create({
   answerButtonNASelected: {
     backgroundColor: '#64748B',
     borderColor: '#64748B',
+    ...Platform.select({
+      ios: { shadowColor: '#64748B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+      android: { elevation: 3 },
+      web: { boxShadow: '0 4px 16px rgba(100, 116, 139, 0.3)', transform: 'translateY(-1px)' },
+    }),
   },
   answerButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#64748B',
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#475569',
   },
   answerButtonTextSelected: {
     color: '#FFFFFF',
+    fontWeight: '800',
   },
   disabledButton: {
     opacity: 0.6,
@@ -958,6 +1033,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     alignItems: 'center',
+    zIndex: 100,
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: -4 } },
       web: { boxShadow: '0 -4px 20px rgba(0,0,0,0.05)' },

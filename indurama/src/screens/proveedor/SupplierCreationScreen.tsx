@@ -6,309 +6,278 @@ import {
   TouchableOpacity,
   Text,
   Dimensions,
-  Platform,
-  Image,
   TextInput,
   Alert,
+  ActivityIndicator,
+  Platform,
+  Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
-import { loadAllSupplierData } from '../../services/supplierDataService';
+import {
+  loadSupplierEpiData,
+  saveAllSupplierEpiData
+} from '../../services/supplierDataService';
+import { pickDocument, uploadSupplierEvidence } from '../../services/imagePickerService';
+
+import { User } from '../../types';
+import {
+  SupplierGeneralData,
+  SupplierOperationsData,
+  SupplierSystemsData,
+  SupplierQuestionnaireData,
+  SupplierChecklistData
+} from '../../types/supplierEpi';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
-const isTablet = width >= 768 && width < 1024;
+const MAX_WIDTH = 1000; // Wider layout for EPI form
 
-// Tipos para las pestañas
-type TabType = 'General' | 'Productos' | 'Bancaria' | 'Credito';
+// Tipos para las pestañas (5 Pasos)
+type TabType = 'General' | 'Operaciones' | 'Sistemas' | 'Cuestionario' | 'Checklist';
 
-import { User } from '../../types';
-
-// Props para la pantalla
+// Props
 interface SupplierCreationScreenProps {
   onNavigateBack?: () => void;
   onComplete?: () => void;
-  user?: User | null; // NEW: Accept user as prop
+  user?: User | null;
 }
 
-/**
- * Pantalla de Creación de Proveedor con formulario por pestañas
- */
 export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   onNavigateBack,
   onComplete,
   user: userProp
 }) => {
   const { user: contextUser } = useAuth();
-  // Prioritize prop user, then context user
   const user = userProp || contextUser;
 
   const [activeTab, setActiveTab] = useState<TabType>('General');
   const [loading, setLoading] = useState(false);
-  const [productTagsText, setProductTagsText] = useState(''); // Raw text for input
+  const [saving, setSaving] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState(false);
 
-  const [formData, setFormData] = useState({
-    // General
-    companyName: '',
-    ruc: '',
-    civilStatus: '',
-    address: '', // fiscalAddress
-    postalCode: '',
-    city: '',
-    country: '',
-    phone: '', // centralPhone
-    website: '',
+  // --- STATE DEFINITIONS ---
 
-    // Business Profile - NEW
-    businessType: '' as 'fabricante' | 'distribuidor' | 'servicio' | '',
-    productCategories: [] as string[],
-    productTags: [] as string[],
-
-    // Contacts
-    generalManagerName: '',
-    generalManagerEmail: '',
-    commercialContactName: '',
-    commercialContactEmail: '',
-    qualityContactName: '',
-    qualityContactEmail: '',
-    retentionEmail: '', // Keeping this as it was in original, useful for billing
-
-    // Bancaria
-    bankName: '',
-    bankAddress: '',
-    accountNumber: '',
-    bicSwift: '',
-    iban: '',
-    accountType: '',
-
-    // Credito
-    creditDays: '',
-    deliveryDays: '',
-    ibanCredit: '', // Maybe 'paymentMethod' better?
-    paymentMethod: ''
+  const [generalData, setGeneralData] = useState<SupplierGeneralData>({
+    companyName: '', ruc: '', address: '', city: '', country: '', postalCode: '',
+    phone: '', website: '', legalRepresentative: '', legalForm: '',
+    supplierType: '', rucType: '', marketTime: '', sapBilling: 'Por Indurama',
+    contactPersonName: '', contactPersonPhone: '', evaluationDate: new Date().toISOString()
   });
 
-  // Calculate Progress
-  const calculateProgress = () => {
-    // Implement simple count of filled fields
-    const totalFields = Object.keys(formData).length;
-    const filledFields = Object.values(formData).filter(v => v !== '').length;
-    return Math.round((filledFields / totalFields) * 100);
-  };
+  const [operationsData, setOperationsData] = useState<SupplierOperationsData>({
+    mainFocus: '', mainRawMaterials: '', productsOrServices: '',
+    mainClients: [{ name: '', share: '' }, { name: '', share: '' }],
+    clientShare: '', inventoryDays: '', mainSuppliers: '', salesExpectation: '',
+    sales2023: '', sales2024: '', sales2025: '',
+    employeesCount: '', shifts: '', factoryArea: '', certifications: ''
+  });
+
+  const [systemsData, setSystemsData] = useState<SupplierSystemsData>({
+    has5S: false, hasIndustrialSafety: false, hasQualitySystem: false,
+    generalManager: { name: '', email: '', phone: '' },
+    commercial: { name: '', email: '', phone: '' },
+    quality: { name: '', email: '', phone: '' },
+    technical: { name: '', email: '', phone: '' },
+    production: { name: '', email: '', phone: '' }
+  });
+
+  // Default all boolean questions to false
+  const [questionnaireData, setQuestionnaireData] = useState<SupplierQuestionnaireData>({
+    signContract: false, firstContactName: '', relationshipStartDate: '', clientReference: false,
+    shareFinancial: false, writtenContracts: false, hseProcedures: false, governmentCompliance: false,
+    replenishmentTime: '', reworkInIndurama: false, creditConditions: false, claimsProcess: false,
+    codeOfConduct: false, iso50001: false, sriCompliance: false, iessCompliance: false,
+    billingSystem: false, quoteResponseTime: '', warranty: false, productsOffered: ''
+  });
+
+  // Default checklist items
+  const createChecklistItem = (id: string, label: string, required: boolean = true) => ({
+    id, label, required, checked: false
+  });
+
+  const [checklistData, setChecklistData] = useState<SupplierChecklistData>({
+    financialStatus: createChecklistItem('financial', 'Situación Financiera (último año)'),
+    employeeContract: createChecklistItem('contract', 'Copia de Contrato firmado de un empleado'),
+    companies: createChecklistItem('companies', 'Compañías (Constitución/Nombramiento)'),
+    municipalCompliance: createChecklistItem('municipal', 'Certificado al día Organismos Municipales'),
+    codeOfConduct: createChecklistItem('codeOfConduct', 'Copia de Código de Conducta'),
+    sriCompliance: createChecklistItem('sri', 'Certificado cumplimiento tributario SRI'),
+    evaluationForm: createChecklistItem('evalForm', 'Formulario de Evaluación'),
+    rucUpdate: createChecklistItem('ruc', 'RUC Actualizado'),
+    idCopy: createChecklistItem('idCopy', 'Copia de Cédula Rep. Legal'),
+    appointment: createChecklistItem('appointment', 'Nombramiento Rep. Legal'),
+    managementSystem: createChecklistItem('management', 'Procedimiento Sistemas de Gestión'),
+    clientCertificate: createChecklistItem('clientCert', 'Certificado comercial de clientes'),
+    taxDeclaration: createChecklistItem('tax', 'Declaración Impuesto a la Renta'),
+    iessCertificate: createChecklistItem('iess', 'Certificado IESS al día'),
+    excelList: createChecklistItem('excel', 'Listado en Excel de productos'),
+    productCatalog: createChecklistItem('catalog', 'Catálogo de productos')
+  });
+
+  // --- LOADING DATA ---
 
   useEffect(() => {
     const loadUserData = async () => {
       if (!user?.id) return;
       try {
-        // Load user document for business profile
-        const userDoc = await getDoc(doc(db, 'users', user.id));
-        const userData = userDoc.exists() ? userDoc.data() : null;
+        setLoading(true);
+        console.log('🔄 Loading Supplier EPI Data...');
 
-        // Load from subcollections
-        const supplierData = await loadAllSupplierData(user.id);
+        const data = await loadSupplierEpiData(user.id);
 
-        setFormData(prev => ({
-          ...prev,
-          // Company Profile
-          companyName: supplierData.companyProfile?.fiscalAddress?.split(',')[0] || user.companyName || '',
-          address: supplierData.companyProfile?.fiscalAddress || '',
-          phone: supplierData.companyProfile?.centralPhone || '',
-          website: supplierData.companyProfile?.website || '',
-          city: supplierData.companyProfile?.city || '',
-          country: supplierData.companyProfile?.country || '',
-          postalCode: supplierData.companyProfile?.postalCode || '',
-          ruc: supplierData.companyProfile?.ruc || '',
+        if (data.general) {
+          setGeneralData(prev => {
+            const updated = { ...prev, ...data.general };
+            // Pre-populate company name and phone from User Profile if missing
+            if (!updated.companyName && user?.firstName) {
+              updated.companyName = user.firstName;
+            }
+            if (!updated.contactPersonPhone && user?.phone) {
+              updated.contactPersonPhone = user.phone;
+            }
+            return updated;
+          });
+        } else {
+          // Case where general data is empty but we have user profile data
+          if (user?.firstName || user?.phone) {
+            setGeneralData(prev => ({
+              ...prev,
+              companyName: user?.firstName || prev.companyName,
+              contactPersonPhone: user?.phone || prev.contactPersonPhone
+            }));
+          }
+        }
+        if (data.operations) setOperationsData(prev => ({ ...prev, ...data.operations }));
+        if (data.systems) setSystemsData(prev => ({ ...prev, ...data.systems }));
+        if (data.questionnaire) setQuestionnaireData(prev => ({ ...prev, ...data.questionnaire }));
+        if (data.checklist) {
+          // Merge checklist carefully to preserve labels/structure
+          setChecklistData(prev => {
+            const newData = { ...prev };
+            Object.keys(data.checklist || {}).forEach(key => {
+              if (newData[key as keyof SupplierChecklistData]) {
+                const newDataPoint = (data.checklist as any)[key];
+                // Only update checked/fileUrl, minimize overwriting text labels
+                // But TypeScript might complain, so let's just spread safely
+                newData[key as keyof SupplierChecklistData] = {
+                  ...newData[key as keyof SupplierChecklistData],
+                  ...newDataPoint
+                };
+              }
+            });
+            return newData;
+          });
+        }
 
-          // Business Profile - from user document
-          businessType: userData?.businessType || '',
-          productCategories: userData?.productCategories || [],
-          productTags: userData?.productTags || [],
-
-          // Contacts
-          generalManagerName: supplierData.contacts?.generalManager?.name || '',
-          generalManagerEmail: supplierData.contacts?.generalManager?.email || '',
-          commercialContactName: supplierData.contacts?.commercial?.name || '',
-          commercialContactEmail: supplierData.contacts?.commercial?.email || '',
-          qualityContactName: supplierData.contacts?.quality?.name || '',
-          qualityContactEmail: supplierData.contacts?.quality?.email || '',
-
-          // Banking
-          bankName: supplierData.banking?.bankName || '',
-          bankAddress: supplierData.banking?.bankAddress || '',
-          accountNumber: supplierData.banking?.accountNumber || '',
-          bicSwift: supplierData.banking?.bicSwift || '',
-          iban: supplierData.banking?.iban || '',
-          accountType: supplierData.banking?.accountType || '',
-
-          // Credit
-          creditDays: supplierData.credit?.creditDays || '',
-          deliveryDays: supplierData.credit?.deliveryDays || '',
-          paymentMethod: supplierData.credit?.paymentMethod || '',
-          retentionEmail: supplierData.credit?.retentionEmail || ''
-        }));
-
-        // Populate productTagsText for display
-        setProductTagsText((userData?.productTags || []).join(', '));
       } catch (error) {
         console.error('Error loading supplier data:', error);
+      } finally {
+        setLoading(false);
       }
     };
     loadUserData();
   }, [user]);
 
-  const saveProgress = async () => {
-    console.log('💾 SAVING SUPPLIER DATA - Starting...', {
-      userId: user?.id,
-      hasFormData: !!formData,
-      companyName: formData.companyName
-    });
-
-    if (!user?.id) {
-      console.error('❌ No user ID found');
-      Alert.alert('Error', 'Usuario no identificado');
-      return;
-    }
-
+  const saveProgress = async (silent?: boolean): Promise<boolean> => {
+    if (!user?.id) return false;
     try {
-      setLoading(true);
-
-      // Import saveAllSupplierData
-      const { saveAllSupplierData } = await import('../../services/supplierDataService');
-
-      console.log('📦 Preparing data for save...');
-
-      // Save to subcollections
-      await saveAllSupplierData(user.id, {
-        companyProfile: {
-          fiscalAddress: formData.address,
-          centralPhone: formData.phone,
-          website: formData.website,
-          city: formData.city,
-          country: formData.country,
-          postalCode: formData.postalCode,
-          ruc: formData.ruc
-        },
-        contacts: {
-          generalManager: formData.generalManagerName ? {
-            name: formData.generalManagerName,
-            email: formData.generalManagerEmail
-          } : undefined,
-          commercial: formData.commercialContactName ? {
-            name: formData.commercialContactName,
-            email: formData.commercialContactEmail
-          } : undefined,
-          quality: formData.qualityContactName ? {
-            name: formData.qualityContactName,
-            email: formData.qualityContactEmail
-          } : undefined
-        },
-        banking: formData.bankName ? {
-          bankName: formData.bankName,
-          bankAddress: formData.bankAddress,
-          accountNumber: formData.accountNumber,
-          accountType: formData.accountType,
-          bicSwift: formData.bicSwift,
-          iban: formData.iban
-        } : undefined,
-        credit: {
-          creditDays: formData.creditDays,
-          deliveryDays: formData.deliveryDays,
-          paymentMethod: formData.paymentMethod,
-          retentionEmail: formData.retentionEmail
-        }
+      setSaving(true);
+      await saveAllSupplierEpiData(user.id, {
+        general: generalData,
+        operations: operationsData,
+        systems: systemsData,
+        questionnaire: questionnaireData,
+        checklist: checklistData
       });
-
-      console.log('✅ Subcollections saved');
-
-      // Parse productTagsText before saving
-      const parsedProductTags = productTagsText.split(',').map(t => t.trim()).filter(t => t);
-
-      console.log('📝 Updating main user document...', {
-        companyName: formData.companyName,
-        businessType: formData.businessType,
-        productCategories: formData.productCategories,
-        parsedProductTags
-      });
-
-      // Also update company name, business profile, and profile completion flag in main user document
-      await updateDoc(doc(db, 'users', user.id), {
-        companyName: formData.companyName,
-        businessType: formData.businessType || undefined,
-        productCategories: formData.productCategories.length > 0 ? formData.productCategories : undefined,
-        productTags: parsedProductTags.length > 0 ? parsedProductTags : undefined,
-        profileCompleted: true, // Mark profile as completed
-        updatedAt: serverTimestamp()
-      });
-
-      console.log('✅ Main document updated');
-
-      // Reload data to confirm save
-      const reloadedData = await loadAllSupplierData(user.id);
-      setFormData(prev => ({
-        ...prev,
-        companyName: reloadedData.companyProfile?.fiscalAddress?.split(',')[0] || formData.companyName,
-        address: reloadedData.companyProfile?.fiscalAddress || formData.address,
-        phone: reloadedData.companyProfile?.centralPhone || formData.phone,
-        website: reloadedData.companyProfile?.website || formData.website,
-        city: reloadedData.companyProfile?.city || formData.city,
-        country: reloadedData.companyProfile?.country || formData.country,
-      }));
-
-      console.log('✅✅✅ Datos guardados exitosamente');
-      Alert.alert('Éxito', 'Datos guardados correctamente');
-
-    } catch (error: any) {
-      console.error('❌❌❌ Error saving progress:', error);
-      console.error('Error details:', {
-        message: error.message,
-        code: error.code,
-        stack: error.stack
-      });
-      Alert.alert('Error al guardar', error.message || 'No se pudo guardar el progreso. Por favor intenta de nuevo.');
+      console.log('✅ Progress Saved');
+      if (!silent) {
+        Alert.alert('Guardado', 'Su progreso se ha guardado correctamente.');
+      }
+      return true;
+    } catch (error) {
+      console.error('Error saving progress:', error);
+      Alert.alert('Error', 'No se pudo guardar el progreso.');
+      return false;
     } finally {
-      setLoading(false);
+      setSaving(false);
     }
+  };
+
+  // State for new tag input
+  const [newTag, setNewTag] = useState('');
+
+  const handleAddTag = () => {
+    if (!newTag.trim()) return;
+    const currentTags = operationsData.productTags || [];
+    if (!currentTags.includes(newTag.trim())) {
+      setOperationsData(prev => ({
+        ...prev,
+        productTags: [...currentTags, newTag.trim()]
+      }));
+    }
+    setNewTag('');
+  };
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setOperationsData(prev => ({
+      ...prev,
+      productTags: (prev.productTags || []).filter(tag => tag !== tagToRemove)
+    }));
   };
 
   const handleGoBack = () => {
     if (onNavigateBack) onNavigateBack();
   };
 
-  const updateFormData = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
   const handleNext = async () => {
-    await saveProgress();
+    console.log('🔵 handleNext called, activeTab:', activeTab);
+
+    // Silent save on last step to avoid conflict with Completion alert
+    const isLastStep = activeTab === 'Checklist';
+    console.log('🔵 isLastStep:', isLastStep);
+
+    const saveSuccessful = await saveProgress(isLastStep);
+    console.log('🔵 saveSuccessful:', saveSuccessful);
+
+    // If save failed, don't proceed
+    if (!saveSuccessful) {
+      console.log('❌ Save failed, returning');
+      return;
+    }
 
     if (activeTab === 'General') {
-      setActiveTab('Bancaria');
-    } else if (activeTab === 'Bancaria') {
-      setActiveTab('Credito');
+      setActiveTab('Operaciones');
+    } else if (activeTab === 'Operaciones') {
+      setActiveTab('Sistemas');
+    } else if (activeTab === 'Sistemas') {
+      setActiveTab('Cuestionario');
+    } else if (activeTab === 'Cuestionario') {
+      setActiveTab('Checklist');
+    } else if (activeTab === 'Checklist') {
+      console.log('✅ Showing completion alert!');
+      // Last tab completed - show modal instead of Alert
+      setShowCompletionModal(true);
     } else {
-      // Last tab completed
-      alert('¡Perfil de proveedor completado! Los datos han sido guardados.');
-      if (onComplete) onComplete();
+      console.log('⚠️ No matching tab condition!');
     }
   };
 
-  // UI Render Helpers... 
-  // (We need to insert the rest of the file logic or keep it but I replaced lines 30-146 which covered most logic)
+  // --- UI RENDER HELPERS ---
 
-  // Render Tab Button Helper (Keep or Re-implement)
-  // Render Tab Button Helper - Stepper Style with Ionicons
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; step: number }[] = [
-    { key: 'General', label: 'General', icon: 'business-outline', step: 1 },
-    { key: 'Productos', label: 'Productos', icon: 'cube-outline', step: 2 },
-    { key: 'Bancaria', label: 'Bancaria', icon: 'card-outline', step: 3 },
-    { key: 'Credito', label: 'Crédito', icon: 'wallet-outline', step: 4 },
+    { key: 'General', label: 'Datos Generales', icon: 'business-outline', step: 1 },
+    { key: 'Operaciones', label: 'Operaciones', icon: 'stats-chart-outline', step: 2 },
+    { key: 'Sistemas', label: 'Sistemas', icon: 'construct-outline', step: 3 },
+    { key: 'Cuestionario', label: 'Cuestionario', icon: 'list-circle-outline', step: 4 },
+    { key: 'Checklist', label: 'Documentos', icon: 'folder-open-outline', step: 5 },
   ];
 
   const getTabStatus = (tab: TabType): 'completed' | 'current' | 'pending' => {
-    const tabOrder = ['General', 'Productos', 'Bancaria', 'Credito'];
+    const tabOrder: TabType[] = ['General', 'Operaciones', 'Sistemas', 'Cuestionario', 'Checklist'];
     const currentIndex = tabOrder.indexOf(activeTab);
     const tabIndex = tabOrder.indexOf(tab);
 
@@ -345,418 +314,656 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     );
   };
 
-  // Next: renderTab functions need to be updated in subsequent steps.
-  // For now I replaced up to renderTabButton. 
-  // The original ended at line 146 which was inside renderGeneralTab? 
-  // No, line 134 was renderGeneralTab start.
-  // So I am chopping off the start of renderGeneralTab. 
-  // I must be careful.
-
-  // My ReplacementContent ends with renderTabButton.
-  // I will make sure I don't break the file structure.
-
   const renderGeneralTab = () => (
     <View style={styles.formCard}>
-      <Text style={styles.sectionTitle}>Información General</Text>
+      <Text style={styles.sectionTitle}>Datos Generales del Proveedor</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Nombre de la Empresa</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Indurama Ecuador S.A."
-          placeholderTextColor="#999999"
-          value={formData.companyName}
-          onChangeText={(value) => updateFormData('companyName', value)}
-        />
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Razón Social</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Indurama Ecuador S.A."
+            value={generalData.companyName}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, companyName: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0190..."
+            value={generalData.ruc}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, ruc: v }))}
+            keyboardType="numeric"
+          />
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
+        <Text style={styles.inputLabel}>Dirección Completa</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="01900..."
-          placeholderTextColor="#999999"
-          value={formData.ruc}
-          onChangeText={(value) => updateFormData('ruc', value)}
+          placeholder="Calle, Número, Sector"
+          value={generalData.address}
+          onChangeText={(v) => setGeneralData(p => ({ ...p, address: v }))}
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Dirección Fiscal</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Av. de las Américas 4-55, Parque Industrial"
-          placeholderTextColor="#999999"
-          value={formData.address}
-          onChangeText={(value) => updateFormData('address', value)}
-        />
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Ciudad</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.city}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, city: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>País</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.country}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, country: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Forma Jurídica</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="S.A., Cía. Ltda., Natural"
+            value={generalData.legalForm}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, legalForm: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de Proveedor</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Fabricante/Distribuidor/Servicio"
+            value={generalData.supplierType}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, supplierType: v as any }))}
+          />
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Código Postal</Text>
+        <Text style={styles.inputLabel}>Nombre Representante Legal</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="010101"
-          placeholderTextColor="#999999"
-          value={formData.postalCode}
-          onChangeText={(value) => updateFormData('postalCode', value)}
+          value={generalData.legalRepresentative}
+          onChangeText={(v) => setGeneralData(p => ({ ...p, legalRepresentative: v }))}
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Ciudad</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Cuenca"
-          placeholderTextColor="#999999"
-          value={formData.city}
-          onChangeText={(value) => updateFormData('city', value)}
-        />
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de RUC (Copia)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Adjuntar descripción"
+            value={generalData.rucType}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, rucType: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Tiempo en Mercado (años)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ej: 5"
+            value={generalData.marketTime}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, marketTime: v }))}
+            keyboardType="numeric"
+          />
+        </View>
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>País</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Ecuador"
-          placeholderTextColor="#999999"
-          value={formData.country}
-          onChangeText={(value) => updateFormData('country', value)}
-        />
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Teléfono Proveedor</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.phone}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, phone: v }))}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Facturación Anual (SAP)</Text>
+          <TextInput
+            style={[styles.textInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
+            value={generalData.sapBilling}
+            editable={false} // Por Indurama (Read-only for supplier usually)
+          />
+        </View>
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Teléfono Central</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="+593 7 288 9900"
-          placeholderTextColor="#999999"
-          value={formData.phone}
-          onChangeText={(value) => updateFormData('phone', value)}
-          keyboardType="phone-pad"
-        />
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Contacto para EPI</Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Nombre quien llena EPI</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.contactPersonName}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, contactPersonName: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Teléfono Contacto</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.contactPersonPhone}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, contactPersonPhone: v }))}
+            keyboardType="phone-pad"
+          />
+        </View>
       </View>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Sitio Web</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="www.empresa.com"
-          placeholderTextColor="#999999"
-          value={formData.website}
-          onChangeText={(value) => updateFormData('website', value)}
-          autoCapitalize="none"
-        />
-      </View>
-
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Contactos Clave</Text>
-
-      <View style={styles.contactSection}>
-        <Text style={styles.contactLabel}>GERENTE GENERAL</Text>
-        <TextInput
-          style={[styles.textInput, { marginBottom: 8 }]}
-          placeholder="Nombre Completo"
-          placeholderTextColor="#999999"
-          value={formData.generalManagerName}
-          onChangeText={(value) => updateFormData('generalManagerName', value)}
-        />
-        <TextInput
-          style={styles.textInput}
-          placeholder="Email"
-          placeholderTextColor="#999999"
-          value={formData.generalManagerEmail}
-          onChangeText={(value) => updateFormData('generalManagerEmail', value)}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.contactSection}>
-        <Text style={styles.contactLabel}>COMERCIAL / VENTAS</Text>
-        <TextInput
-          style={[styles.textInput, { marginBottom: 8 }]}
-          placeholder="Nombre Completo"
-          placeholderTextColor="#999999"
-          value={formData.commercialContactName}
-          onChangeText={(value) => updateFormData('commercialContactName', value)}
-        />
-        <TextInput
-          style={styles.textInput}
-          placeholder="Email"
-          placeholderTextColor="#999999"
-          value={formData.commercialContactEmail}
-          onChangeText={(value) => updateFormData('commercialContactEmail', value)}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.contactSection}>
-        <Text style={styles.contactLabel}>CALIDAD / TÉCNICO</Text>
-        <TextInput
-          style={[styles.textInput, { marginBottom: 8 }]}
-          placeholder="Nombre Completo"
-          placeholderTextColor="#999999"
-          value={formData.qualityContactName}
-          onChangeText={(value) => updateFormData('qualityContactName', value)}
-        />
-        <TextInput
-          style={styles.textInput}
-          placeholder="Email"
-          placeholderTextColor="#999999"
-          value={formData.qualityContactEmail}
-          onChangeText={(value) => updateFormData('qualityContactEmail', value)}
-          keyboardType="email-address"
-          autoCapitalize="none"
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Correo para Retenciones (Facturación)</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="retenciones@empresa.com"
-          placeholderTextColor="#999999"
-          value={formData.retentionEmail}
-          onChangeText={(value) => updateFormData('retentionEmail', value)}
-          keyboardType="email-address"
+          value={generalData.website}
+          onChangeText={(v) => setGeneralData(p => ({ ...p, website: v }))}
           autoCapitalize="none"
         />
       </View>
     </View>
   );
 
-  const renderBancariaTab = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.sectionTitle}>Información Bancaria (para Pagos)</Text>
+  const renderOperationsTab = () => (
+    <View style={styles.formCard}>
+      <Text style={styles.sectionTitle}>Operaciones y Ventas</Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Nombre del Banco</Text>
+        <Text style={styles.inputLabel}>Principal rubro de enfoque</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Banco de Loja"
-          placeholderTextColor="#999999"
-          value={formData.bankName}
-          onChangeText={(value) => updateFormData('bankName', value)}
+          value={operationsData.mainFocus}
+          onChangeText={(v) => setOperationsData(p => ({ ...p, mainFocus: v }))}
         />
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Dirección del Banco</Text>
+        <Text style={styles.inputLabel}>Principales Materias Primas</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Av. 12 de Abril"
-          placeholderTextColor="#999999"
-          value={formData.bankAddress}
-          onChangeText={(value) => updateFormData('bankAddress', value)}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Número de Cuenta</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="1050603570"
-          placeholderTextColor="#999999"
-          value={formData.accountNumber}
-          onChangeText={(value) => updateFormData('accountNumber', value)}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Código BIC/SWIFT</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="BPACEC..."
-          placeholderTextColor="#999999"
-          value={formData.bicSwift}
-          onChangeText={(value) => updateFormData('bicSwift', value)}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>IBAN(si aplica)</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="..."
-          placeholderTextColor="#999999"
-          value={formData.iban}
-          onChangeText={(value) => updateFormData('iban', value)}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Tipo de Cuenta</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Ahorro"
-          placeholderTextColor="#999999"
-          value={formData.accountType}
-          onChangeText={(value) => updateFormData('accountType', value)}
-        />
-      </View>
-    </View>
-  );
-
-  const renderProductosTab = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.sectionTitle}>Productos y Servicios que Ofreces</Text>
-
-      {/* Tipo de Negocio */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>¿Qué tipo de proveedor eres?</Text>
-        <View style={styles.chipContainer}>
-          {[
-            { value: 'fabricante', label: 'Fabricante' },
-            { value: 'distribuidor', label: 'Distribuidor' },
-            { value: 'servicio', label: 'Servicios' }
-          ].map((type) => (
-            <TouchableOpacity
-              key={type.value}
-              style={[
-                styles.chip,
-                formData.businessType === type.value && styles.chipSelected
-              ]}
-              onPress={() => setFormData({ ...formData, businessType: type.value as any })}
-            >
-              <Text style={[
-                styles.chipText,
-                formData.businessType === type.value && styles.chipTextSelected
-              ]}>
-                {type.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Categorías de Productos */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Categorías que ofreces (selecciona todas las que apliquen)</Text>
-        <View style={styles.chipContainer}>
-          {[
-            { value: 'materia_prima', label: 'Materia Prima' },
-            { value: 'componentes', label: 'Componentes' },
-            { value: 'productos_terminados', label: 'Productos Terminados' },
-            { value: 'insumos', label: 'Insumos' },
-            { value: 'servicios', label: 'Servicios' }
-          ].map((cat) => (
-            <TouchableOpacity
-              key={cat.value}
-              style={[
-                styles.chip,
-                formData.productCategories.includes(cat.value) && styles.chipSelected
-              ]}
-              onPress={() => {
-                const newCategories = formData.productCategories.includes(cat.value)
-                  ? formData.productCategories.filter(c => c !== cat.value)
-                  : [...formData.productCategories, cat.value];
-                setFormData({ ...formData, productCategories: newCategories });
-              }}
-            >
-              <Text style={[
-                styles.chipText,
-                formData.productCategories.includes(cat.value) && styles.chipTextSelected
-              ]}>
-                {cat.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
-
-      {/* Productos/Servicios Específicos */}
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Productos/Servicios Específicos</Text>
-        <TextInput
-          style={[styles.textInput, { height: 80 }]}
-          placeholder="Ej: Tornillos M6x20, Acero AISI 304, Mecanizado CNC (separados por coma)"
-          placeholderTextColor="#999999"
-          value={productTagsText}
-          onChangeText={setProductTagsText}
-          onBlur={() => {
-            // Parse on blur and update formData
-            const tags = productTagsText.split(',').map(t => t.trim()).filter(t => t);
-            setFormData({ ...formData, productTags: tags });
-          }}
+          value={operationsData.mainRawMaterials}
           multiline
-          textAlignVertical="top"
+          onChangeText={(v) => setOperationsData(p => ({ ...p, mainRawMaterials: v }))}
         />
-        <Text style={styles.helperText}>
-          Lista los productos o servicios específicos que ofreces, separados por comas
-        </Text>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Productos que fabrica o comercializa</Text>
+        <TextInput
+          style={[styles.textInput, { height: 60 }]}
+          value={operationsData.productsOrServices}
+          multiline
+          onChangeText={(v) => setOperationsData(p => ({ ...p, productsOrServices: v }))}
+        />
+      </View>
+
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Principales Clientes</Text>
+      {operationsData.mainClients.map((client, index) => (
+        <View key={index} style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
+            <TextInput
+              style={styles.textInput}
+              placeholder={`Cliente ${index + 1}`}
+              value={client.name}
+              onChangeText={(v) => {
+                const newClients = [...operationsData.mainClients];
+                newClients[index].name = v;
+                setOperationsData(p => ({ ...p, mainClients: newClients }));
+              }}
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1 }]}>
+            <TextInput
+              style={styles.textInput}
+              placeholder="% Part."
+              value={client.share}
+              onChangeText={(v) => {
+                const newClients = [...operationsData.mainClients];
+                newClients[index].share = v;
+                setOperationsData(p => ({ ...p, mainClients: newClients }));
+              }}
+            />
+          </View>
+        </View>
+      ))}
+
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Ventas Totales Anuales (USD)</Text>
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 4 }]}>
+          <Text style={styles.miniLabel}>2023</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.sales2023}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2023: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginHorizontal: 4 }]}>
+          <Text style={styles.miniLabel}>2024</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.sales2024}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2024: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 4 }]}>
+          <Text style={styles.miniLabel}>2025 (Est.)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.sales2025}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2025: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Cantidad Empleados</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.employeesCount}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, employeesCount: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Área Fábrica (m²)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.factoryArea}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, factoryArea: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Certificaciones (ISO, BASC, etc)</Text>
+        <TextInput
+          style={styles.textInput}
+          value={operationsData.certifications}
+          onChangeText={(v) => setOperationsData(p => ({ ...p, certifications: v }))}
+        />
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Etiquetas de Productos (Para Búsqueda)</Text>
+        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+          <TextInput
+            style={[styles.textInput, { flex: 1 }]}
+            placeholder="Ej: Electrodomésticos, Muebles..."
+            value={newTag}
+            onChangeText={setNewTag}
+            onSubmitEditing={handleAddTag}
+          />
+          <TouchableOpacity style={styles.addButton} onPress={handleAddTag}>
+            <Text style={styles.addButtonText}>Agregar</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+          {operationsData.productTags?.map((tag, index) => (
+            <TouchableOpacity
+              key={index}
+              style={styles.tagChip}
+              onPress={() => handleRemoveTag(tag)}
+            >
+              <Text style={styles.tagText}>{tag}</Text>
+              <Ionicons name="close-circle" size={16} color="#003E85" />
+            </TouchableOpacity>
+          ))}
+        </View>
       </View>
     </View>
   );
 
-  const renderCreditoTab = () => (
-    <View style={styles.formContainer}>
-      <Text style={styles.sectionTitle}>Condiciones de Crédito</Text>
+  const renderSystemsTab = () => (
+    <View style={styles.formCard}>
+      <Text style={styles.sectionTitle}>Sistemas de Gestión</Text>
+      <Text style={styles.helperText}>Marque lo que tenga implementado:</Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Días de Crédito</Text>
+      <TouchableOpacity
+        style={styles.checkboxRow}
+        onPress={() => setSystemsData(p => ({ ...p, has5S: !p.has5S }))}
+      >
+        <Ionicons name={systemsData.has5S ? "checkbox" : "square-outline"} size={24} color="#003E85" />
+        <Text style={styles.checkboxLabel}>¿Tiene implementado 5'S?</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.checkboxRow}
+        onPress={() => setSystemsData(p => ({ ...p, hasIndustrialSafety: !p.hasIndustrialSafety }))}
+      >
+        <Ionicons name={systemsData.hasIndustrialSafety ? "checkbox" : "square-outline"} size={24} color="#003E85" />
+        <Text style={styles.checkboxLabel}>¿Tiene Seguridad Industrial?</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity
+        style={styles.checkboxRow}
+        onPress={() => setSystemsData(p => ({ ...p, hasQualitySystem: !p.hasQualitySystem }))}
+      >
+        <Ionicons name={systemsData.hasQualitySystem ? "checkbox" : "square-outline"} size={24} color="#003E85" />
+        <Text style={styles.checkboxLabel}>¿Tiene Sistema de Calidad?</Text>
+      </TouchableOpacity>
+
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Matriz de Contactos</Text>
+
+      {/* Gerente */}
+      <View style={styles.contactBlock}>
+        <Text style={styles.contactRole}>Gerente General</Text>
         <TextInput
-          style={styles.textInput}
-          placeholder="30"
-          placeholderTextColor="#999999"
-          value={formData.creditDays}
-          onChangeText={(value) => updateFormData('creditDays', value)}
-          keyboardType="numeric"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          value={systemsData.generalManager.name}
+          onChangeText={v => setSystemsData(p => ({ ...p, generalManager: { ...p.generalManager, name: v } }))}
+        />
+        <TextInput
+          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          value={systemsData.generalManager.email}
+          onChangeText={v => setSystemsData(p => ({ ...p, generalManager: { ...p.generalManager, email: v } }))}
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Días de entrega luego de recibida la orden</Text>
+      {/* Comercial */}
+      <View style={styles.contactBlock}>
+        <Text style={styles.contactRole}>Comercial</Text>
         <TextInput
-          style={styles.textInput}
-          placeholder="Av. 12 de Abril"
-          placeholderTextColor="#999999"
-          value={formData.deliveryDays}
-          onChangeText={(value) => updateFormData('deliveryDays', value)}
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          value={systemsData.commercial.name}
+          onChangeText={v => setSystemsData(p => ({ ...p, commercial: { ...p.commercial, name: v } }))}
+        />
+        <TextInput
+          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          value={systemsData.commercial.email}
+          onChangeText={v => setSystemsData(p => ({ ...p, commercial: { ...p.commercial, email: v } }))}
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>IBAN(si aplica)</Text>
+      {/* Calidad */}
+      <View style={styles.contactBlock}>
+        <Text style={styles.contactRole}>Calidad</Text>
         <TextInput
-          style={styles.textInput}
-          placeholder="EXW (Ex Works)"
-          placeholderTextColor="#999999"
-          value={formData.ibanCredit}
-          onChangeText={(value) => updateFormData('ibanCredit', value)}
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          value={systemsData.quality.name}
+          onChangeText={v => setSystemsData(p => ({ ...p, quality: { ...p.quality, name: v } }))}
+        />
+        <TextInput
+          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          value={systemsData.quality.email}
+          onChangeText={v => setSystemsData(p => ({ ...p, quality: { ...p.quality, email: v } }))}
         />
       </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Modo preferido de recepción de pago</Text>
+      {/* Técnico */}
+      <View style={styles.contactBlock}>
+        <Text style={styles.contactRole}>Técnico</Text>
         <TextInput
-          style={styles.textInput}
-          placeholder="Ahorro"
-          placeholderTextColor="#999999"
-          value={formData.paymentMethod}
-          onChangeText={(value) => updateFormData('paymentMethod', value)}
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          value={systemsData.technical.name}
+          onChangeText={v => setSystemsData(p => ({ ...p, technical: { ...p.technical, name: v } }))}
+        />
+        <TextInput
+          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          value={systemsData.technical.email}
+          onChangeText={v => setSystemsData(p => ({ ...p, technical: { ...p.technical, email: v } }))}
         />
       </View>
+
+      {/* Producción */}
+      <View style={styles.contactBlock}>
+        <Text style={styles.contactRole}>Producción</Text>
+        <TextInput
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          value={systemsData.production.name}
+          onChangeText={v => setSystemsData(p => ({ ...p, production: { ...p.production, name: v } }))}
+        />
+        <TextInput
+          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          value={systemsData.production.email}
+          onChangeText={v => setSystemsData(p => ({ ...p, production: { ...p.production, email: v } }))}
+        />
+      </View>
+
     </View>
   );
+
+  const renderQuestionnaireTab = () => {
+    // Helper for Yes/No Question
+    const QuestionRow = ({
+      label,
+      value,
+      onChange
+    }: { label: string, value: boolean, onChange: (v: boolean) => void }) => (
+      <View style={styles.questionRow}>
+        <Text style={styles.questionText}>{label}</Text>
+        <View style={styles.switchContainer}>
+          <TouchableOpacity
+            style={[styles.switchOption, value === true && styles.switchActive]}
+            onPress={() => onChange(true)}
+          >
+            <Text style={[styles.switchText, value === true && styles.switchTextActive]}>SÍ</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.switchOption, value === false && styles.switchActive]}
+            onPress={() => onChange(false)}
+          >
+            <Text style={[styles.switchText, value === false && styles.switchTextActive]}>NO</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+
+    return (
+      <View style={styles.formCard}>
+        <Text style={styles.sectionTitle}>Cuestionario de Evaluación</Text>
+        <Text style={styles.helperText}>Seleccione con una X (Si/No):</Text>
+
+        <QuestionRow
+          label="¿Disposición a firmar contrato?"
+          value={questionnaireData.signContract}
+          onChange={v => setQuestionnaireData(p => ({ ...p, signContract: v }))}
+        />
+        <QuestionRow
+          label="¿Está dispuesto a compartir su situación Financiera?"
+          value={questionnaireData.shareFinancial}
+          onChange={v => setQuestionnaireData(p => ({ ...p, shareFinancial: v }))}
+        />
+        <QuestionRow
+          label="¿Tiene contratos de empleados por escrito y firmados?"
+          value={questionnaireData.writtenContracts}
+          onChange={v => setQuestionnaireData(p => ({ ...p, writtenContracts: v }))}
+        />
+        <QuestionRow
+          label="¿Tiene procedimientos de Salud y Seguridad Ocupacional?"
+          value={questionnaireData.hseProcedures}
+          onChange={v => setQuestionnaireData(p => ({ ...p, hseProcedures: v }))}
+        />
+        <QuestionRow
+          label="¿Está al día con Organismos Municipales?"
+          value={questionnaireData.governmentCompliance}
+          onChange={v => setQuestionnaireData(p => ({ ...p, governmentCompliance: v }))}
+        />
+        <QuestionRow
+          label="¿Acepta reproceso en instalaciones de Indurama?"
+          value={questionnaireData.reworkInIndurama}
+          onChange={v => setQuestionnaireData(p => ({ ...p, reworkInIndurama: v }))}
+        />
+        <QuestionRow
+          label="¿Acepta nuestras condiciones de Crédito y Pago?"
+          value={questionnaireData.creditConditions}
+          onChange={v => setQuestionnaireData(p => ({ ...p, creditConditions: v }))}
+        />
+        <QuestionRow
+          label="¿Cuenta con proceso de atención de reclamos (OBLIGATORIO)?"
+          value={questionnaireData.claimsProcess}
+          onChange={v => setQuestionnaireData(p => ({ ...p, claimsProcess: v }))}
+        />
+        <QuestionRow
+          label="¿Posee Código de Conducta?"
+          value={questionnaireData.codeOfConduct}
+          onChange={v => setQuestionnaireData(p => ({ ...p, codeOfConduct: v }))}
+        />
+        <QuestionRow
+          label="¿Tiene Eficiencia Energética (ISO 50001)?"
+          value={questionnaireData.iso50001}
+          onChange={v => setQuestionnaireData(p => ({ ...p, iso50001: v }))}
+        />
+        <QuestionRow
+          label="¿Cumplimiento tributario al día (SRI)?"
+          value={questionnaireData.sriCompliance}
+          onChange={v => setQuestionnaireData(p => ({ ...p, sriCompliance: v }))}
+        />
+        <QuestionRow
+          label="¿Cumplimiento IESS al día?"
+          value={questionnaireData.iessCompliance}
+          onChange={v => setQuestionnaireData(p => ({ ...p, iessCompliance: v }))}
+        />
+        <QuestionRow
+          label="¿Tiene sistema propio de facturación?"
+          value={questionnaireData.billingSystem}
+          onChange={v => setQuestionnaireData(p => ({ ...p, billingSystem: v }))}
+        />
+        <QuestionRow
+          label="¿Ofrece Garantía y servicio Post Venta?"
+          value={questionnaireData.warranty}
+          onChange={v => setQuestionnaireData(p => ({ ...p, warranty: v }))}
+        />
+
+        <View style={[styles.inputGroup, { marginTop: 16 }]}>
+          <Text style={styles.inputLabel}>Nombre primer contacto Indurama</Text>
+          <TextInput
+            style={styles.textInput}
+            value={questionnaireData.firstContactName}
+            onChangeText={v => setQuestionnaireData(p => ({ ...p, firstContactName: v }))}
+          />
+        </View>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Tiempos de reposición (días)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={questionnaireData.replenishmentTime}
+            keyboardType="numeric"
+            onChangeText={v => setQuestionnaireData(p => ({ ...p, replenishmentTime: v }))}
+          />
+        </View>
+      </View>
+    );
+  };
+
+  const renderChecklistTab = () => {
+    // Helper for Checklist Item
+    const ChecklistRow = ({ itemKey, data }: { itemKey: string, data: any }) => (
+      <View style={styles.checklistRow}>
+        <View style={{ flex: 1 }}>
+          <TouchableOpacity
+            style={styles.checkboxRow}
+            onPress={() => setChecklistData(p => ({
+              ...p,
+              [itemKey]: { ...p[itemKey as keyof SupplierChecklistData], checked: !data.checked }
+            }))}
+          >
+            <Ionicons name={data.checked ? "checkbox" : "square-outline"} size={24} color="#003E85" />
+            <Text style={[styles.checkboxLabel, { marginLeft: 10, fontSize: 14 }]}>
+              {data.label} {data.required && <Text style={{ color: 'red' }}>*</Text>}
+            </Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity
+          style={[styles.uploadButton, data.fileUrl ? styles.uploadButtonSuccess : {}]}
+          onPress={() => handleFileUpload(itemKey)}
+        >
+          <Ionicons name={data.fileUrl ? "document-text" : "cloud-upload-outline"} size={20} color="#fff" />
+          <Text style={styles.uploadButtonText}>
+            {data.fileUrl ? "Ver/Cambiar" : "Subir"}
+          </Text>
+        </TouchableOpacity>
+      </View>
+    );
+
+    const handleFileUpload = async (key: string) => {
+      if (!user?.id) {
+        Alert.alert('Error', 'No se pudo identificar al usuario');
+        return;
+      }
+
+      try {
+        setSaving(true);
+        const media = await pickDocument();
+
+        if (!media) {
+          setSaving(false);
+          return;
+        }
+
+        const url = await uploadSupplierEvidence(
+          user.id,
+          'evidence',
+          key,
+          media.uri,
+          media.name
+        );
+
+        setChecklistData(prev => ({
+          ...prev,
+          [key]: {
+            ...prev[key as keyof SupplierChecklistData],
+            fileUrl: url,
+            fileName: media.name
+          }
+        }));
+
+        Alert.alert('Éxito', 'Documento subido correctamente');
+      } catch (error) {
+        console.error('Error uploading file:', error);
+        Alert.alert('Error', 'No se pudo subir el documento');
+      } finally {
+        setSaving(false);
+      }
+    };
+
+    return (
+      <View style={styles.formCard}>
+        <Text style={styles.sectionTitle}>Checklist de Documentos</Text>
+        <Text style={styles.helperText}>Marque y suba los archivos correspondientes:</Text>
+
+        {Object.entries(checklistData).map(([key, item]) => (
+          <ChecklistRow key={key} itemKey={key} data={item} />
+        ))}
+      </View>
+    );
+  };
 
   const renderContent = () => {
     switch (activeTab) {
       case 'General':
         return renderGeneralTab();
-      case 'Productos':
-        return renderProductosTab();
-      case 'Bancaria':
-        return renderBancariaTab();
-      case 'Credito':
-        return renderCreditoTab();
+      case 'Operaciones':
+        return renderOperationsTab();
+      case 'Sistemas':
+        return renderSystemsTab();
+      case 'Cuestionario':
+        return renderQuestionnaireTab();
+      case 'Checklist':
+        return renderChecklistTab();
       default:
         return renderGeneralTab();
     }
   };
 
   const getButtonText = () => {
-    if (activeTab === 'Credito') {
+    if (activeTab === 'Checklist') {
       return 'Guardar y Completar';
     }
     return 'Guardar y Continuar';
@@ -764,7 +971,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
       {/* Full Width Header */}
       <View style={styles.fullWidthHeader}>
@@ -774,8 +981,15 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Creación de Proveedor</Text>
-            <Text style={styles.headerStep}>Paso {activeTab === 'General' ? 1 : activeTab === 'Productos' ? 2 : activeTab === 'Bancaria' ? 3 : 4} de 4</Text>
+            <Text style={styles.headerTitle}>Creación de Proveedor EPI</Text>
+            <Text style={styles.headerStep}>
+              Paso {
+                activeTab === 'General' ? 1 :
+                  activeTab === 'Operaciones' ? 2 :
+                    activeTab === 'Sistemas' ? 3 :
+                      activeTab === 'Cuestionario' ? 4 : 5
+              } de 5
+            </Text>
           </View>
 
           <TouchableOpacity style={styles.helpButton}>
@@ -815,19 +1029,51 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           <TouchableOpacity
             style={styles.nextButton}
             onPress={handleNext}
-            disabled={loading}
+            disabled={loading || saving}
           >
             <Text style={styles.nextButtonText}>
-              {loading ? 'Guardando...' : getButtonText()}
+              {saving ? 'Guardando...' : getButtonText()}
             </Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Completion Modal */}
+      <Modal
+        visible={showCompletionModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => { }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Ionicons name="checkmark-circle" size={56} color="#10B981" />
+            </View>
+
+            <Text style={styles.modalTitle}>EPI Completado</Text>
+            <Text style={styles.modalMessage}>
+              Has completado exitosamente todos los pasos del proceso EPI.{'\n\n'}
+              Ahora puedes continuar con los cuestionarios de evaluación de Calidad y Abastecimiento.
+            </Text>
+
+            <TouchableOpacity
+              style={styles.modalButton}
+              onPress={() => {
+                setShowCompletionModal(false);
+                if (onComplete) {
+                  onComplete();
+                }
+              }}
+            >
+              <Text style={styles.modalButtonText}>Continuar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
-
-const MAX_WIDTH = 700;
 
 const styles = StyleSheet.create({
   container: {
@@ -843,7 +1089,7 @@ const styles = StyleSheet.create({
   },
   headerContentContainer: {
     width: '100%',
-    maxWidth: 1024,
+    maxWidth: MAX_WIDTH,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -896,7 +1142,7 @@ const styles = StyleSheet.create({
   },
   tabsContentContainer: {
     width: '100%',
-    maxWidth: 1024,
+    maxWidth: MAX_WIDTH,
     flexDirection: 'row',
     justifyContent: 'center',
     gap: 12,
@@ -931,93 +1177,6 @@ const styles = StyleSheet.create({
     top: 4,
     right: 4,
   },
-
-  formContainer: {},
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1E293B',
-    marginBottom: 20,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#64748B',
-    marginBottom: 6,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  textInput: {
-    backgroundColor: '#F8FAFC',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: '#1E293B',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  dropdownInput: {
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  dropdownText: {
-    fontSize: 16,
-    color: '#999999',
-  },
-  dropdownIcon: {
-    width: 16,
-    height: 16,
-    tintColor: '#999999',
-    transform: [{ rotate: '90deg' }],
-  },
-  contactSection: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 10,
-    padding: 16,
-    marginBottom: 16,
-  },
-  contactLabel: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#6B7280',
-    marginBottom: 12,
-    letterSpacing: 0.5,
-  },
   content: {
     flex: 1,
     width: '100%',
@@ -1050,8 +1209,185 @@ const styles = StyleSheet.create({
       },
     }),
   },
-  // ... rest of input styles ...
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1E293B',
+    marginBottom: 20,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 6,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  miniLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#64748B',
+    marginBottom: 4,
+  },
+  textInput: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 10,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 15,
+    color: '#1E293B',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
+  },
+  row: {
+    flexDirection: 'row',
+    marginBottom: 16,
+  },
+  checkboxRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  checkboxLabel: {
+    fontSize: 15,
+    marginLeft: 10,
+    color: '#334155',
+  },
+  helperText: {
+    fontSize: 12,
+    color: '#999999',
+    marginTop: -16,
+    marginBottom: 20,
+    fontStyle: 'italic',
+  },
 
+  // Contacts
+  contactBlock: {
+    marginBottom: 16,
+    padding: 12,
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  contactRole: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#003E85',
+    marginBottom: 8,
+  },
+
+  // Questionnaire Styles
+  questionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  questionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#334155',
+    marginRight: 16,
+  },
+  switchContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    borderRadius: 8,
+    padding: 2,
+  },
+  switchOption: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+  },
+  switchActive: {
+    backgroundColor: '#FFFFFF',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 1,
+    elevation: 1,
+  },
+  switchText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748B',
+  },
+  switchTextActive: {
+    color: '#003E85',
+  },
+
+  // Checklist Styles
+  checklistRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  uploadButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#3B82F6',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    gap: 6,
+  },
+  uploadButtonSuccess: {
+    backgroundColor: '#10B981',
+  },
+  uploadButtonText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  addButton: {
+    backgroundColor: '#003E85',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addButtonText: {
+    color: '#FFFFFF',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  tagChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E2E8F0',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 16,
+    gap: 6,
+  },
+  tagText: {
+    fontSize: 13,
+    color: '#334155',
+  },
+
+  // Footer
   fullWidthFooter: {
     position: 'absolute',
     bottom: 0,
@@ -1062,6 +1398,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#E2E8F0',
     alignItems: 'center',
+    zIndex: 100, // Ensure footer is above other content
     ...Platform.select({
       ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: -4 } },
       web: { boxShadow: '0 -4px 20px rgba(0,0,0,0.05)' },
@@ -1070,7 +1407,7 @@ const styles = StyleSheet.create({
   },
   footerContentContainer: {
     width: '100%',
-    maxWidth: 700,
+    maxWidth: MAX_WIDTH,
     flexDirection: 'row',
     gap: 16,
     paddingHorizontal: 20,
@@ -1112,100 +1449,55 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  chipContainer: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginTop: 8,
-  },
-  chip: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 20,
-    backgroundColor: '#F0F0F0',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-  },
-  chipSelected: {
-    backgroundColor: '#003E85',
-    borderColor: '#003E85',
-  },
-  chipText: {
-    fontSize: 14,
-    color: '#666666',
-    fontWeight: '500',
-  },
-  chipTextSelected: {
-    color: '#FFFFFF',
-  },
-  helperText: {
-    fontSize: 12,
-    color: '#999999',
-    marginTop: 4,
-    fontStyle: 'italic',
-  },
-
-  // Step Circle Styles for Tabs
-  stepCircle: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: 'rgba(255,255,255,0.2)',
+  // Modal Completion Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    marginRight: 8,
+    padding: 20,
   },
-  stepCircleActive: {
+  modalContent: {
     backgroundColor: '#FFFFFF',
-  },
-  stepCircleCompleted: {
-    backgroundColor: '#22C55E',
-  },
-  stepNumber: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#B0D4FF',
-  },
-  stepNumberActive: {
-    color: '#003E85',
-  },
-  tabLabelContainer: {
+    borderRadius: 16,
+    padding: 24,
+    maxWidth: 400,
+    width: '100%',
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 4,
+    elevation: 5,
   },
-
-  // Responsive Form Styles
-  formRow: {
-    flexDirection: isMobile ? 'column' : 'row',
-    gap: 16,
+  modalHeader: {
+    marginBottom: 16,
   },
-  formColumn: {
-    flex: isMobile ? undefined : 1,
-    marginBottom: isMobile ? 16 : 0,
+  modalTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1E293B',
+    marginBottom: 12,
+    textAlign: 'center',
   },
-
-  // Improved Input with Icon
-  inputWithIcon: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 12,
-    paddingHorizontal: 16,
+  modalMessage: {
+    fontSize: 16,
+    color: '#64748B',
+    lineHeight: 24,
+    textAlign: 'center',
+    marginBottom: 24,
+  },
+  modalButton: {
+    backgroundColor: '#003E85',
+    paddingHorizontal: 32,
     paddingVertical: 14,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
+    borderRadius: 8,
+    width: '100%',
   },
-  inputIcon: {
-    marginRight: 12,
+  modalButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: '600',
+    textAlign: 'center',
   },
 });

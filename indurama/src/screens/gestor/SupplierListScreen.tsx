@@ -33,6 +33,7 @@ interface SupplierUI extends User {
   displayColor: string;
   displayTextColor: string;
   evalProgress: number;
+  productTags?: string[]; // Added to display tags in the list
 }
 
 export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
@@ -119,7 +120,8 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
           displayStatus: info.label,
           displayColor: info.color,
           displayTextColor: info.text,
-          evalProgress: Math.round(progress)
+          evalProgress: Math.round(progress),
+          productTags: userData.productTags || [] // Map productTags
         } as SupplierUI;
       });
 
@@ -138,7 +140,8 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
       (s.firstName?.toLowerCase() || '').includes(searchLower) ||
       (s.lastName?.toLowerCase() || '').includes(searchLower) ||
       (s.companyName?.toLowerCase() || '').includes(searchLower) ||
-      (s.email?.toLowerCase() || '').includes(searchLower);
+      (s.email?.toLowerCase() || '').includes(searchLower) ||
+      (s.productTags || []).some(t => t.toLowerCase().includes(searchLower)); // Allow searching by tags
 
     if (!matchesSearch) return false;
 
@@ -261,6 +264,20 @@ export const SupplierListScreen: React.FC<SupplierListScreenProps> = ({
                   </View>
                 </View>
                 <View style={styles.cardBody}>
+                  {/* Tags Display */}
+                  {item.productTags && item.productTags.length > 0 && (
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 8 }}>
+                      {item.productTags.slice(0, 3).map((tag, idx) => (
+                        <View key={idx} style={{ backgroundColor: '#F1F5F9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 }}>
+                          <Text style={{ fontSize: 10, color: '#475569' }}>{tag}</Text>
+                        </View>
+                      ))}
+                      {item.productTags.length > 3 && (
+                        <Text style={{ fontSize: 10, color: '#64748B', alignSelf: 'center' }}>+{item.productTags.length - 3}</Text>
+                      )}
+                    </View>
+                  )}
+
                   <Text style={styles.contactName} numberOfLines={1}>{item.firstName} {item.lastName}</Text>
 
                   <View style={styles.infoRow}>

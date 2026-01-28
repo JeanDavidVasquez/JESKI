@@ -136,7 +136,7 @@ export const SimpleNavigator: React.FC = () => {
   const logEpiSession = async (responsableData: { fullName: string; email: string; position: string }) => {
     if (!currentUser) return;
     try {
-      // Guardar en sub-colección 'contacts' del usuario
+      // 1. Guardar en sub-colección 'contacts' del usuario (Log histórico)
       await addDoc(collection(db, 'users', currentUser.id, 'contacts'), {
         userId: currentUser.id,
         userEmail: currentUser.email,
@@ -148,7 +148,21 @@ export const SimpleNavigator: React.FC = () => {
         loginTime: serverTimestamp(),
         createdAt: serverTimestamp()
       });
-      console.log('EPI Session Logged');
+
+      // 2. Actualizar documento del proveedor para pre-carga en formulario EPI
+      const supplierRef = doc(db, 'suppliers', currentUser.id);
+      await updateDoc(supplierRef, {
+        'general.legalRepresentative': responsableData.fullName,
+        'general.contactPersonEmail': responsableData.email,
+        'general.contactPersonPosition': responsableData.position,
+        // Guardamos también las versiones planas por seguridad
+        responsableEpiName: responsableData.fullName,
+        responsableEpiEmail: responsableData.email,
+        responsableEpiPosition: responsableData.position,
+        responsableEpiTimestamp: serverTimestamp()
+      });
+
+      console.log('EPI Session Logged & Supplier Data Updated');
     } catch (error) {
       console.error('Error logging EPI session:', error);
     }

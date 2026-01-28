@@ -258,6 +258,13 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
     );
   }
 
+  // --- VISUAL HELPERS ---
+  const getProgressColor = (weight: number) => {
+    if (weight === 100) return '#4ADE80'; // Green
+    if (weight > 100) return '#F87171'; // Red
+    return '#FBBF24'; // Amber/Orange
+  };
+
   const currentSections = config[activeTab].sections;
   const totalWeight = currentSections.reduce((sum, s) => sum + s.weight, 0);
   const isWeightCorrect = Math.abs(totalWeight - 100) < 0.1;
@@ -266,7 +273,7 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* --- NEW BLUE HEADER BLOCK START --- */}
+      {/* --- PREMIUM HEADER --- */}
       <View style={styles.blueHeaderContainer}>
         <View style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center' }]}>
           {/* Top Navbar */}
@@ -279,54 +286,76 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
             </View>
           </View>
 
-          {/* Titles */}
-          <View style={styles.headerTitles}>
-            <Text style={styles.headerTitleMain}>Configuración EPI</Text>
-            <Text style={styles.headerSubtitle}>Gestión de Pesos</Text>
-          </View>
-
-          {/* Total Summary Card */}
-          <View style={styles.summaryCard}>
-            <View>
-              <Text style={styles.summaryLabel}>TOTAL {activeTab.toUpperCase()}</Text>
-              <Text style={styles.summarySubLabel}>Suma de Secciones</Text>
+          {/* Titles & Context - CONDITIONAL DISPLAY */}
+          {isDesktopView ? (
+            <View style={styles.headerContent}>
+              <Text style={styles.headerTitleMain}>Configuración EPI</Text>
+              <Text style={styles.headerSubtitle}>Gestión de Pesos y Criterios de Evaluación</Text>
             </View>
-            <View style={styles.summaryRight}>
-              <Text style={[styles.summaryPercent, !isWeightCorrect && styles.summaryPercentError]}>
-                {Math.round(totalWeight)}%
-              </Text>
-              <View style={[styles.summaryCheck, !isWeightCorrect && styles.summaryCheckError]}>
-                <MaterialCommunityIcons name={isWeightCorrect ? "check" : "alert-circle"} size={16} color="#fff" />
+          ) : (
+            null /* Hide titles on mobile to save space, Logo is enough context */
+          )}
+
+          {/* Progress / Status Card - COMPACT FOR MOBILE */}
+          <View style={[styles.summaryCard, !isDesktopView && styles.summaryCardMobile]}>
+            <View style={styles.summaryInfo}>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.summaryLabel}>TOTAL {activeTab.toUpperCase()}</Text>
+                {isDesktopView && <Text style={styles.summarySubLabel}>La suma debe ser exacta (100%)</Text>}
               </View>
+              <View style={styles.summaryRight}>
+                <Text style={[styles.summaryPercent, !isDesktopView && { fontSize: 24 }, { color: getProgressColor(totalWeight) }]}>
+                  {Math.round(totalWeight)}%
+                </Text>
+                <View style={[styles.summaryCheck, !isDesktopView && { width: 20, height: 20 }, { backgroundColor: isWeightCorrect ? '#22C55E' : (totalWeight > 100 ? '#EF4444' : '#F59E0B') }]}>
+                  <MaterialCommunityIcons name={isWeightCorrect ? "check" : "alert"} size={!isDesktopView ? 12 : 14} color="#fff" />
+                </View>
+              </View>
+            </View>
+
+            {/* Visual Progress Bar */}
+            <View style={styles.progressBarContainer}>
+              <View style={[
+                styles.progressBarFill,
+                {
+                  width: `${Math.min(totalWeight, 100)}%`,
+                  backgroundColor: getProgressColor(totalWeight)
+                }
+              ]}
+              />
             </View>
           </View>
 
           {/* Tabs */}
-          <View style={styles.tabsContainer}>
+          <View style={[styles.tabsContainer, !isDesktopView && { gap: 0 }]}>
             <TouchableOpacity
               style={[styles.tabItem, activeTab === 'calidad' && styles.tabItemActive]}
               onPress={() => setActiveTab('calidad')}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, activeTab === 'calidad' && styles.tabTextActive]}>CALIDAD</Text>
+              <Text style={[styles.tabText, activeTab === 'calidad' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>CALIDAD</Text>
+              {activeTab === 'calidad' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.tabItem, activeTab === 'abastecimiento' && styles.tabItemActive]}
               onPress={() => setActiveTab('abastecimiento')}
+              activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, activeTab === 'abastecimiento' && styles.tabTextActive]}>ABASTECIMIENTO</Text>
+              <Text style={[styles.tabText, activeTab === 'abastecimiento' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>ABASTECIMIENTO</Text>
+              {activeTab === 'abastecimiento' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           </View>
         </View>
       </View>
-      {/* --- NEW BLUE HEADER BLOCK END --- */}
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={{ flex: 1 }}
+        style={{ flex: 1, backgroundColor: '#F8F9FA' }}
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={[{ paddingBottom: 100 }, isDesktopView && { alignItems: 'center' }]}
+          contentContainerStyle={[{ paddingBottom: 100, paddingTop: 10 }, isDesktopView && { alignItems: 'center' }]}
+          showsVerticalScrollIndicator={false}
         >
           <View style={{ width: '100%', maxWidth: 1200 }}>
             {currentSections.map((section, i) => {
@@ -341,25 +370,35 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                     onPress={() => toggleSection(section.id)}
                     style={styles.sectionHeader}
                   >
-                    <View style={styles.sectionCircle}>
-                      <Text style={styles.sectionCircleText}>{i + 1}</Text>
-                    </View>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.sectionTitleStatic}>{section.title}</Text>
-                      <Text style={styles.sectionSubtitle}>{questionCount} Preguntas Existentes</Text>
+                    <View style={styles.sectionLeft}>
+                      <View style={styles.sectionCircle}>
+                        <Text style={styles.sectionCircleText}>{i + 1}</Text>
+                      </View>
+                      <View style={{ flex: 1, paddingRight: 10 }}>
+                        <Text style={styles.sectionTitleStatic} numberOfLines={1}>{section.title}</Text>
+                        <Text style={styles.sectionSubtitle}>{questionCount} Preguntas • {section.weight}% del total</Text>
+                      </View>
                     </View>
 
                     {/* Weight Pill always visible and Editable */}
-                    <View style={styles.sectionPercentPill}>
-                      <TextInput
-                        style={styles.sectionPercentInput}
-                        value={section.weight.toString()}
-                        onChangeText={(text) => updateSectionWeight(section.id, text)}
-                        keyboardType="numeric"
-                        maxLength={3}
-                        placeholder="0"
+                    <View style={styles.sectionRight}>
+                      <View style={styles.sectionPercentPill}>
+                        <TextInput
+                          style={styles.sectionPercentInput}
+                          value={section.weight.toString()}
+                          onChangeText={(text) => updateSectionWeight(section.id, text)}
+                          keyboardType="numeric"
+                          maxLength={3}
+                          selectTextOnFocus
+                        />
+                        <Text style={styles.sectionPercentSymbol}>%</Text>
+                      </View>
+                      <MaterialCommunityIcons
+                        name={isExpanded ? "chevron-up" : "chevron-down"}
+                        size={24}
+                        color="#9CA3AF"
+                        style={{ marginLeft: 8 }}
                       />
-                      <Text style={styles.sectionPercentSymbol}>%</Text>
                     </View>
                   </TouchableOpacity>
 
@@ -367,99 +406,123 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                   {isExpanded && (
                     <View style={styles.expandedContent}>
                       {/* Editable Title only when expanded */}
-                      <TextInput
-                        style={styles.sectionTitleInput}
-                        value={section.title}
-                        onChangeText={(text) => updateSectionTitle(section.id, text)}
-                        placeholder="Editar Título"
-                      />
+                      <View style={styles.inputGroup}>
+                        <Text style={styles.inputLabel}>Título de la Sección</Text>
+                        <TextInput
+                          style={styles.sectionTitleInput}
+                          value={section.title}
+                          onChangeText={(text) => updateSectionTitle(section.id, text)}
+                          placeholder="Nombre de la sección"
+                        />
+                      </View>
 
                       {/* Existing Questions List */}
-                      {section.questions.filter(q => !q.isNew).map((question) => (
+                      {section.questions.filter(q => !q.isNew).map((question, qIndex) => (
                         <View key={question.id} style={styles.questionRow}>
-                          <View style={styles.questionNumberBox}>
-                            <Text style={styles.questionNumber}>{i + 1}.{section.questions.indexOf(question) + 1}</Text>
-                          </View>
-                          <TextInput
-                            style={styles.questionTextInput}
-                            value={question.text}
-                            onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
-                            placeholder="Texto de la pregunta..."
-                            multiline
-                          />
-                          <View style={styles.questionWeightPill}>
-                            <TextInput
-                              style={styles.questionWeightInput}
-                              value={question.weight.toString()}
-                              onChangeText={(text) => updateQuestionWeight(section.id, question.id, text)}
-                              keyboardType="numeric"
-                              maxLength={3}
-                            />
-                          </View>
+                          <View style={styles.questionHeader}>
+                            <View style={styles.questionNumberBox}>
+                              <Text style={styles.questionNumber}>{i + 1}.{qIndex + 1}</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                              <TextInput
+                                style={styles.questionTextInput}
+                                value={question.text}
+                                onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                                placeholder="Escribe la pregunta aquí..."
+                                multiline
+                              />
+                            </View>
 
-                          <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)} style={{ marginLeft: 8 }}>
-                            <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
-                          </TouchableOpacity>
+                            <View style={styles.questionWeightContainer}>
+                              <Text style={styles.weightLabel}>Peso</Text>
+                              <View style={styles.questionWeightPill}>
+                                <TextInput
+                                  style={styles.questionWeightInput}
+                                  value={question.weight.toString()}
+                                  onChangeText={(text) => updateQuestionWeight(section.id, question.id, text)}
+                                  keyboardType="numeric"
+                                  maxLength={3}
+                                  selectTextOnFocus
+                                />
+                                <Text style={styles.smallPercent}>%</Text>
+                              </View>
+                            </View>
+
+                            <TouchableOpacity
+                              onPress={() => deleteQuestion(section.id, question.id)}
+                              style={styles.deleteIconButton}
+                            >
+                              <MaterialCommunityIcons name="trash-can-outline" size={20} color="#EF4444" />
+                            </TouchableOpacity>
+                          </View>
                         </View>
                       ))}
 
                       {/* New Questions Rendered Here */}
                       {section.questions.filter(q => q.isNew).map((question) => (
                         <View key={question.id} style={styles.newQuestionCard}>
-                          {/* Header of New Card */}
-                          <View style={styles.newQuestionHeader}>
+                          <View style={styles.newQuestionHeaderRow}>
                             <View style={styles.newBadge}>
-                              <Text style={styles.newBadgeText}>New</Text>
+                              <Text style={styles.newBadgeText}>NUEVA</Text>
                             </View>
-                            <TextInput
-                              style={styles.newQuestionInput}
-                              value={question.text}
-                              onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
-                              placeholder="Nueva pregunta (Requisito)"
-                              placeholderTextColor="#9CA3AF"
-                            />
-                            <View style={styles.newWeightBox}>
+                            <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)}>
+                              <MaterialCommunityIcons name="close" size={20} color="#9CA3AF" />
+                            </TouchableOpacity>
+                          </View>
+
+                          <TextInput
+                            style={styles.newQuestionInput}
+                            value={question.text}
+                            onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                            placeholder="Escribe la nueva pregunta..."
+                            placeholderTextColor="#9CA3AF"
+                            multiline
+                          />
+
+                          <View style={styles.newQuestionFooter}>
+                            <View style={styles.evidenceContainer}>
+                              <MaterialCommunityIcons name="file-document-outline" size={16} color="#6B7280" style={{ marginRight: 6 }} />
+                              <TextInput
+                                style={styles.evidenceInput}
+                                placeholder="Evidencia requerida (opcional)"
+                                placeholderTextColor="#9CA3AF"
+                                value={question.evidence || ''}
+                                onChangeText={(text) => updateQuestionEvidence(section.id, question.id, text)}
+                              />
+                            </View>
+                            <View style={styles.questionWeightPill}>
                               <TextInput
                                 style={styles.questionWeightInput}
                                 value={question.weight.toString()}
                                 onChangeText={(text) => updateQuestionWeight(section.id, question.id, text)}
                                 keyboardType="numeric"
                                 maxLength={3}
+                                selectTextOnFocus
                               />
-                              <Text style={styles.percentSymbol}>%</Text>
+                              <Text style={styles.smallPercent}>%</Text>
                             </View>
-                            <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)} style={{ marginLeft: 8 }}>
-                              <MaterialCommunityIcons name="close-circle" size={24} color="#EF4444" />
-                            </TouchableOpacity>
-                          </View>
-
-                          {/* Evidence Input */}
-                          <View style={styles.evidenceInputContainer}>
-                            <TextInput
-                              style={styles.evidenceInput}
-                              placeholder="Evidencias esperadas / Documentos requeridos"
-                              placeholderTextColor="#9CA3AF"
-                              value={question.evidence || ''}
-                              onChangeText={(text) => updateQuestionEvidence(section.id, question.id, text)}
-                            />
                           </View>
                         </View>
                       ))}
 
                       {/* Add Button Area */}
-                      <TouchableOpacity
-                        style={styles.addQuestionDashedButton}
-                        onPress={() => addQuestion(section.id)}
-                      >
-                        <Text style={styles.addQuestionDashedText}>+ Agregar Pregunta</Text>
-                      </TouchableOpacity>
+                      <View style={styles.sectionActions}>
+                        <TouchableOpacity
+                          style={styles.addQuestionButton}
+                          onPress={() => addQuestion(section.id)}
+                        >
+                          <MaterialCommunityIcons name="plus" size={18} color="#2563EB" />
+                          <Text style={styles.addQuestionText}>Agregar Pregunta</Text>
+                        </TouchableOpacity>
 
-                      <TouchableOpacity
-                        style={styles.deleteSectionButton}
-                        onPress={() => deleteSection(section.id)}
-                      >
-                        <Text style={styles.deleteSectionText}>Eliminar Sección</Text>
-                      </TouchableOpacity>
+                        <TouchableOpacity
+                          style={styles.deleteSectionButton}
+                          onPress={() => deleteSection(section.id)}
+                        >
+                          <MaterialCommunityIcons name="trash-can-outline" size={16} color="#EF4444" style={{ marginRight: 4 }} />
+                          <Text style={styles.deleteSectionText}>Eliminar Sección</Text>
+                        </TouchableOpacity>
+                      </View>
                     </View>
                   )}
                 </View>
@@ -469,24 +532,25 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
             <TouchableOpacity
               style={styles.createSectionButton}
               onPress={addSection}
+              activeOpacity={0.8}
             >
-              <Text style={styles.createSectionText}>Crear Nueva Sección</Text>
+              <MaterialCommunityIcons name="plus-circle-outline" size={24} color="#4B5563" />
+              <Text style={styles.createSectionText}>Crear Nueva Sección Global</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
       <View style={styles.bottomActions}>
-        <View style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center', flexDirection: 'row', justifyContent: 'space-between', gap: 16 }]}>
+        <View style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center', flexDirection: 'row', justifyContent: 'flex-end', gap: 16 }]}>
           {!isDesktopView ? (
-            // Mobile Layout (Default flex row is defined in styles.bottomActions)
             <>
               <TouchableOpacity
                 style={[styles.restoreButton, !hasChanges && styles.disabledButton]}
                 onPress={handleRestore}
                 disabled={!hasChanges}
               >
-                <Text style={[styles.restoreText, !hasChanges && styles.disabledText]}>Restaurar</Text>
+                <Text style={[styles.restoreText, !hasChanges && styles.disabledText]}>Descartar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -498,25 +562,24 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="content-save" size={22} color="#fff" />
-                    <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+                    <MaterialCommunityIcons name="content-save-outline" size={20} color="#fff" />
+                    <Text style={styles.saveButtonText}>Guardar Cambios</Text>
                   </>
                 )}
               </TouchableOpacity>
             </>
           ) : (
-            // Desktop Layout (Explicit flex items inside constrained view)
             <>
               <TouchableOpacity
-                style={[styles.restoreButton, !hasChanges && styles.disabledButton, { flex: 1 }]}
+                style={[styles.restoreButton, !hasChanges && styles.disabledButton, { width: 150 }]}
                 onPress={handleRestore}
                 disabled={!hasChanges}
               >
-                <Text style={[styles.restoreText, !hasChanges && styles.disabledText]}>Restaurar</Text>
+                <Text style={[styles.restoreText, !hasChanges && styles.disabledText]}>Descartar</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
-                style={[styles.saveButton, saving && styles.disabledButton, { flex: 2 }]}
+                style={[styles.saveButton, saving && styles.disabledButton, { width: 200 }]}
                 onPress={handleSave}
                 disabled={saving}
               >
@@ -524,8 +587,8 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                   <ActivityIndicator color="#fff" />
                 ) : (
                   <>
-                    <MaterialCommunityIcons name="content-save" size={22} color="#fff" />
-                    <Text style={styles.saveButtonText}>Guardar Configuración</Text>
+                    <MaterialCommunityIcons name="content-save-outline" size={20} color="#fff" />
+                    <Text style={styles.saveButtonText}>Guardar</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -542,213 +605,314 @@ const styles = StyleSheet.create({
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   blueHeaderContainer: {
     backgroundColor: '#004CA3',
-    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 20,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+    zIndex: 10
   },
   topNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    marginBottom: 10
+    paddingHorizontal: 24,
+    marginBottom: 20
   },
-  backButton: { padding: 8 },
+  backButton: {
+    padding: 8,
+    marginLeft: -8,
+    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)'
+  },
   logoContainer: {},
-  logo: { width: 100, height: 30, resizeMode: 'contain', tintColor: '#fff' }, // Adjust tint if logo is an image that supports it, or remove tint if it's a colored PNG
+  logo: { width: 110, height: 32, resizeMode: 'contain', tintColor: '#fff' },
 
-  headerTitles: { alignItems: 'center', marginBottom: 20 },
-  headerTitleMain: { fontSize: 24, fontWeight: 'bold', color: '#fff' },
-  headerSubtitle: { fontSize: 14, color: '#A0C4FF', marginTop: 4 },
+  headerContent: { alignItems: 'center', marginBottom: 24 },
+  headerTitleMain: { fontSize: 26, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 13, color: '#BFDBFE', marginTop: 4, fontWeight: '500' },
 
   summaryCard: {
-    backgroundColor: 'rgba(255,255,255,0.15)', // Glassy look or specific color like #366896
-    marginHorizontal: 20,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    marginHorizontal: 24,
     borderRadius: 16,
-    padding: 16,
+    padding: 20,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.2)'
+  },
+  summaryCardMobile: {
+    marginHorizontal: 16,
+    padding: 12,
+    marginBottom: 12,
+    borderRadius: 12
+  },
+  summaryInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20
+    marginBottom: 12
   },
-  summaryLabel: { color: '#fff', fontSize: 12, fontWeight: 'bold', textDecorationLine: 'underline' },
-  summarySubLabel: { color: '#E0E7FF', fontSize: 12 },
-  summaryRight: { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  summaryPercent: { fontSize: 32, fontWeight: 'bold', color: '#4ADE80' }, // Green text
-  summaryPercentError: { color: '#F87171' },
+  summaryLabel: { color: '#fff', fontSize: 11, fontWeight: '800', letterSpacing: 1, opacity: 0.9 },
+  summarySubLabel: { color: '#BFDBFE', fontSize: 12, marginTop: 2 },
+  summaryRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  summaryPercent: { fontSize: 32, fontWeight: '700', letterSpacing: -1 },
   summaryCheck: {
-    width: 24, height: 24, borderRadius: 12, backgroundColor: '#22C55E',
+    width: 24, height: 24, borderRadius: 12,
     alignItems: 'center', justifyContent: 'center'
   },
-  summaryCheckError: { backgroundColor: '#EF4444' },
+  progressBarContainer: {
+    height: 6,
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 3,
+    overflow: 'hidden'
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 3
+  },
 
   tabsContainer: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 0,
-    width: '100%'
+    paddingHorizontal: 24,
+    width: '100%',
+    gap: 30
   },
   tabItem: {
-    flex: 1,
     alignItems: 'center',
     paddingVertical: 12,
-    borderBottomWidth: 3,
-    borderBottomColor: 'transparent'
+    position: 'relative'
   },
-  tabItemActive: { borderBottomColor: '#38BDF8' }, // Light blue indicator
-  tabText: { color: '#93C5FD', fontWeight: '600', fontSize: 14 },
-  tabTextActive: { color: '#fff', fontWeight: 'bold' },
+  tabItemActive: {},
+  tabText: { color: '#93C5FD', fontWeight: '600', fontSize: 14, letterSpacing: 0.5 },
+  tabTextActive: { color: '#fff', fontWeight: '700' },
+  activeTabIndicator: {
+    position: 'absolute',
+    bottom: -4,
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#fff'
+  },
 
   content: { padding: 20 },
 
   sectionCard: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: 16,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    overflow: 'hidden',
-    // Shadow for card feel
+    // Modern shadow
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3.84,
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
     elevation: 2,
+    borderWidth: 1,
+    borderColor: '#F3F4F6'
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
-    backgroundColor: '#fff'
-  },
-  sectionCircle: {
-    width: 40, height: 40, borderRadius: 20,
-    borderWidth: 2, borderColor: '#003E85',
-    alignItems: 'center', justifyContent: 'center',
-    marginRight: 12
-  },
-  sectionCircleText: { fontSize: 18, fontWeight: 'bold', color: '#003E85' },
-  sectionTitleStatic: { fontSize: 16, fontWeight: 'bold', color: '#1F2937' },
-  sectionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-  sectionPercentPill: {
+    justifyContent: 'space-between',
+    padding: 20,
     backgroundColor: '#fff',
+    borderRadius: 16
+  },
+  sectionLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+  sectionRight: { flexDirection: 'row', alignItems: 'center' },
+  sectionCircle: {
+    width: 36, height: 36, borderRadius: 12,
+    backgroundColor: '#EFF6FF',
+    alignItems: 'center', justifyContent: 'center',
+    marginRight: 16
+  },
+  sectionCircleText: { fontSize: 16, fontWeight: '700', color: '#2563EB' },
+  sectionTitleStatic: { fontSize: 16, fontWeight: '700', color: '#1F2937' },
+  sectionSubtitle: { fontSize: 12, color: '#6B7280', marginTop: 2, fontWeight: '500' },
+
+  sectionPercentPill: {
+    backgroundColor: '#F9FAFB',
     borderWidth: 1, borderColor: '#E5E7EB',
-    paddingHorizontal: 12, paddingVertical: 6,
-    borderRadius: 16,
+    paddingHorizontal: 8, paddingVertical: 4,
+    borderRadius: 10,
     flexDirection: 'row',
     alignItems: 'center',
-    minWidth: 60,
+    minWidth: 54,
     justifyContent: 'center'
   },
   sectionPercentInput: {
     fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontWeight: '700',
+    color: '#111827',
     textAlign: 'right',
     padding: 0,
-    minWidth: 20
+    minWidth: 22
   },
   sectionPercentSymbol: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#1F2937',
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
     marginLeft: 2
   },
 
   expandedContent: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
+    paddingHorizontal: 20,
+    paddingBottom: 24,
     borderTopWidth: 1,
     borderTopColor: '#F3F4F6',
-    backgroundColor: '#fff'
+    backgroundColor: '#FAFAFA',
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16
   },
+  inputGroup: { marginBottom: 16, marginTop: 16 },
+  inputLabel: { fontSize: 11, color: '#6B7280', fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' },
   sectionTitleInput: {
-    fontSize: 16, fontWeight: 'bold', color: '#1F2937',
-    borderBottomWidth: 1, borderBottomColor: '#E5E7EB',
-    paddingVertical: 8, marginBottom: 16
+    fontSize: 15, fontWeight: '600', color: '#111827',
+    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#E5E7EB',
+    paddingHorizontal: 12, paddingVertical: 10,
+    borderRadius: 8
   },
 
   questionRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
     backgroundColor: '#fff',
-    borderWidth: 1, borderColor: '#E5E7EB',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 12
+    borderWidth: 1, borderColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.03,
+    shadowRadius: 2,
+    elevation: 1
   },
+  questionHeader: { flexDirection: 'row', alignItems: 'flex-start' },
   questionNumberBox: {
-    width: 24, height: 24, backgroundColor: '#E5E7EB', borderRadius: 4, alignItems: 'center', justifyContent: 'center', marginRight: 8
+    width: 26, height: 26, backgroundColor: '#F3F4F6', borderRadius: 8, alignItems: 'center', justifyContent: 'center', marginRight: 12, marginTop: 2
   },
-  questionNumber: { fontSize: 10, fontWeight: 'bold', color: '#6B7280' },
-  questionTextInput: { flex: 1, fontSize: 13, color: '#374151' },
+  questionNumber: { fontSize: 11, fontWeight: '700', color: '#6B7280' },
+  questionTextInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+    lineHeight: 20,
+    paddingTop: 0, // Align with number
+    minHeight: 40
+  },
+  questionWeightContainer: {
+    alignItems: 'center',
+    marginLeft: 12
+  },
+  weightLabel: { fontSize: 9, color: '#9CA3AF', marginBottom: 2, fontWeight: '600' },
   questionWeightPill: {
-    borderWidth: 1, borderColor: '#BFDBFE', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 2, minWidth: 40
+    borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8,
+    paddingHorizontal: 8, paddingVertical: 4,
+    minWidth: 48,
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#F9FAFB'
   },
-  questionWeightInput: { textAlign: 'center', color: '#2563EB', fontWeight: 'bold' },
+  questionWeightInput: { textAlign: 'right', color: '#111827', fontWeight: '700', fontSize: 13, minWidth: 20, padding: 0 },
+  smallPercent: { fontSize: 10, color: '#9CA3AF', marginLeft: 1 },
+  deleteIconButton: { padding: 4, marginLeft: 8, marginTop: 2 },
 
   // NEW QUESTION CARD STYLES
   newQuestionCard: {
-    backgroundColor: '#F0F9FF',
+    backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#3B82F6',
-    borderStyle: 'dashed',
+    borderColor: '#E0E7FF',
     padding: 16,
-    marginTop: 8
+    marginTop: 12,
+    shadowColor: "#4338CA",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 2
   },
-  newQuestionHeader: {
-    flexDirection: 'row', alignItems: 'center', marginBottom: 12
+  newQuestionHeaderRow: {
+    flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10
   },
   newBadge: {
-    backgroundColor: '#BFDBFE', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 4, marginRight: 8
+    backgroundColor: '#EEF2FF', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6
   },
-  newBadgeText: { color: '#1E40AF', fontSize: 10, fontWeight: 'bold', textTransform: 'uppercase' },
+  newBadgeText: { color: '#4F46E5', fontSize: 10, fontWeight: '800' },
   newQuestionInput: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 6, fontSize: 13, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8
+    fontSize: 14, color: '#1F2937', marginBottom: 12, minHeight: 40
   },
-  newWeightBox: {
-    backgroundColor: '#fff', borderRadius: 6, width: 44, height: 32, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: '#E5E7EB', paddingHorizontal: 2
+  newQuestionFooter: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    paddingTop: 12, borderTopWidth: 1, borderTopColor: '#F3F4F6'
   },
-  percentSymbol: { color: '#9CA3AF', fontSize: 10, marginLeft: 1 },
+  evidenceContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
+  evidenceInput: { flex: 1, fontSize: 12, color: '#4B5563' },
 
-  evidenceInputContainer: {
-    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between'
+  sectionActions: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6'
   },
-  evidenceInput: {
-    flex: 1, backgroundColor: '#fff', borderRadius: 6, paddingHorizontal: 10, paddingVertical: 10, fontSize: 13, borderWidth: 1, borderColor: '#E5E7EB', marginRight: 8
+  addQuestionButton: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#EFF6FF', paddingHorizontal: 14, paddingVertical: 8,
+    borderRadius: 8
   },
-  addStartButton: {
-    width: 36, height: 36, borderRadius: 8, backgroundColor: '#2563EB', alignItems: 'center', justifyContent: 'center'
-  },
-  plusText: { color: '#fff', fontSize: 20, fontWeight: 'bold' },
-
-  addQuestionDashedButton: {
-    marginTop: 12, padding: 12, borderWidth: 1, borderColor: '#E5E7EB', borderStyle: 'dashed', borderRadius: 8, alignItems: 'center'
-  },
-  addQuestionDashedText: { color: '#6B7280', fontSize: 13 },
+  addQuestionText: { color: '#2563EB', fontSize: 13, fontWeight: '600', marginLeft: 6 },
 
   deleteSectionButton: {
-    marginTop: 20, alignSelf: 'flex-start'
+    flexDirection: 'row', alignItems: 'center', padding: 8
   },
-  deleteSectionText: { color: '#EF4444', fontSize: 13, fontWeight: '500' },
+  deleteSectionText: { color: '#EF4444', fontSize: 12, fontWeight: '600' },
 
   createSectionButton: {
-    borderWidth: 1, borderColor: '#9CA3AF', borderRadius: 8, padding: 16, borderStyle: 'dashed', alignItems: 'center', marginBottom: 30
+    borderWidth: 2, borderColor: '#E5E7EB', borderRadius: 16, padding: 20,
+    borderStyle: 'dashed', alignItems: 'center', marginBottom: 30,
+    flexDirection: 'row', justifyContent: 'center', gap: 10,
+    backgroundColor: '#F9FAFB'
   },
-  createSectionText: { color: '#4B5563', fontWeight: 'bold' },
+  createSectionText: { color: '#4B5563', fontWeight: '700', fontSize: 15 },
 
+  // Footer Actions
   bottomActions: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
-    backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#E5E7EB',
+    backgroundColor: '#fff',
+    borderTopWidth: 1, borderTopColor: '#F3F4F6',
     padding: 20, paddingBottom: Platform.OS === 'ios' ? 34 : 20,
-    flexDirection: 'row', justifyContent: 'space-between', gap: 16
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.05,
+    shadowRadius: 10,
+    elevation: 8
   },
-  restoreButton: { flex: 1, alignItems: 'center', paddingVertical: 14, borderRadius: 8, borderWidth: 1, borderColor: '#E5E7EB' },
-  restoreText: { color: '#374151', fontWeight: 'bold' },
-  saveButton: { flex: 2, backgroundColor: '#003E85', alignItems: 'center', flexDirection: 'row', justifyContent: 'center', paddingVertical: 14, borderRadius: 8, gap: 8 },
-  saveButtonText: { color: '#fff', fontWeight: 'bold' },
-  disabledButton: { opacity: 0.5 },
+  restoreButton: {
+    alignItems: 'center', paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    backgroundColor: '#fff'
+  },
+  restoreText: { color: '#4B5563', fontWeight: '700', fontSize: 14 },
+  saveButton: {
+    flex: 1,
+    backgroundColor: '#0F172A',
+    alignItems: 'center',
+    flexDirection: 'row', justifyContent: 'center',
+    paddingVertical: 14, borderRadius: 12,
+    gap: 8,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 4
+  },
+  saveButtonText: { color: '#fff', fontWeight: '700', fontSize: 14, letterSpacing: 0.5 },
+  disabledButton: { opacity: 0.5, backgroundColor: '#E5E7EB', shadowOpacity: 0 },
   disabledText: { color: '#9CA3AF' }
 });
 

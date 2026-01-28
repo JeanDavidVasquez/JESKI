@@ -380,52 +380,20 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                 </View>
             </View>
 
-            {/* Full Width Stepper */}
-            <View style={styles.fullWidthStepper}>
-                <View style={styles.stepperContentContainer}>
-                    <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.stepperScrollContent}
-                    >
-                        {allQuestions.map((q, index) => {
-                            const isCompleted = q.selectedAnswer !== undefined;
-                            const isCurrent = index === currentQuestionIndex;
-
-                            return (
-                                <View key={q.id} style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                    <TouchableOpacity
-                                        style={styles.stepItem}
-                                        onPress={() => setCurrentQuestionIndex(index)}
-                                    >
-                                        <View style={[
-                                            styles.stepCircle,
-                                            isCompleted && styles.stepCircleCompleted,
-                                            isCurrent && styles.stepCircleCurrent
-                                        ]}>
-                                            {isCompleted ? (
-                                                <Ionicons name="checkmark" size={12} color="#FFF" />
-                                            ) : (
-                                                <Text style={[
-                                                    styles.stepNumber,
-                                                    isCurrent && styles.stepNumberCurrent
-                                                ]}>{index + 1}</Text>
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                    {index < allQuestions.length - 1 && (
-                                        <View style={[
-                                            styles.stepLine,
-                                            isCompleted && styles.stepLineCompleted
-                                        ]} />
-                                    )}
-                                </View>
-                            );
-                        })}
-                    </ScrollView>
-                    <View style={styles.scoreBadge}>
-                        <Text style={styles.scoreLabel}>Puntaje:</Text>
-                        <Text style={styles.scoreValue}>{Math.round(currentScore)}/100</Text>
+            {/* Full Width Progress Bar */}
+            <View style={styles.fullWidthProgress}>
+                <View style={styles.progressContentContainer}>
+                    <View style={styles.progressRow}>
+                        <Text style={styles.progressText}>
+                            Progreso
+                        </Text>
+                        <View style={styles.scoreDisplay}>
+                            <Text style={styles.scoreLabel}>Puntaje:</Text>
+                            <Text style={styles.scoreValue}>{Math.round(currentScore)}/{evaluation?.maxScore || 100}</Text>
+                        </View>
+                    </View>
+                    <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${totalQuestions > 0 ? ((answeredQuestions) / totalQuestions) * 100 : 0}%` }]} />
                     </View>
                 </View>
             </View>
@@ -452,10 +420,14 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                             )}
 
                             <View style={styles.questionHeader}>
-                                <Text style={styles.questionSection}>
-                                    {currentSection?.title || 'Sección'}
-                                </Text>
+                                <View style={styles.sectionBadge}>
+                                    <Ionicons name="document-text-outline" size={16} color="#003E85" />
+                                    <Text style={styles.questionSection}>
+                                        {currentSection?.title || 'Sección'}
+                                    </Text>
+                                </View>
                                 <View style={styles.pointsBadge}>
+                                    <Ionicons name="star" size={14} color="#F59E0B" />
                                     <Text style={styles.pointsText}>{currentQuestion?.maxPoints || 0} pts</Text>
                                 </View>
                             </View>
@@ -595,7 +567,12 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.saveButton} onPress={handleSaveAndExit} disabled={saving}>
-                        {saving ? <ActivityIndicator color="#003E85" /> : (
+                        {saving ? (
+                            <>
+                                <ActivityIndicator color="#003E85" size="small" />
+                                <Text style={[styles.saveButtonText, { marginLeft: 6 }]}>Guardando...</Text>
+                            </>
+                        ) : (
                             <>
                                 <Ionicons name="save-outline" size={18} color="#003E85" />
                                 <Text style={styles.saveButtonText}>Guardar</Text>
@@ -755,85 +732,55 @@ const styles = StyleSheet.create({
     },
 
     // Stepper
-    fullWidthStepper: {
+    fullWidthProgress: {
         width: '100%',
         backgroundColor: '#FFFFFF',
+        alignItems: 'center',
         borderBottomWidth: 1,
         borderBottomColor: '#E2E8F0',
-        alignItems: 'center',
     },
-    stepperContentContainer: {
+    progressContentContainer: {
         width: '100%',
         maxWidth: 1024,
-        flexDirection: 'row',
-        alignItems: 'center',
         paddingVertical: 12,
         paddingHorizontal: 20,
-        gap: 20,
     },
-    stepperScrollContent: {
+    progressRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        paddingRight: 20,
+        marginBottom: 8,
     },
-    stepItem: {
-        padding: 4,
-    },
-    stepCircle: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#F1F5F9',
-        borderWidth: 1,
-        borderColor: '#CBD5E1',
-        alignItems: 'center',
-        justifyContent: 'center',
-    },
-    stepCircleCompleted: {
-        backgroundColor: '#003E85',
-        borderColor: '#003E85',
-    },
-    stepCircleCurrent: {
-        backgroundColor: '#EFF6FF',
-        borderColor: '#003E85',
-        borderWidth: 2,
-    },
-    stepNumber: {
+    progressText: {
         fontSize: 12,
-        fontWeight: '600',
         color: '#64748B',
+        fontWeight: '600',
+        textTransform: 'uppercase',
     },
-    stepNumberCurrent: {
-        color: '#003E85',
-    },
-    stepLine: {
-        width: 24,
-        height: 2,
-        backgroundColor: '#E2E8F0',
-        marginHorizontal: 4,
-    },
-    stepLineCompleted: {
-        backgroundColor: '#003E85',
-    },
-    scoreBadge: {
+    scoreDisplay: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 20,
-        borderWidth: 1,
-        borderColor: '#E2E8F0',
-        gap: 6
+        gap: 6,
     },
     scoreLabel: {
         fontSize: 12,
         color: '#64748B',
-        fontWeight: '600'
     },
     scoreValue: {
         fontSize: 14,
+        fontWeight: '700',
         color: '#003E85',
-        fontWeight: '700'
+    },
+    progressBar: {
+        height: 6,
+        backgroundColor: '#E2E8F0',
+        borderRadius: 3,
+        overflow: 'hidden',
+    },
+    progressFill: {
+        height: '100%',
+        backgroundColor: '#003E85',
+        borderRadius: 3,
     },
 
     // Content
@@ -854,44 +801,60 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 24,
         marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#F1F5F9',
         ...Platform.select({
-            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12 },
-            android: { elevation: 3 },
-            web: { boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)' },
+            ios: { shadowColor: '#003E85', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16 },
+            android: { elevation: 4 },
+            web: { boxShadow: '0 6px 24px rgba(0, 62, 133, 0.08)' },
         }),
     },
     questionHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 16,
+        marginBottom: 20,
+    },
+    sectionBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        backgroundColor: '#EFF6FF',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
+        borderWidth: 1,
+        borderColor: '#DBEAFE',
     },
     questionSection: {
         fontSize: 13,
-        fontWeight: '600',
-        color: '#64748B',
+        fontWeight: '700',
+        color: '#003E85',
         textTransform: 'uppercase',
         letterSpacing: 0.5,
     },
     pointsBadge: {
-        backgroundColor: '#EFF6FF',
-        paddingHorizontal: 10,
-        paddingVertical: 4,
-        borderRadius: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: '#FEF3C7',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 20,
         borderWidth: 1,
-        borderColor: '#DBEAFE',
+        borderColor: '#FDE68A',
     },
     pointsText: {
-        fontSize: 12,
-        fontWeight: '600',
-        color: '#003E85',
+        fontSize: 13,
+        fontWeight: '800',
+        color: '#D97706',
     },
     questionText: {
-        fontSize: 16,
+        fontSize: 17,
+        lineHeight: 26,
         fontWeight: '500',
-        color: '#1E293B',
-        lineHeight: 24,
-        marginBottom: 16,
+        color: '#0F172A',
+        marginBottom: 28,
     },
     evidenceHintContainer: {
         flexDirection: 'row',
@@ -929,26 +892,41 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'center',
         paddingVertical: 12,
-        paddingHorizontal: 16,
-        borderRadius: 12,
-        borderWidth: 1,
+        paddingHorizontal: 18,
+        borderRadius: 14,
+        borderWidth: 2,
         borderColor: '#E2E8F0',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: '#FFFFFF',
         gap: 8,
+        ...Platform.select({
+            ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.04, shadowRadius: 4 },
+            android: { elevation: 1 },
+            web: { boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)', cursor: 'pointer' },
+        }),
     },
     answerButtonYes: {
         // base
     },
     answerButtonYesSelected: {
-        backgroundColor: '#22C55E',
-        borderColor: '#22C55E',
+        backgroundColor: '#10B981',
+        borderColor: '#10B981',
+        ...Platform.select({
+            ios: { shadowColor: '#10B981', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+            android: { elevation: 3 },
+            web: { boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)', transform: 'translateY(-1px)' },
+        }),
     },
     answerButtonNo: {
         // base
     },
     answerButtonNoSelected: {
-        backgroundColor: '#EF4444',
-        borderColor: '#EF4444',
+        backgroundColor: '#F43F5E',
+        borderColor: '#F43F5E',
+        ...Platform.select({
+            ios: { shadowColor: '#F43F5E', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+            android: { elevation: 3 },
+            web: { boxShadow: '0 4px 16px rgba(244, 63, 94, 0.3)', transform: 'translateY(-1px)' },
+        }),
     },
     answerButtonNA: {
         // base
@@ -956,14 +934,20 @@ const styles = StyleSheet.create({
     answerButtonNASelected: {
         backgroundColor: '#64748B',
         borderColor: '#64748B',
+        ...Platform.select({
+            ios: { shadowColor: '#64748B', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.3, shadowRadius: 8 },
+            android: { elevation: 3 },
+            web: { boxShadow: '0 4px 16px rgba(100, 116, 139, 0.3)', transform: 'translateY(-1px)' },
+        }),
     },
     answerButtonText: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#64748B',
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#475569',
     },
     answerButtonTextSelected: {
         color: '#FFFFFF',
+        fontWeight: '800',
     },
     disabledButton: {
         opacity: 0.6,
@@ -1056,6 +1040,7 @@ const styles = StyleSheet.create({
         borderTopWidth: 1,
         borderTopColor: '#E2E8F0',
         alignItems: 'center',
+        zIndex: 100,
         ...Platform.select({
             ios: { shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 10, shadowOffset: { width: 0, height: -4 } },
             web: { boxShadow: '0 -4px 20px rgba(0,0,0,0.05)' },

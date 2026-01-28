@@ -15,6 +15,8 @@ import { StatusBar } from 'expo-status-bar';
 import { theme } from '../../styles/theme';
 import { db } from '../../services/firebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { useResponsive } from '../../styles/responsive';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 interface SupplierInviteScreenProps {
   onNavigateBack?: () => void;
@@ -25,6 +27,7 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
   onNavigateBack,
   onInviteSent,
 }) => {
+  const { isDesktopView } = useResponsive();
   const [companyName, setCompanyName] = useState('');
   const [email, setEmail] = useState('');
   const [contactName, setContactName] = useState('');
@@ -32,25 +35,21 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
   const [category, setCategory] = useState('');
   const [message, setMessage] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-
-  // const [loading, setLoading] = useState(false); // Already defined? No, I defined it in the bad block. I need to keep 'loading'.
-
   const [loading, setLoading] = useState(false);
 
   const handleSendInvite = async () => {
     if (!companyName || !email) {
-      alert('Por favor complete Nombre de Empresa y Email');
+      alert('Por favor complete Nombre de la Empresa y Correo Electrónico');
       return;
     }
 
     setLoading(true);
     try {
-      // Create "Invited" User in Firestore so it appears in Supplier List
       await addDoc(collection(db, 'users'), {
         email: email.trim(),
         firstName: contactName,
-        lastName: '', // Single name in this form
-        role: 'proveedor', // Matches UserRole.PROVEEDOR
+        lastName: '',
+        role: 'proveedor',
         companyName: companyName,
         phone,
         category,
@@ -77,30 +76,42 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
     }
   };
 
+  // Helper component for Layout Rows
+  const FormRow = ({ children }: { children: React.ReactNode }) => (
+    <View style={[styles.formRow, isDesktopView && styles.formRowDesktop]}>
+      {children}
+    </View>
+  );
+
   return (
     <View style={styles.container}>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
 
-      {/* Header */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <TouchableOpacity
-            onPress={onNavigateBack}
-            style={styles.backButton}
-            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
-          >
+      {/* --- PREMIUM BLUE HEADER --- */}
+      <View style={styles.blueHeaderContainer}>
+        <View style={[styles.headerContentWrapper, isDesktopView && styles.headerContentDesktop]}>
+          <View style={styles.topNav}>
+            <TouchableOpacity
+              onPress={onNavigateBack}
+              style={styles.backButton}
+              activeOpacity={0.7}
+            >
+              <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
+            </TouchableOpacity>
             <Image
-              source={require('../../../assets/icons/arrow-left.png')}
-              style={styles.backIcon}
+              source={require('../../../assets/icono_indurama.png')}
+              style={styles.logo}
+              resizeMode="contain"
             />
-          </TouchableOpacity>
-          <Text style={styles.headerTitle}>INVITAR PROVEEDOR</Text>
+          </View>
+
+          <View style={styles.titleContainer}>
+            <Text style={styles.headerTitleMain}>Invitar Proveedor</Text>
+            <Text style={styles.headerSubtitle}>
+              Inicie el proceso de evaluación enviando una invitación
+            </Text>
+          </View>
         </View>
-        <Image
-          source={require('../../../assets/icono_indurama.png')}
-          style={styles.logo}
-          resizeMode="contain"
-        />
       </View>
 
       <KeyboardAvoidingView
@@ -109,85 +120,81 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, isDesktopView && styles.scrollContentDesktop]}
           showsVerticalScrollIndicator={false}
         >
-          <Text style={styles.description}>
-            Envíe una invitación por email para iniciar el procesos de evaluación
-          </Text>
-
           <View style={styles.formCard}>
-            {/* Nombre de la Empresa */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nombre de la Empresa *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: TecnoPartes S.A"
-                value={companyName}
-                onChangeText={setCompanyName}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
 
-            {/* Correo Electrónico */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Correo Electrónico *</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="contacto@empresa.com"
-                value={email}
-                onChangeText={setEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+            {/* ROW 1: Empresa & Email */}
+            <FormRow>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nombre de la Empresa <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: TecnoPartes S.A"
+                  value={companyName}
+                  onChangeText={setCompanyName}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
 
-            {/* Nombre del Contacto */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Nombre del Contacto</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="Ej: Juan Pérez"
-                value={contactName}
-                onChangeText={setContactName}
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Correo Electrónico <Text style={styles.required}>*</Text></Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="contacto@empresa.com"
+                  value={email}
+                  onChangeText={setEmail}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </FormRow>
 
-            {/* Teléfono */}
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>Teléfono</Text>
-              <TextInput
-                style={styles.input}
-                placeholder="+593 99 999 9999"
-                value={phone}
-                onChangeText={setPhone}
-                keyboardType="phone-pad"
-                placeholderTextColor="#9CA3AF"
-              />
-            </View>
+            {/* ROW 2: Contacto & Teléfono */}
+            <FormRow>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Nombre del Contacto</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="Ej: Juan Pérez"
+                  value={contactName}
+                  onChangeText={setContactName}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
 
-            {/* Categoría del Proveedor */}
-            <View style={styles.inputGroup}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.label}>Teléfono</Text>
+                <TextInput
+                  style={styles.input}
+                  placeholder="+593 99 999 9999"
+                  value={phone}
+                  onChangeText={setPhone}
+                  keyboardType="phone-pad"
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+            </FormRow>
+
+            {/* Categoría */}
+            <View style={styles.inputGroupNonRow}>
               <Text style={styles.label}>Categoría del Proveedor</Text>
               <View style={styles.selectContainer}>
                 <Text style={[styles.selectText, !category && styles.placeholderText]}>
-                  {category || 'Seleccione categoría'}
+                  {category || 'Seleccione categoría (Opcional)'}
                 </Text>
-                <Image
-                  source={require('../../../assets/icons/chevron-down.png')}
-                  style={styles.chevronIcon}
-                />
+                <MaterialCommunityIcons name="chevron-down" size={24} color="#6B7280" />
               </View>
             </View>
 
             {/* Mensaje Personalizado */}
-            <View style={styles.inputGroup}>
+            <View style={styles.inputGroupNonRow}>
               <Text style={styles.label}>Mensaje Personalizado (Opcional)</Text>
               <TextInput
                 style={[styles.input, styles.textArea]}
-                placeholder="Agregue un mensaje personalizado para el proveedor..."
+                placeholder="Agregue un mensaje de bienvenida o instrucciones específicas..."
                 value={message}
                 onChangeText={setMessage}
                 multiline
@@ -200,14 +207,11 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
             {/* Info Box */}
             <View style={styles.infoBox}>
               <View style={styles.infoTitleRow}>
-                <Image
-                  source={require('../../../assets/icons/inbox.png')}
-                  style={styles.infoIcon}
-                />
-                <Text style={styles.infoTitle}>Vista Previa de la invitación</Text>
+                <MaterialCommunityIcons name="email-fast-outline" size={20} color="#004CA3" style={{ marginRight: 8 }} />
+                <Text style={styles.infoTitle}>¿Qué sucede al enviar?</Text>
               </View>
               <Text style={styles.infoText}>
-                El proveedor recibirá un correo electrónico con un enlace único para crear su cuenta y completar el cuestionario de evaluación EPI. Este enlace será válido por 7 dias
+                El proveedor recibirá un correo automático con un enlace único (válido por 7 días) para darse de alta en JESKI y completar su perfil EPI.
               </Text>
             </View>
 
@@ -218,6 +222,7 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={onNavigateBack}
+                activeOpacity={0.8}
               >
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
@@ -225,19 +230,24 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
               <TouchableOpacity
                 style={styles.submitButton}
                 onPress={handleSendInvite}
+                activeOpacity={0.8}
+                disabled={loading}
               >
-                <Image
-                  source={require('../../../assets/icons/send.png')}
-                  style={styles.submitIcon}
-                />
-                <Text style={styles.submitButtonText}>Enviar Invitación</Text>
+                {loading ? (
+                  <Text style={styles.submitButtonText}>Enviando...</Text>
+                ) : (
+                  <>
+                    <MaterialCommunityIcons name="send-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.submitButtonText}>Enviar Invitación</Text>
+                  </>
+                )}
               </TouchableOpacity>
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Success Modal */}
+      {/* Modern Success Modal */}
       <Modal
         visible={showSuccessModal}
         transparent
@@ -246,12 +256,15 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Invitacion Enviada</Text>
+            <View style={styles.successIconCircle}>
+              <MaterialCommunityIcons name="check" size={32} color="#fff" />
+            </View>
+            <Text style={styles.modalTitle}>¡Invitación Enviada!</Text>
             <Text style={styles.modalMessage}>
-              La invitacion le llegara al correo indicado
+              Hemos enviado un correo a <Text style={{ fontWeight: 'bold' }}>{email}</Text> con las instrucciones de acceso.
             </Text>
-            <TouchableOpacity style={styles.modalButton} onPress={handleCloseModal}>
-              <Text style={styles.modalButtonText}>Listo</Text>
+            <TouchableOpacity style={styles.modalButton} onPress={handleCloseModal} activeOpacity={0.8}>
+              <Text style={styles.modalButtonText}>Entendido</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -261,83 +274,92 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#F3F4F6',
+  container: { flex: 1, backgroundColor: '#F8F9FA' },
+
+  // Header Styles
+  blueHeaderContainer: {
+    backgroundColor: '#004CA3',
+    paddingTop: Platform.OS === 'ios' ? 60 : 40,
+    paddingBottom: 30, // Increased for visual overlap feel if needed, or straight cut
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 5,
+    zIndex: 10
   },
-  header: {
+  headerContentWrapper: { width: '100%', paddingHorizontal: 20 },
+  headerContentDesktop: { maxWidth: 900, alignSelf: 'center' },
+
+  topNav: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 50,
-    paddingHorizontal: 20,
-    paddingBottom: 20,
-    backgroundColor: '#F3F4F6',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    marginBottom: 20
   },
   backButton: {
-    marginRight: 12,
+    padding: 8,
+    marginLeft: -8,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+    borderRadius: 20
   },
-  backIcon: {
-    width: 24,
-    height: 24,
-    tintColor: '#1F2937',
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  logo: {
-    width: 100,
-    height: 30,
-  },
-  content: {
-    flex: 1,
-  },
-  scrollContent: {
-    paddingHorizontal: 20,
-    paddingBottom: 40,
-  },
-  description: {
-    fontSize: 14,
-    color: '#4B5563',
-    marginBottom: 20,
-  },
+  logo: { width: 110, height: 32, tintColor: '#fff' },
+
+  titleContainer: { alignItems: 'center' },
+  headerTitleMain: { fontSize: 24, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 13, color: '#BFDBFE', marginTop: 6, fontWeight: '500', textAlign: 'center' },
+
+  // Content Styles
+  content: { flex: 1 },
+  scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40 },
+  scrollContentDesktop: { alignItems: 'center' },
+
   formCard: {
     backgroundColor: '#FFF',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 900,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
-    shadowRadius: 4,
+    shadowRadius: 10,
     elevation: 3,
+    borderWidth: 1,
+    borderColor: 'rgba(0,0,0,0.03)'
   },
-  inputGroup: {
-    marginBottom: 16,
-  },
+
+  // Responsive Form Layout
+  formRow: { flexDirection: 'column', gap: 16, marginBottom: 16 },
+  formRowDesktop: { flexDirection: 'row', gap: 24 }, // On desktop, items sit side-by-side
+
+  inputGroup: { flex: 1 },
+  inputGroupNonRow: { marginBottom: 16 },
+
   label: {
-    fontSize: 14,
-    fontWeight: '600',
+    fontSize: 13,
+    fontWeight: '700',
     color: '#374151',
     marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5
   },
+  required: { color: '#EF4444' },
+
   input: {
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
+    borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
     fontSize: 14,
     color: '#1F2937',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: '#fff',
   },
   textArea: {
-    height: 100,
+    minHeight: 100,
   },
   selectContainer: {
     flexDirection: 'row',
@@ -345,132 +367,97 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#E5E7EB',
-    borderRadius: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    backgroundColor: '#FAFAFA',
-  },
-  selectText: {
-    fontSize: 14,
-    color: '#1F2937',
-  },
-  placeholderText: {
-    color: '#9CA3AF',
-  },
-  chevronIcon: {
-    width: 20,
-    height: 20,
-    tintColor: '#6B7280',
-  },
-  infoBox: {
-    backgroundColor: '#E5E7EB',
     borderRadius: 8,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  selectText: { fontSize: 14, color: '#1F2937' },
+  placeholderText: { color: '#9CA3AF' },
+
+  infoBox: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 12,
     padding: 16,
     marginTop: 8,
-    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#BFDBFE'
   },
-  infoTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  infoIcon: {
-    width: 20,
-    height: 20,
-    tintColor: theme.colors.primary,
-    marginRight: 8,
-  },
-  infoTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#374151',
-  },
-  infoText: {
-    fontSize: 13,
-    color: '#6B7280',
-    lineHeight: 18,
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#E5E7EB',
-    marginBottom: 20,
-  },
+  infoTitleRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  infoTitle: { fontSize: 14, fontWeight: '700', color: '#1E40AF' },
+  infoText: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
+
+  divider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 24 },
+
   buttonContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    justifyContent: 'flex-end',
     gap: 12,
   },
   cancelButton: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#D1D5DB',
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 24,
+    borderRadius: 8,
+    borderWidth: 1, borderColor: '#E5E7EB',
+    alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#fff'
   },
-  cancelButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#374151',
-  },
+  cancelButtonText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
+
   submitButton: {
-    flex: 1,
     flexDirection: 'row',
-    paddingVertical: 12,
-    borderRadius: 6,
-    backgroundColor: theme.colors.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
+    paddingVertical: 12, paddingHorizontal: 32,
+    borderRadius: 8,
+    backgroundColor: '#004CA3',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: "#004CA3",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4
   },
-  submitIcon: {
-    width: 16,
-    height: 16,
-    tintColor: '#FFF',
-    marginRight: 8,
-  },
-  submitButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#FFF',
-  },
+  submitButtonText: { fontSize: 14, fontWeight: '700', color: '#FFF' },
+
+  // Modal
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0,0,0,0.6)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
+    // backdropFilter: 'blur(4px)' // Only works on web, ignored on native usually
   },
   modalContent: {
-    backgroundColor: '#F3F4F6',
-    borderRadius: 12,
+    backgroundColor: '#FFF',
+    borderRadius: 20,
     padding: 32,
     alignItems: 'center',
     width: '100%',
-    maxWidth: 320,
+    maxWidth: 360,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.2,
+    shadowRadius: 20,
+    elevation: 10,
   },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1F2937',
-    marginBottom: 12,
+  successIconCircle: {
+    width: 64, height: 64, borderRadius: 32,
+    backgroundColor: '#22C55E',
+    alignItems: 'center', justifyContent: 'center',
+    marginBottom: 20,
+    shadowColor: "#22C55E",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5
   },
-  modalMessage: {
-    fontSize: 14,
-    color: '#6B7280',
-    textAlign: 'center',
-    marginBottom: 24,
-    lineHeight: 20,
-  },
+  modalTitle: { fontSize: 22, fontWeight: '700', color: '#111827', marginBottom: 12, textAlign: 'center' },
+  modalMessage: { fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
   modalButton: {
-    backgroundColor: '#86EFAC',
-    borderRadius: 8,
-    paddingVertical: 12,
-    paddingHorizontal: 48,
+    backgroundColor: '#1F2937',
+    borderRadius: 10,
+    paddingVertical: 14,
+    width: '100%',
+    alignItems: 'center'
   },
-  modalButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
-  },
+  modalButtonText: { fontSize: 15, fontWeight: '700', color: '#FFF' },
 });
