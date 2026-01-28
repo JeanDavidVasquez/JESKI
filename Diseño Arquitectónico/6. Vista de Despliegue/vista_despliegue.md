@@ -6,5 +6,6 @@ Un **diagrama de despliegue** permite representar la **estructura física** de u
 
 ## Diagrama de Despliegue (Gestión de Proveedores Indurama)
 
-<img width="1892" height="945" alt="image" src="https://github.com/user-attachments/assets/eeeec324-9cf9-4d84-aac8-5f509d436215" />
+<img width="2723" height="1104" alt="image" src="https://github.com/user-attachments/assets/fc2a909b-ba0e-4740-96eb-20d256144ede" />
+
 
