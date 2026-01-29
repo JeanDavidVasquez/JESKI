@@ -12,7 +12,9 @@ import {
   Modal,
   Alert,
   ActivityIndicator,
-  KeyboardAvoidingView
+  KeyboardAvoidingView,
+  FlatList,
+  TouchableWithoutFeedback
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
@@ -130,32 +132,40 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       setLoading(true);
       const requestCode = generateRequestCode();
       let uploadedDocuments: UploadedFile[] = [];
+      const tempRequestId = initialRequest ? initialRequest.id : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      if (!initialRequest) {
-        const tempRequestId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-        for (const doc of documents) {
-          if (doc.url.startsWith('file://')) {
-            try {
-              const uploaded = await uploadRequestFile(tempRequestId, doc.url, doc.name);
-              uploadedDocuments.push(uploaded);
-            } catch (error) {
-              console.error('Error uploading file:', error);
-              Alert.alert('Advertencia', `No se pudo subir ${doc.name}, se continuará sin este archivo`);
-            }
-          } else {
-            uploadedDocuments.push(doc);
-          }
+      // Process ALL documents (both new and existing)
+      for (const doc of documents) {
+        // If it's already a proper http/https URL, keep it
+        if (doc.url.startsWith('http')) {
+          uploadedDocuments.push(doc);
+          continue;
         }
-      } else {
-        uploadedDocuments = documents;
+
+        // If it's a blob/file URL, attempt to upload it
+        try {
+          // Determine valid ID to use for path
+          const idForPath = initialRequest ? initialRequest.id : tempRequestId;
+          const uploaded = await uploadRequestFile(idForPath, doc.url, doc.name);
+          uploadedDocuments.push(uploaded);
+        } catch (error) {
+          console.error('Error uploading file:', error);
+          setLoading(false); // Stop loading
+          Alert.alert(
+            'Error en Documento',
+            `El archivo "${doc.name}" tiene un enlace caducado o inválido. Por favor elimínelo y vuélvalo a subir para continuar.`
+          );
+          return; // STOP execution
+        }
       }
 
       const requestData = {
         code: requestCode,
         userId: user.id,
         userEmail: user.email,
-        userName: user.companyName || user.email,
-        department: department,
+        userName: user.companyName || (user.firstName ? `${user.firstName} ${user.lastName || ''}`.trim() : user.email),
+        companyIdentifier: user.companyIdentifier || null,
+        department: department || null,
         requestDate: new Date().toISOString().split('T')[0],
         dueDate: formData.dueDate.toISOString().split('T')[0],
         description: formData.description,
@@ -283,11 +293,117 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     setShowDatePicker(false);
   };
 
+  const { isMobileView } = useResponsive();
+
+  const Selector = ({
+    label,
+    value,
+    placeholder,
+    options,
+    visible,
+    onToggle,
+    onSelect,
+    error,
+    disabled = false
+  }: {
+    label: string,
+    value: string,
+    placeholder: string,
+    options: { label: string, value: string }[],
+    visible: boolean,
+    onToggle: () => void,
+    onSelect: (val: string) => void,
+    error?: string,
+    disabled?: boolean
+  }) => {
+
+    // Desktop Dropdown Content
+    const dropdownContent = (
+      <View style={styles.dropdownListDesktop}>
+        <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+          {options.map((opt) => (
+            <TouchableOpacity
+              key={opt.value}
+              style={styles.dropdownOption}
+              onPress={() => onSelect(opt.value)}
+            >
+              <Text style={[styles.dropdownOptionText, value === opt.value && styles.dropdownOptionTextSelected]}>
+                {opt.label}
+              </Text>
+              {value === opt.value && <Ionicons name="checkmark" size={18} color="#1565C0" />}
+            </TouchableOpacity>
+          ))}
+        </ScrollView>
+      </View>
+    );
+
+    return (
+      <View style={[styles.formGroup, { zIndex: visible ? 1000 : 1 }]}>
+        <Text style={styles.label}>
+          {label} <Text style={styles.required}>*</Text>
+        </Text>
+        <TouchableOpacity
+          style={[
+            styles.selectorButton,
+            error ? styles.inputError : null,
+            disabled && styles.selectorDisabled
+          ]}
+          onPress={disabled ? undefined : onToggle}
+          activeOpacity={disabled ? 1 : 0.7}
+        >
+          <Text style={[styles.selectorText, (!value || disabled) && styles.placeholderText]}>
+            {value || placeholder}
+          </Text>
+          {!disabled && <Ionicons name={visible ? "chevron-up" : "chevron-down"} size={20} color="#666" />}
+        </TouchableOpacity>
+        {error ? <Text style={styles.errorText}>{error}</Text> : null}
+
+        {/* Desktop: Render Dropdown Inline (Absolute) */}
+        {isDesktopView && visible && !disabled && dropdownContent}
+
+        {/* Mobile: Render Modal */}
+        {!isDesktopView && !disabled && (
+          <Modal visible={visible} transparent animationType="slide" onRequestClose={onToggle}>
+            <TouchableWithoutFeedback onPress={onToggle}>
+              <View style={styles.pickerOverlay}>
+                <TouchableWithoutFeedback>
+                  <View style={styles.pickerContainer}>
+                    <View style={styles.pickerHandle} />
+                    <View style={styles.pickerHeader}>
+                      <Text style={styles.pickerTitle}>{label}</Text>
+                      <TouchableOpacity onPress={onToggle}>
+                        <Ionicons name="close-circle" size={24} color="#999" />
+                      </TouchableOpacity>
+                    </View>
+                    <FlatList
+                      data={options}
+                      keyExtractor={(item) => item.value}
+                      renderItem={({ item }) => (
+                        <TouchableOpacity
+                          style={styles.pickerItem}
+                          onPress={() => onSelect(item.value)}
+                        >
+                          <Text style={[styles.pickerItemText, value === item.value && styles.pickerItemTextSelected]}>
+                            {item.label}
+                          </Text>
+                          {value === item.value && <Ionicons name="checkmark" size={20} color="#1565C0" />}
+                        </TouchableOpacity>
+                      )}
+                    />
+                  </View>
+                </TouchableWithoutFeedback>
+              </View>
+            </TouchableWithoutFeedback>
+          </Modal>
+        )}
+      </View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
 
-      {/* Hero Header */}
       <View style={styles.heroHeader}>
         <View style={styles.heroTopRow}>
           <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
@@ -325,71 +441,106 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           ]}>
 
             {/* 1. INFORMACIÓN BÁSICA */}
-            <View style={styles.card}>
+            <View style={[
+              styles.card,
+              isDesktopView && (showProjectTypeDropdown || showSearchClassDropdown) && { zIndex: 3000, position: 'relative' }
+            ]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="information-circle-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
                 <Text style={styles.cardTitle}>Información Básica</Text>
               </View>
 
-              <View style={[styles.formRow, !isDesktopView && { flexDirection: 'column' }]}>
+              <View style={[styles.formRow, !isDesktopView && { flexDirection: 'column' }, { zIndex: showProjectTypeDropdown ? 2000 : 1 }]}>
                 <View style={styles.formGroupHalf}>
                   <Text style={styles.label}>Fecha Límite <Text style={styles.required}>*</Text></Text>
-                  <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
-                    <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 10 }} />
-                    <Text style={{ color: '#333', fontSize: 15 }}>
-                      {formData.dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                    </Text>
-                  </TouchableOpacity>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={formData.dueDate}
-                      mode="date"
-                      display="default"
-                      onChange={(event, selectedDate) => {
-                        setShowDatePicker(false);
-                        if (selectedDate) setFormData({ ...formData, dueDate: selectedDate });
+
+                  {Platform.OS === 'web' ? (
+                    <input
+                      type="date"
+                      style={{
+                        backgroundColor: '#F9FAFB',
+                        borderWidth: 1,
+                        borderColor: '#E0E0E0',
+                        borderRadius: 10,
+                        paddingTop: 12,
+                        paddingBottom: 12,
+                        paddingLeft: 16,
+                        paddingRight: 16,
+                        fontSize: 15,
+                        color: '#333',
+                        fontFamily: 'inherit',
+                        width: '100%',
+                        borderStyle: 'solid',
+                        outline: 'none',
+                        boxSizing: 'border-box',
+                        height: 50
+                      } as any}
+                      value={formData.dueDate.toISOString().split('T')[0]}
+                      onChange={(e) => {
+                        const date = new Date(e.target.value);
+                        if (!isNaN(date.getTime())) {
+                          setFormData({ ...formData, dueDate: date });
+                        }
                       }}
                     />
+                  ) : (
+                    <>
+                      <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
+                        <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                        <Text style={{ color: '#333', fontSize: 15 }}>
+                          {formData.dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                        </Text>
+                      </TouchableOpacity>
+                      {showDatePicker && (
+                        <DateTimePicker
+                          value={formData.dueDate}
+                          mode="date"
+                          display="default"
+                          onChange={(event, selectedDate) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) setFormData({ ...formData, dueDate: selectedDate });
+                          }}
+                        />
+                      )}
+                    </>
                   )}
                 </View>
 
-                <View style={[styles.formGroupHalf, { zIndex: 200 }]}>
-                  <Text style={styles.label}>Tipo de Proyecto <Text style={styles.required}>*</Text></Text>
-                  <TouchableOpacity style={styles.dropdown} onPress={() => setShowProjectTypeDropdown(!showProjectTypeDropdown)}>
-                    <Text style={[styles.dropdownText, formData.projectType ? styles.dropdownTextSelected : null]}>
-                      {formData.projectType || 'Seleccione Tipo'}
-                    </Text>
-                    <Ionicons name={showProjectTypeDropdown ? "chevron-up" : "chevron-down"} size={20} color="#666" />
-                  </TouchableOpacity>
-                  {showProjectTypeDropdown && (
-                    <View style={styles.dropdownList}>
-                      {projectTypeOptions.map((option, index) => (
-                        <TouchableOpacity key={index} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, projectType: option }); setShowProjectTypeDropdown(false); }}>
-                          <Text style={styles.dropdownOptionText}>{option}</Text>
-                        </TouchableOpacity>
-                      ))}
-                    </View>
-                  )}
+                <View style={[styles.formGroupHalf, { zIndex: showProjectTypeDropdown ? 1000 : 200 }]}>
+                  <Selector
+                    label="Tipo de Proyecto"
+                    placeholder="Seleccione Tipo"
+                    value={formData.projectType}
+                    options={projectTypeOptions.map(opt => ({ label: opt, value: opt }))}
+                    visible={showProjectTypeDropdown}
+                    onToggle={() => {
+                      setShowProjectTypeDropdown(!showProjectTypeDropdown);
+                      setShowSearchClassDropdown(false);
+                    }}
+                    onSelect={(val) => {
+                      setFormData({ ...formData, projectType: val });
+                      setShowProjectTypeDropdown(false);
+                    }}
+                  />
                 </View>
               </View>
 
-              <View style={[styles.formGroup, { zIndex: 100 }]}>
-                <Text style={styles.label}>Clase de Búsqueda <Text style={styles.required}>*</Text></Text>
-                <TouchableOpacity style={styles.dropdown} onPress={() => setShowSearchClassDropdown(!showSearchClassDropdown)}>
-                  <Text style={[styles.dropdownText, formData.searchClass ? styles.dropdownTextSelected : null]}>
-                    {formData.searchClass || 'Seleccione Clase'}
-                  </Text>
-                  <Ionicons name={showSearchClassDropdown ? "chevron-up" : "chevron-down"} size={20} color="#666" />
-                </TouchableOpacity>
-                {showSearchClassDropdown && (
-                  <View style={styles.dropdownList}>
-                    {searchClassOptions.map((option, index) => (
-                      <TouchableOpacity key={index} style={styles.dropdownOption} onPress={() => { setFormData({ ...formData, searchClass: option }); setShowSearchClassDropdown(false); }}>
-                        <Text style={styles.dropdownOptionText}>{option}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                )}
+              <View style={[styles.formGroup, { zIndex: showSearchClassDropdown ? 1000 : 100 }]}>
+                <Selector
+                  label="Clase de Búsqueda"
+                  placeholder="Seleccione Clase"
+                  value={formData.searchClass}
+                  options={searchClassOptions.map(opt => ({ label: opt, value: opt }))}
+                  visible={showSearchClassDropdown}
+                  onToggle={() => {
+                    setShowSearchClassDropdown(!showSearchClassDropdown);
+                    setShowProjectTypeDropdown(false);
+                  }}
+                  onSelect={(val) => {
+                    setFormData({ ...formData, searchClass: val });
+                    setShowSearchClassDropdown(false);
+                  }}
+                />
               </View>
             </View>
 
@@ -597,8 +748,8 @@ const styles = StyleSheet.create({
   // HERO HEADER
   heroHeader: {
     backgroundColor: '#1565C0',
-    paddingTop: 60,
-    paddingBottom: 60,
+    paddingTop: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 40 : 80,
+    paddingBottom: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 60 : 100,
     paddingHorizontal: 20,
     borderBottomLeftRadius: 30,
     borderBottomRightRadius: 30,
@@ -719,54 +870,71 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
+    height: 50, // Match fixed height
   },
 
-  // DROPDOWN
-  dropdown: {
-    backgroundColor: '#F9FAFB',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
-    borderRadius: 10,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  // SELECTOR STYLES (NEW)
+  selectorButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-  },
-  dropdownText: {
-    fontSize: 15,
-    color: '#999',
-  },
-  dropdownTextSelected: {
-    color: '#333',
-  },
-  dropdownList: {
-    position: 'absolute',
-    top: '100%',
-    left: 0,
-    right: 0,
-    backgroundColor: '#FFF',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E0E0E0',
-    borderRadius: 10,
-    marginTop: 4,
-    zIndex: 1000,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 5,
+    height: 50,
+    paddingHorizontal: 16,
+  },
+  selectorDisabled: {
+    backgroundColor: '#f0f0f0',
+    borderColor: '#eee',
+    opacity: 0.7
+  },
+  selectorText: { color: '#333', fontSize: 15 },
+  placeholderText: { color: '#999' },
+  inputError: { borderColor: '#e53935' },
+  errorText: { color: '#e53935', marginTop: 4, marginLeft: 6, fontSize: 12 },
+
+  // Desktop Dropdown
+  dropdownListDesktop: {
+    position: 'absolute',
+    top: '100%', left: 0, right: 0, marginTop: 4,
+    backgroundColor: '#fff',
+    borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
+    maxHeight: 250,
+    overflow: 'hidden',
+    zIndex: 9999,
   },
   dropdownOption: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#F5F5F5',
+    paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5',
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
   },
-  dropdownOptionText: {
-    fontSize: 15,
-    color: '#333',
+  dropdownOptionText: { fontSize: 15, color: '#333' },
+  dropdownOptionTextSelected: { fontWeight: '600', color: '#1565C0' },
+
+  // Mobile Picker Styles (Modal - Bottom Sheet)
+  pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
+  pickerContainer: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 40 : 20,
+    maxHeight: '70%',
+    shadowColor: '#000', shadowOffset: { width: 0, height: -4 }, shadowOpacity: 0.1, shadowRadius: 10, elevation: 10,
   },
+  pickerHandle: {
+    width: 40, height: 5, backgroundColor: '#E0E0E0', borderRadius: 2.5, alignSelf: 'center', marginBottom: 15,
+  },
+  pickerHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  pickerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
+  pickerItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  pickerItemText: { fontSize: 16, color: '#333' },
+  pickerItemTextSelected: { color: '#1565C0', fontWeight: '600' },
+
+
 
   // CHIPS
   chipContainer: {

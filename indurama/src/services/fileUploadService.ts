@@ -1,6 +1,6 @@
 import { ref, uploadBytesResumable, getDownloadURL, deleteObject } from 'firebase/storage';
 import { storage } from './firebaseConfig';
-import * as FileSystem from 'expo-file-system';
+
 
 /**
  * Service for handling file uploads and downloads for requests
@@ -68,14 +68,12 @@ export const uploadRequestFile = async (
                     try {
                         const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
 
-                        // Get file info
-                        const fileInfo = await FileSystem.getInfoAsync(fileUri);
-
+                        // Get file info from blob directly (works on web & native)
                         const uploadedFile: UploadedFile = {
                             name: fileName,
                             url: downloadURL,
                             type: blob.type,
-                            size: fileInfo.exists ? fileInfo.size : undefined,
+                            size: blob.size,
                         };
 
                         resolve(uploadedFile);

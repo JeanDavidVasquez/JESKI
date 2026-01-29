@@ -21,6 +21,8 @@ import { Request, RequestStatus, RequestPriority, User } from '../../types';
 import { RequestProcessStepper } from '../../components/RequestProcessStepper';
 import { ProcessHeader } from '../../components/ProcessHeader';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
+import { Ionicons } from '@expo/vector-icons';
+
 
 interface RequestReviewScreenProps {
   requestId?: string;
@@ -89,12 +91,12 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       await updateRequestStatus(request.id, RequestStatus.IN_PROGRESS, user.id);
 
       setShowApprovalModal(false);
-      Alert.alert('Éxito', 'Solicitud aprobada correctamente.', [
-        { text: 'OK', onPress: () => onNavigateToProveedores?.(request.id) }
-      ]);
-    } catch (error) {
-      console.error('Error approving request:', error);
-      Alert.alert('Error', 'No se pudo aprobar la solicitud.');
+
+      // Auto-navigate without blocking alert
+      if (Platform.OS === 'web') {
+        // window.alert('Solicitud validada. Redirigiendo a búsqueda de proveedores...');
+      }
+      onNavigateToProveedores?.(request.id);
     } finally {
       setActionLoading(false);
     }
@@ -158,12 +160,30 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   };
 
   const handleOpenDocument = async (url: string) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
+    console.log('Attempting to open document URL:', url);
+
+    // Check for blob URL (invalid for other users)
+    if (typeof url === 'string' && url.startsWith('blob:')) {
+      const msg = 'Este documento tiene un enlace local caducado. El solicitante debe editar la solicitud y volver a subir el archivo.';
+      if (Platform.OS === 'web') {
+        window.alert(msg);
       } else {
-        Alert.alert('Error', 'No se puede abrir este archivo');
+        Alert.alert('Archivo no disponible', msg);
+      }
+      return;
+    }
+
+    try {
+      if (Platform.OS === 'web') {
+        // On Web, open immediately to avoid popup blockers
+        window.open(url, '_blank');
+      } else {
+        const supported = await Linking.canOpenURL(url);
+        if (supported) {
+          await Linking.openURL(url);
+        } else {
+          Alert.alert('Error', 'No se puede abrir este archivo');
+        }
       }
     } catch (error) {
       console.error('Error opening document:', error);
@@ -221,14 +241,23 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
             </View>
             <View>
               <Text style={styles.userName}>{request.userName}</Text>
-              <Text style={styles.userRole}>{request.department}</Text>
+              <Text style={styles.userRole}>
+                {request.companyIdentifier ? `${request.companyIdentifier} · ` : ''}
+                {request.department}
+              </Text>
             </View>
           </View>
 
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha de Solicitud:</Text><Text style={styles.infoValue}>{getRelativeTime(request.createdAt)}</Text></View>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha Límite:</Text><Text style={[styles.infoValue, { color: '#FF4444' }]}>{request.dueDate ? new Date(request.dueDate).toLocaleDateString() : 'N/A'}</Text></View>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Tipo de Proyecto:</Text><Text style={styles.infoValue}>{request.tipoProyecto || 'Presupuesto Aprobado'}</Text></View>
-          <View style={styles.infoRow}><Text style={styles.infoLabel}>Clase de Búsqueda:</Text><Text style={styles.infoValue}>{request.claseBusqueda || 'Materia Prima'}</Text></View>
+          <View style={isDesktopView ? { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -10 } : {}}>
+            <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha de Solicitud:</Text><Text style={styles.infoValue}>{getRelativeTime(request.createdAt)}</Text></View>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha Límite:</Text><Text style={[styles.infoValue, { color: '#FF4444' }]}>{request.dueDate ? new Date(request.dueDate).toLocaleDateString() : 'N/A'}</Text></View>
+            </View>
+            <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Tipo de Proyecto:</Text><Text style={styles.infoValue}>{request.tipoProyecto || 'Presupuesto Aprobado'}</Text></View>
+              <View style={styles.infoRow}><Text style={styles.infoLabel}>Clase de Búsqueda:</Text><Text style={styles.infoValue}>{request.claseBusqueda || 'Materia Prima'}</Text></View>
+            </View>
+          </View>
         </View>
 
         {/* Detalle de la Necesidad */}
@@ -295,26 +324,28 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
 
         {/* Sugerencia de Proveedor */}
         <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-            <Image source={require('../../../assets/icons/comment.png')} style={{ width: 20, height: 20, marginRight: 10, tintColor: '#003E85' }} resizeMode="contain" />
-            <Text style={styles.cardTitle}>Sugerencia de Proveedor</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+            <Image source={require('../../../assets/icons/comment.png')} style={{ width: 22, height: 22, marginRight: 10, tintColor: '#003E85' }} resizeMode="contain" />
+            <Text style={[styles.cardTitle, { marginBottom: 0 }]}>Sugerencia de Proveedor</Text>
           </View>
 
           {request.supplierSuggestion ? (
-            <>
+            <View
+              style={[
+                isDesktopView ? { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } : {},
+                { width: '100%' }
+              ]}
+            >
               <View style={styles.supplierRow}>
-                <View style={styles.supplierAvatar}><Text style={styles.supplierAvatarText}>T</Text></View>
+                <View style={styles.supplierAvatar}><Text style={styles.supplierAvatarText}>{request.supplierSuggestion.charAt(0)}</Text></View>
                 <View>
                   <Text style={styles.supplierName}>{request.supplierSuggestion}</Text>
                   <Text style={styles.supplierSub}>Proveedor sugerido</Text>
                 </View>
               </View>
-              <TouchableOpacity style={styles.viewSupplierButton}>
-                <Text style={styles.viewSupplierText}>Ver información del Proveedor</Text>
-              </TouchableOpacity>
-            </>
+            </View>
           ) : (
-            <Text style={{ color: '#666', fontStyle: 'italic' }}>No hay sugerencia de proveedor.</Text>
+            <Text style={{ color: '#666', fontStyle: 'italic', marginLeft: 32 }}>No hay sugerencia de proveedor.</Text>
           )}
         </View>
 
@@ -581,8 +612,8 @@ const styles = StyleSheet.create({
   supplierAvatarText: { fontSize: 18, fontWeight: 'bold', color: '#555' },
   supplierName: { fontSize: 15, fontWeight: 'bold', color: '#333' },
   supplierSub: { fontSize: 12, color: '#666' },
-  viewSupplierButton: { backgroundColor: '#E0E7FF', paddingVertical: 10, alignItems: 'center', borderRadius: 5 },
-  viewSupplierText: { color: '#333', fontWeight: '600', fontSize: 13 },
+  viewSupplierButton: { backgroundColor: '#E0E7FF', paddingVertical: 10, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
+  viewSupplierText: { color: '#003E85', fontWeight: 'bold', fontSize: 13 },
 
   grayBox: { backgroundColor: '#F9FAFB', borderRadius: 8, padding: 16 },
   docItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#BFDBFE' },

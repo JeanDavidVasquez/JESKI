@@ -15,9 +15,6 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// IMPORTANTE: Importamos Asset para poder leer archivos locales reales
-import { Asset } from 'expo-asset';
-
 export const TermsConditionsScreen: React.FC<{
   visible?: boolean;
   onAccept?: () => void;
@@ -44,23 +41,9 @@ export const TermsConditionsScreen: React.FC<{
   const loadTermsFromFile = async () => {
     setLoading(true);
     try {
-      // 1. Requerimos el archivo local.
-      // NOTA: Verifica que la ruta relativa "../documents/..." sea exacta desde donde está ESTE archivo.
-      // NOTA: Desde src/screens/shared/ subimos 2 niveles para llegar a src/, luego documents/terms/
-      const mdFile = require('../../documents/terms/terms.md');
-
-      // 2. Usamos expo-asset para resolver el archivo (require devuelve solo un ID numérico)
-      const asset = Asset.fromModule(mdFile);
-
-      // 3. Aseguramos que el archivo esté disponible (descargado/cacheado)
-      await asset.downloadAsync();
-
-      // 4. Leemos el contenido usando fetch sobre la URI local
-      const response = await fetch(asset.localUri || asset.uri);
-      const text = await response.text();
-
-      setTermsText(text);
-
+      // Importar desde el archivo TypeScript generado por sync-terms.js
+      const { TERMS_TEXT } = await import('../../documents/terms/termsText');
+      setTermsText(TERMS_TEXT);
     } catch (error) {
       console.warn('Error cargando terms.md:', error);
       setTermsText('# Error de Carga\n\nNo se pudo encontrar el archivo "terms.md".\n\n1. Verifique que la ruta en el `require` sea correcta.\n2. Asegúrese de tener configurado metro.config.js para aceptar extensiones .md (si usa Expo SDK < 50).');

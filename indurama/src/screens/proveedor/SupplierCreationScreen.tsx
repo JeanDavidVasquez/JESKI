@@ -65,7 +65,12 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     companyName: '', ruc: '', address: '', city: '', country: '', postalCode: '',
     phone: '', website: '', legalRepresentative: '', legalForm: '',
     supplierType: '', rucType: '', marketTime: '', sapBilling: 'Por Indurama',
-    contactPersonName: '', contactPersonPhone: '', evaluationDate: new Date().toISOString()
+    contactPersonName: '', contactPersonPhone: '', evaluationDate: new Date().toISOString(),
+    // SAP Fields
+    bpType: '', groupingType: '', treatment: '', lastName: '', nationality: '',
+    maritalStatus: '', taxCategory: '', language: '', searchTerm: '',
+    street: '', street2: '', street3: '', houseNumber: '', district: '', region: '',
+    email: '', mobilePhone: '', centralPhone: ''
   });
 
   const [operationsData, setOperationsData] = useState<SupplierOperationsData>({
@@ -73,7 +78,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     mainClients: [{ name: '', share: '' }, { name: '', share: '' }],
     clientShare: '', inventoryDays: '', mainSuppliers: '', salesExpectation: '',
     sales2023: '', sales2024: '', sales2025: '',
-    employeesCount: '', shifts: '', factoryArea: '', certifications: ''
+    employeesCount: '', shifts: '', factoryArea: '', certifications: '',
+    productTags: [],
+    // SAP Fields
+    serviceFocus: '', deliveryTime: '', commercialDescription: '', businessType: []
   });
 
   const [systemsData, setSystemsData] = useState<SupplierSystemsData>({
@@ -82,7 +90,13 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     commercial: { name: '', email: '', phone: '' },
     quality: { name: '', email: '', phone: '' },
     technical: { name: '', email: '', phone: '' },
-    production: { name: '', email: '', phone: '' }
+    production: { name: '', email: '', phone: '' },
+    // SAP Fields - Banking
+    taxIdType: '', taxId: '', bankName: '', bankKey: '', accountNumber: '',
+    accountType: '', iban: '', bankCertificate: '',
+    // SAP Fields - Society (optional, pre-filled defaults)
+    society: 'INDURAMA ECUADOR', paymentCondition: '', paymentMethods: [],
+    withholdingType: '', purchasingOrg: '', purchasingGroup: ''
   });
 
   // Default all boolean questions to false
@@ -318,6 +332,51 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     <View style={styles.formCard}>
       <Text style={styles.sectionTitle}>Datos Generales del Proveedor</Text>
 
+      {/* SAP SECTION: Identificación y Datos Maestros */}
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>Identificación SAP</Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de BP</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Persona / Organización"
+            value={generalData.bpType}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, bpType: v as any }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de Agrupador</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Nacional, Exterior, etc."
+            value={generalData.groupingType}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, groupingType: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Tratamiento</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Sra., Sr., Empresa, Sres."
+            value={generalData.treatment}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, treatment: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Idioma</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Español / Inglés"
+            value={generalData.language}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, language: v as any }))}
+          />
+        </View>
+      </View>
+
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
           <Text style={styles.inputLabel}>Razón Social</Text>
@@ -329,6 +388,18 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Apellidos (Persona Natural)</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Solo si BP = Persona"
+            value={generalData.lastName}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, lastName: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
           <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
           <TextInput
             style={styles.textInput}
@@ -338,33 +409,34 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             keyboardType="numeric"
           />
         </View>
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Dirección Completa</Text>
-        <TextInput
-          style={styles.textInput}
-          placeholder="Calle, Número, Sector"
-          value={generalData.address}
-          onChangeText={(v) => setGeneralData(p => ({ ...p, address: v }))}
-        />
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Concepto de Búsqueda</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Término SAP"
+            value={generalData.searchTerm}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, searchTerm: v }))}
+          />
+        </View>
       </View>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Ciudad</Text>
+          <Text style={styles.inputLabel}>Nacionalidad</Text>
           <TextInput
             style={styles.textInput}
-            value={generalData.city}
-            onChangeText={(v) => setGeneralData(p => ({ ...p, city: v }))}
+            placeholder="Ecuador, Colombia, etc."
+            value={generalData.nationality}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, nationality: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>País</Text>
+          <Text style={styles.inputLabel}>Estado Civil (Persona)</Text>
           <TextInput
             style={styles.textInput}
-            value={generalData.country}
-            onChangeText={(v) => setGeneralData(p => ({ ...p, country: v }))}
+            placeholder="Soltero, Casado, etc."
+            value={generalData.maritalStatus}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, maritalStatus: v }))}
           />
         </View>
       </View>
@@ -380,15 +452,150 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de Proveedor</Text>
+          <Text style={styles.inputLabel}>Categoría Tributaria</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Fabricante/Distribuidor/Servicio"
-            value={generalData.supplierType}
-            onChangeText={(v) => setGeneralData(p => ({ ...p, supplierType: v as any }))}
+            placeholder="Contribuyente Especial, etc."
+            value={generalData.taxCategory}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, taxCategory: v }))}
           />
         </View>
       </View>
+
+      {/* SAP SECTION: Ubicación Desglosada */}
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>Ubicación Completa</Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>País</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ecuador"
+            value={generalData.country}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, country: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Región / Provincia</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Azuay, Pichincha, etc."
+            value={generalData.region}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, region: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Ciudad</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Cuenca, Quito, etc."
+            value={generalData.city}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, city: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Distrito / Población</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.district}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, district: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Calle Principal</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Av. 10 de Agosto"
+          value={generalData.street}
+          onChangeText={(v) => setGeneralData(p => ({ ...p, street: v }))}
+        />
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Calle 2</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.street2}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, street2: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Calle 3</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.street3}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, street3: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Número de Casa</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="123-A"
+            value={generalData.houseNumber}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, houseNumber: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Código Postal</Text>
+          <TextInput
+            style={styles.textInput}
+            value={generalData.postalCode}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, postalCode: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      {/* SAP SECTION: Contacto */}
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>Información de Contacto</Text>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Email de Facturación</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="facturacion@empresa.com"
+          value={generalData.email}
+          onChangeText={(v) => setGeneralData(p => ({ ...p, email: v }))}
+          keyboardType="email-address"
+          autoCapitalize="none"
+        />
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Teléfono Fijo</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="07-1234567"
+            value={generalData.centralPhone}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, centralPhone: v }))}
+            keyboardType="phone-pad"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Teléfono Celular</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="0987654321"
+            value={generalData.mobilePhone}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, mobilePhone: v }))}
+            keyboardType="phone-pad"
+          />
+        </View>
+      </View>
+
+      {/* === ORIGINAL FIELDS (Keeping for backward compatibility) === */}
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16 }]}>Datos Adicionales</Text>
 
       <View style={styles.inputGroup}>
         <Text style={styles.inputLabel}>Nombre Representante Legal</Text>
@@ -401,12 +608,12 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de RUC (Copia)</Text>
+          <Text style={styles.inputLabel}>Tipo de Proveedor</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Adjuntar descripción"
-            value={generalData.rucType}
-            onChangeText={(v) => setGeneralData(p => ({ ...p, rucType: v }))}
+            placeholder="Fabricante/Distribuidor/Servicio"
+            value={generalData.supplierType}
+            onChangeText={(v) => setGeneralData(p => ({ ...p, supplierType: v as any }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
@@ -417,26 +624,6 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             value={generalData.marketTime}
             onChangeText={(v) => setGeneralData(p => ({ ...p, marketTime: v }))}
             keyboardType="numeric"
-          />
-        </View>
-      </View>
-
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Teléfono Proveedor</Text>
-          <TextInput
-            style={styles.textInput}
-            value={generalData.phone}
-            onChangeText={(v) => setGeneralData(p => ({ ...p, phone: v }))}
-            keyboardType="phone-pad"
-          />
-        </View>
-        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Facturación Anual (SAP)</Text>
-          <TextInput
-            style={[styles.textInput, { backgroundColor: '#f0f0f0', color: '#666' }]}
-            value={generalData.sapBilling}
-            editable={false} // Por Indurama (Read-only for supplier usually)
           />
         </View>
       </View>
@@ -475,159 +662,266 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     </View>
   );
 
-  const renderOperationsTab = () => (
-    <View style={styles.formCard}>
-      <Text style={styles.sectionTitle}>Operaciones y Ventas</Text>
+  const renderOperationsTab = () => {
+    // Service Focus Options
+    const focusOptions: Array<'Servicio Reparación' | 'Servicios de Construcción' | 'Servicio de Asesoramiento' | 'Venta de Repuestos' | 'Suministros / Materia Prima'> = [
+      'Servicio Reparación',
+      'Servicios de Construcción',
+      'Servicio de Asesoramiento',
+      'Venta de Repuestos',
+      'Suministros / Materia Prima'
+    ];
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Principal rubro de enfoque</Text>
-        <TextInput
-          style={styles.textInput}
-          value={operationsData.mainFocus}
-          onChangeText={(v) => setOperationsData(p => ({ ...p, mainFocus: v }))}
-        />
-      </View>
+    return (
+      <View style={styles.formCard}>
+        {/* SAP: ENFOQUE DE SERVICIO (Chip Selector) */}
+        <Text style={[styles.sectionTitle, { color: '#003E85' }]}>Enfoque de Servicio Principal</Text>
+        <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
+          Seleccione la opción que mejor describe su actividad principal:
+        </Text>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Principales Materias Primas</Text>
-        <TextInput
-          style={styles.textInput}
-          value={operationsData.mainRawMaterials}
-          multiline
-          onChangeText={(v) => setOperationsData(p => ({ ...p, mainRawMaterials: v }))}
-        />
-      </View>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
+          {focusOptions.map(opt => {
+            const isSelected = operationsData.serviceFocus === opt;
+            return (
+              <TouchableOpacity
+                key={opt}
+                style={{
+                  paddingVertical: 10,
+                  paddingHorizontal: 16,
+                  backgroundColor: isSelected ? '#003E85' : '#F3F4F6',
+                  borderRadius: 20,
+                  borderWidth: 1,
+                  borderColor: isSelected ? '#003E85' : '#D1D5DB',
+                  shadowColor: isSelected ? '#003E85' : '#000',
+                  shadowOffset: { width: 0, height: 1 },
+                  shadowOpacity: isSelected ? 0.2 : 0.05,
+                  shadowRadius: 2,
+                  elevation: isSelected ? 2 : 0
+                }}
+                onPress={() => setOperationsData(p => ({ ...p, serviceFocus: opt as any }))}
+              >
+                <Text style={{
+                  color: isSelected ? '#FFFFFF' : '#4B5563',
+                  fontSize: 13,
+                  fontWeight: isSelected ? '600' : '500'
+                }}>
+                  {opt}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Productos que fabrica o comercializa</Text>
-        <TextInput
-          style={[styles.textInput, { height: 60 }]}
-          value={operationsData.productsOrServices}
-          multiline
-          onChangeText={(v) => setOperationsData(p => ({ ...p, productsOrServices: v }))}
-        />
-      </View>
+        {/* Selected Indicator */}
+        {operationsData.serviceFocus && (
+          <View style={{
+            backgroundColor: '#DBEAFE',
+            padding: 10,
+            borderRadius: 8,
+            borderLeftWidth: 4,
+            borderLeftColor: '#003E85',
+            marginBottom: 20
+          }}>
+            <Text style={{ fontSize: 12, color: '#1E40AF', fontWeight: '600' }}>
+              ✓ Seleccionado: <Text style={{ fontWeight: '700' }}>{operationsData.serviceFocus}</Text>
+            </Text>
+          </View>
+        )}
 
-      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Principales Clientes</Text>
-      {operationsData.mainClients.map((client, index) => (
-        <View key={index} style={styles.row}>
-          <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
+        {/* SAP: ACTIVIDAD COMERCIAL */}
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>Actividad Comercial</Text>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.inputLabel}>Plazo de Entrega (Días)</Text>
             <TextInput
               style={styles.textInput}
-              placeholder={`Cliente ${index + 1}`}
-              value={client.name}
-              onChangeText={(v) => {
-                const newClients = [...operationsData.mainClients];
-                newClients[index].name = v;
-                setOperationsData(p => ({ ...p, mainClients: newClients }));
-              }}
+              placeholder="Ej: 7, 15, 30 días"
+              placeholderTextColor="#9CA3AF"
+              value={operationsData.deliveryTime}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, deliveryTime: v }))}
+              keyboardType="numeric"
             />
           </View>
-          <View style={[styles.inputGroup, { flex: 1 }]}>
+          <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+            <Text style={styles.inputLabel}>Tipos de Negocio</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="% Part."
-              value={client.share}
-              onChangeText={(v) => {
-                const newClients = [...operationsData.mainClients];
-                newClients[index].share = v;
-                setOperationsData(p => ({ ...p, mainClients: newClients }));
-              }}
+              placeholder="Fabricación, Distribución..."
+              placeholderTextColor="#9CA3AF"
+              value={operationsData.businessType?.join(', ')}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, businessType: v.split(',').map(s => s.trim()) }))}
             />
           </View>
         </View>
-      ))}
 
-      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Ventas Totales Anuales (USD)</Text>
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1, marginRight: 4 }]}>
-          <Text style={styles.miniLabel}>2023</Text>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Descripción Comercial Completa</Text>
           <TextInput
-            style={styles.textInput}
-            value={operationsData.sales2023}
-            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2023: v }))}
-            keyboardType="numeric"
+            style={[styles.textInput, { height: 70 }]}
+            placeholder="Describa la actividad y capacidad comercial de su empresa..."
+            placeholderTextColor="#9CA3AF"
+            value={operationsData.commercialDescription}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, commercialDescription: v }))}
+            multiline
+            textAlignVertical="top"
           />
         </View>
-        <View style={[styles.inputGroup, { flex: 1, marginHorizontal: 4 }]}>
-          <Text style={styles.miniLabel}>2024</Text>
-          <TextInput
-            style={styles.textInput}
-            value={operationsData.sales2024}
-            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2024: v }))}
-            keyboardType="numeric"
-          />
-        </View>
-        <View style={[styles.inputGroup, { flex: 1, marginLeft: 4 }]}>
-          <Text style={styles.miniLabel}>2025 (Est.)</Text>
-          <TextInput
-            style={styles.textInput}
-            value={operationsData.sales2025}
-            onChangeText={(v) => setOperationsData(p => ({ ...p, sales2025: v }))}
-            keyboardType="numeric"
-          />
-        </View>
-      </View>
 
-      <View style={styles.row}>
-        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Cantidad Empleados</Text>
+        {/* === ORIGINAL FIELDS === */}
+        <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 15 }]}>Operaciones y Ventas</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Principal rubro de enfoque</Text>
           <TextInput
             style={styles.textInput}
-            value={operationsData.employeesCount}
-            onChangeText={(v) => setOperationsData(p => ({ ...p, employeesCount: v }))}
-            keyboardType="numeric"
+            value={operationsData.mainFocus}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, mainFocus: v }))}
           />
         </View>
-        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Área Fábrica (m²)</Text>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Principales Materias Primas</Text>
           <TextInput
             style={styles.textInput}
-            value={operationsData.factoryArea}
-            onChangeText={(v) => setOperationsData(p => ({ ...p, factoryArea: v }))}
-            keyboardType="numeric"
+            value={operationsData.mainRawMaterials}
+            multiline
+            onChangeText={(v) => setOperationsData(p => ({ ...p, mainRawMaterials: v }))}
           />
         </View>
-      </View>
 
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Certificaciones (ISO, BASC, etc)</Text>
-        <TextInput
-          style={styles.textInput}
-          value={operationsData.certifications}
-          onChangeText={(v) => setOperationsData(p => ({ ...p, certifications: v }))}
-        />
-      </View>
-
-      <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Etiquetas de Productos (Para Búsqueda)</Text>
-        <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Productos que fabrica o comercializa</Text>
           <TextInput
-            style={[styles.textInput, { flex: 1 }]}
-            placeholder="Ej: Electrodomésticos, Muebles..."
-            value={newTag}
-            onChangeText={setNewTag}
-            onSubmitEditing={handleAddTag}
+            style={[styles.textInput, { height: 60 }]}
+            value={operationsData.productsOrServices}
+            multiline
+            onChangeText={(v) => setOperationsData(p => ({ ...p, productsOrServices: v }))}
           />
-          <TouchableOpacity style={styles.addButton} onPress={handleAddTag}>
-            <Text style={styles.addButtonText}>Agregar</Text>
-          </TouchableOpacity>
         </View>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-          {operationsData.productTags?.map((tag, index) => (
-            <TouchableOpacity
-              key={index}
-              style={styles.tagChip}
-              onPress={() => handleRemoveTag(tag)}
-            >
-              <Text style={styles.tagText}>{tag}</Text>
-              <Ionicons name="close-circle" size={16} color="#003E85" />
+
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Principales Clientes</Text>
+        {operationsData.mainClients.map((client, index) => (
+          <View key={index} style={styles.row}>
+            <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder={`Cliente ${index + 1}`}
+                value={client.name}
+                onChangeText={(v) => {
+                  const newClients = [...operationsData.mainClients];
+                  newClients[index].name = v;
+                  setOperationsData(p => ({ ...p, mainClients: newClients }));
+                }}
+              />
+            </View>
+            <View style={[styles.inputGroup, { flex: 1 }]}>
+              <TextInput
+                style={styles.textInput}
+                placeholder="% Part."
+                value={client.share}
+                onChangeText={(v) => {
+                  const newClients = [...operationsData.mainClients];
+                  newClients[index].share = v;
+                  setOperationsData(p => ({ ...p, mainClients: newClients }));
+                }}
+              />
+            </View>
+          </View>
+        ))}
+
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Ventas Totales Anuales (USD)</Text>
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 4 }]}>
+            <Text style={styles.miniLabel}>2023</Text>
+            <TextInput
+              style={styles.textInput}
+              value={operationsData.sales2023}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, sales2023: v }))}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginHorizontal: 4 }]}>
+            <Text style={styles.miniLabel}>2024</Text>
+            <TextInput
+              style={styles.textInput}
+              value={operationsData.sales2024}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, sales2024: v }))}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginLeft: 4 }]}>
+            <Text style={styles.miniLabel}>2025 (Est.)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={operationsData.sales2025}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, sales2025: v }))}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        <View style={styles.row}>
+          <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+            <Text style={styles.inputLabel}>Cantidad Empleados</Text>
+            <TextInput
+              style={styles.textInput}
+              value={operationsData.employeesCount}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, employeesCount: v }))}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+            <Text style={styles.inputLabel}>Área Fábrica (m²)</Text>
+            <TextInput
+              style={styles.textInput}
+              value={operationsData.factoryArea}
+              onChangeText={(v) => setOperationsData(p => ({ ...p, factoryArea: v }))}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Certificaciones (ISO, BASC, etc)</Text>
+          <TextInput
+            style={styles.textInput}
+            value={operationsData.certifications}
+            onChangeText={(v) => setOperationsData(p => ({ ...p, certifications: v }))}
+          />
+        </View>
+
+        <View style={styles.inputGroup}>
+          <Text style={styles.inputLabel}>Etiquetas de Productos (Para Búsqueda)</Text>
+          <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
+            <TextInput
+              style={[styles.textInput, { flex: 1 }]}
+              placeholder="Ej: Electrodomésticos, Muebles..."
+              value={newTag}
+              onChangeText={setNewTag}
+              onSubmitEditing={handleAddTag}
+            />
+            <TouchableOpacity style={styles.addButton} onPress={handleAddTag}>
+              <Text style={styles.addButtonText}>Agregar</Text>
             </TouchableOpacity>
-          ))}
+          </View>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+            {operationsData.productTags?.map((tag, index) => (
+              <TouchableOpacity
+                key={index}
+                style={styles.tagChip}
+                onPress={() => handleRemoveTag(tag)}
+              >
+                <Text style={styles.tagText}>{tag}</Text>
+                <Ionicons name="close-circle" size={16} color="#003E85" />
+              </TouchableOpacity>
+            ))}
+          </View>
         </View>
       </View>
-    </View>
-  );
+    );
+  };
 
   const renderSystemsTab = () => (
     <View style={styles.formCard}>
@@ -732,6 +1026,152 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           style={styles.textInput} placeholder="Email" keyboardType="email-address"
           value={systemsData.production.email}
           onChangeText={v => setSystemsData(p => ({ ...p, production: { ...p.production, email: v } }))}
+        />
+      </View>
+
+      {/* SAP SECTION: Información Bancaria */}
+      <Text style={[styles.sectionTitle, { marginTop: 24, fontSize: 16, color: '#003E85' }]}>Información Bancaria y Fiscal</Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo ID Fiscal</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="RUC, Cédula, Pasaporte"
+            value={systemsData.taxIdType}
+            onChangeText={v => setSystemsData(p => ({ ...p, taxIdType: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Número ID Fiscal</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Auto-completado de Datos Generales"
+            value={systemsData.taxId || generalData.ruc}
+            onChangeText={v => setSystemsData(p => ({ ...p, taxId: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Banco</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Pichincha, Guayaquil, Produbanco, etc."
+            value={systemsData.bankName}
+            onChangeText={v => setSystemsData(p => ({ ...p, bankName: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Clave de Banco</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Código swift/identificador"
+            value={systemsData.bankKey}
+            onChangeText={v => setSystemsData(p => ({ ...p, bankKey: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Número de Cuenta Bancaria</Text>
+          <TextInput
+            style={styles.textInput}
+            value={systemsData.accountNumber}
+            onChangeText={v => setSystemsData(p => ({ ...p, accountNumber: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de Cuenta</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Ahorros / Corriente"
+            value={systemsData.accountType}
+            onChangeText={v => setSystemsData(p => ({ ...p, accountType: v as any }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>IBAN (para transferencias internacionales)</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="EC..."
+          value={systemsData.iban}
+          onChangeText={v => setSystemsData(p => ({ ...p, iban: v }))}
+          autoCapitalize="characters"
+        />
+      </View>
+
+      {/* SAP SECTION: Datos de Sociedad (Optional/Read-Only for Provider) */}
+      <Text style={[styles.sectionTitle, { marginTop: 24, fontSize: 16, color: '#666' }]}>Datos de Sociedad y Compras (Opcional)</Text>
+      <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12, fontStyle: 'italic' }}>
+        Estos campos normalmente los completa el Gestor, pero puede dejar sus preferencias aquí.
+      </Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Sociedad Asignada</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="INDURAMA ECUADOR (por defecto)"
+            value={systemsData.society}
+            onChangeText={v => setSystemsData(p => ({ ...p, society: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Condición de Pago</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="30 días, 60 días, etc."
+            value={systemsData.paymentCondition}
+            onChangeText={v => setSystemsData(p => ({ ...p, paymentCondition: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Vías de Pago Aceptadas</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Transferencia, Cheque, Depósito, etc."
+          value={systemsData.paymentMethods?.join(', ')}
+          onChangeText={v => setSystemsData(p => ({ ...p, paymentMethods: v.split(',').map(s => s.trim()) }))}
+        />
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>Tipo de Retención</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="IVA, Renta, etc."
+            value={systemsData.withholdingType}
+            onChangeText={v => setSystemsData(p => ({ ...p, withholdingType: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>Organización de Compras</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder="Org Compras Central"
+            value={systemsData.purchasingOrg}
+            onChangeText={v => setSystemsData(p => ({ ...p, purchasingOrg: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>Grupo de Compras</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder="Nacional, Importado, Servicios, etc."
+          value={systemsData.purchasingGroup}
+          onChangeText={v => setSystemsData(p => ({ ...p, purchasingGroup: v }))}
         />
       </View>
 

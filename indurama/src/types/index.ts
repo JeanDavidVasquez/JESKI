@@ -26,6 +26,7 @@ export interface User extends BaseEntity {
   city?: string;
   country?: string;
   position?: string;
+  companyIdentifier?: 'Indurama' | 'Mercandina' | 'Serinco' | 'Marcimex' | 'Tarpuq';
 
   // Department and Approval (for SOLICITANTE validation)
   department?: string;
@@ -35,7 +36,8 @@ export interface User extends BaseEntity {
 
   // Supplier Profile Fields
   fiscalAddress?: string;
-  centralPhone?: string;
+  centralPhone?: string; // Teléfono fijo
+  mobilePhone?: string; // Teléfono celular
   website?: string;
 
   // Internal Management
@@ -59,11 +61,39 @@ export interface User extends BaseEntity {
   bicSwift?: string;
   iban?: string;
   accountType?: string;
+  bankKey?: string; // Clave del banco (SAP)
+  taxIdType?: string; // Tipo de identificación fiscal (SAP)
 
-  // Credit
+  // Credit & Purchasing (SAP)
   creditDays?: string;
   deliveryDays?: string;
-  paymentMethod?: string; // e.g., "Transferencia Bancaria"
+  paymentMethod?: string;
+  society?: string; // Sociedad (ej. INDURAMA ECUADOR)
+  paymentCondition?: string; // Condición de pago Sociedad
+  paymentMethods?: string[]; // Vías de pago
+  withholdingType?: string; // Tipo de retención
+  purchasingOrg?: string; // Organización de compras
+  purchasingGroup?: string; // Grupo de compras
+  deliveryTime?: string; // Plazo Entrega
+
+  // SAP Identification & Master Data
+  bpType?: 'Person' | 'Organization'; // Tipo de BP
+  groupingType?: string; // Tipo de agrupador (Nacional, Exterior, etc)
+  treatment?: string; // Tratamiento (Sr, Sra, Empresa)
+  nationality?: string;
+  maritalStatus?: string;
+  legalForm?: string; // Persona Natural / Jurídica
+  taxCategory?: string; // Categoría tributaria (Contribuyente Especial, etc)
+  language?: string;
+  searchTerm?: string; // Concepto de búsqueda
+
+  // Detailed Location (SAP)
+  street2?: string;
+  street3?: string;
+  houseNumber?: string;
+  district?: string;
+  postalCode?: string;
+  region?: string; // Provincia/Estado
 
   // Categorization (for PROVEEDOR role) - NEW
   businessType?: 'fabricante' | 'distribuidor' | 'servicio' | 'mixto';
@@ -87,6 +117,12 @@ export interface User extends BaseEntity {
   epiApprovedAt?: any; // Firestore Timestamp
   epiApprovedBy?: string; // Gestor que aprobó el EPI
   profileCompleted?: boolean; // Si completó su perfil de proveedor
+
+  // Extended SAP Fields (Register Screen)
+  taxId?: string; // RUC/Cedula
+  street?: string; // Calle Principal
+  serviceFocus?: string; // Focus service area
+  commercialDescription?: string; // Detalle comercial
 }
 
 
@@ -371,6 +407,7 @@ export interface Request extends BaseEntity {
   userId: string;           // requestedBy renamed
   userEmail: string;
   userName: string;
+  companyIdentifier?: string; // Indurama, Mercandina...
   department: string;
 
   // Request Details

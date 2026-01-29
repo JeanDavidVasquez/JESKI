@@ -22,7 +22,7 @@ import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { theme } from '../../styles/theme';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 
-type DetailTab = 'Resumen' | 'Datos EPI' | 'Respuestas' | 'Evidencias' | 'Historial';
+type DetailTab = 'Datos Generales' | 'Operaciones' | 'Sistemas' | 'Cuestionario' | 'Documentos';
 
 interface SupplierDetailScreenProps {
   supplierId: string;
@@ -49,11 +49,11 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
   const [epiSubmission, setEpiSubmission] = useState<any>(null);
   const [epiConfig, setEpiConfig] = useState<any>(null);
 
-  const [activeTab, setActiveTab] = useState<DetailTab>('Resumen');
+  const [activeTab, setActiveTab] = useState<string>('Datos Generales');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [epiFormData, setEpiFormData] = useState<any>(null);
 
-  const tabs: DetailTab[] = ['Resumen', 'Datos EPI', 'Respuestas', 'Evidencias', 'Historial'];
+  const tabs = ['Datos Generales', 'Operaciones', 'Sistemas', 'Cuestionario', 'Documentos'];
 
   useEffect(() => {
     loadData();
@@ -247,94 +247,80 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
 
   /* --- RENDERIZADO --- */
 
-  const renderResumenTab = () => {
-    // Usar datos completos de EPI si están disponibles, sino usar supplierData básico
-    const generalData = epiFormData?.general || {};
-    const displayName = generalData.companyName || supplierData?.companyName || 'N/A';
-    const displayRUC = generalData.ruc || supplierData?.ruc || supplierData?.id || 'N/A';
-    const displayEmail = supplierData?.email || 'N/A';
-    const displayPhone = generalData.contactPersonPhone || supplierData?.phone || 'N/A';
-    const displayAddress = generalData.address || 'N/A';
-    const displayCity = generalData.city || 'N/A';
-    const displayCountry = generalData.country || 'N/A';
+  /* --- RENDERIZADO DE TABS --- */
+
+  const renderDatosGeneralesTab = () => {
+    const data = supplierData || {};
+
+    // Helper para filas de datos
+    const DataRow = ({ label, value, subLabel }: { label: string, value: any, subLabel?: string }) => (
+      <View style={styles.dataRow}>
+        <Text style={styles.dataLabel}>{label}</Text>
+        <View style={{ flex: 1, alignItems: 'flex-end' }}>
+          <Text style={styles.dataValue}>{value || '-'}</Text>
+          {subLabel && <Text style={{ fontSize: 11, color: '#9CA3AF' }}>{subLabel}</Text>}
+        </View>
+      </View>
+    );
 
     return (
-      <View style={[styles.tabContent, isDesktopView && styles.tabContentDesktop]}>
-        {/* Columna Izquierda / Superior: Datos */}
-        <View style={[styles.card, isDesktopView && { flex: 1, marginTop: 0 }]}>
+      <View style={styles.tabContent}>
+        {/* SECCIÓN 1: IDENTIFICACIÓN */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
           <View style={styles.cardHeader}>
             <View style={styles.cardHeaderLeft}>
-              <Ionicons name="business" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>DATOS DEL PROVEEDOR</Text>
+              <Ionicons name="card-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>IDENTIFICACIÓN Y DATOS MAESTROS (BP)</Text>
             </View>
           </View>
 
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Empresa</Text>
-            <Text style={styles.dataValue}>{displayName}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>RUC</Text>
-            <Text style={styles.dataValue}>{displayRUC}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Email</Text>
-            <Text style={styles.dataValue}>{displayEmail}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Teléfono</Text>
-            <Text style={styles.dataValue}>{displayPhone}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Dirección</Text>
-            <Text style={styles.dataValue}>{displayAddress}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>Ciudad</Text>
-            <Text style={styles.dataValue}>{displayCity}</Text>
-          </View>
-          <View style={styles.dataRow}>
-            <Text style={styles.dataLabel}>País</Text>
-            <Text style={styles.dataValue}>{displayCountry}</Text>
-          </View>
+          <DataRow label="Tipo de BP" value={data.bpType === 'Person' ? 'Persona' : 'Organización'} />
+          <DataRow label="Agrupador" value={data.groupingType} />
+          <DataRow label="Tratamiento" value={data.treatment} />
+          <DataRow label="Razón Social / Nombre" value={data.companyName} subLabel={data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : undefined} />
+
+          {data.bpType === 'Person' && (
+            <>
+              <DataRow label="Apellidos" value={data.lastName} />
+              <DataRow label="Estado Civil" value={data.maritalStatus} />
+            </>
+          )}
+
+          <DataRow label="Nacionalidad" value={data.nationality} />
+          <DataRow label="Forma Jurídica" value={data.legalForm} />
+          <DataRow label="Categoría Tributaria" value={data.taxCategory} />
+          <DataRow label="Idioma" value={data.language} />
+          <DataRow label="Concepto de Búsqueda" value={data.searchTerm} />
         </View>
 
-        {/* Columna Derecha / Inferior: Métricas */}
-        {epiSubmission && (
-          <View style={[styles.card, isDesktopView && { flex: 1, marginTop: 0 }]}>
-            <View style={styles.evaluationHeader}>
-              <Text style={styles.evaluationTitle}>Métricas de Evaluación</Text>
-              <Text style={styles.autoText}>Auto-evaluación</Text>
+        {/* SECCIÓN 2: UBICACIÓN Y CONTACTO */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="location-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>UBICACIÓN Y CONTACTO</Text>
             </View>
-
-            <View style={styles.progressItem}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Calidad</Text>
-                <Text style={styles.progressValue}>{Math.round(epiSubmission.calidadScore || 0)}/100</Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.calidadScore || 0, 100)}%`, backgroundColor: theme.colors.primary }]} />
-              </View>
-            </View>
-
-            <View style={styles.progressItem}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Abastecimiento</Text>
-                <Text style={styles.progressValue}>{Math.round(epiSubmission.abastecimientoScore || 0)}/100</Text>
-              </View>
-              <View style={styles.progressBar}>
-                <View style={[styles.progressFill, { width: `${Math.min(epiSubmission.abastecimientoScore || 0, 100)}%`, backgroundColor: '#00BCD4' }]} />
-              </View>
-            </View>
-
-            {onNavigateToAudit && (
-              <TouchableOpacity style={styles.auditButton} onPress={() => onNavigateToAudit(epiSubmission.id)}>
-                <MaterialCommunityIcons name="clipboard-check-outline" size={18} color="#3B82F6" style={{ marginRight: 8 }} />
-                <Text style={styles.auditText}>Realizar Auditoría / Recalibrar</Text>
-              </TouchableOpacity>
-            )}
           </View>
-        )}
+
+          <DataRow label="País" value={data.country} />
+          <DataRow label="Región / Provincia" value={data.region} />
+          <DataRow label="Ciudad" value={data.city} />
+          <DataRow label="Distrito / Población" value={data.district} />
+          <DataRow label="Código Postal" value={data.postalCode} />
+
+          <View style={{ marginVertical: 8, height: 1, backgroundColor: '#E5E7EB' }} />
+
+          <DataRow label="Calle Principal" value={data.street || data.address} />
+          <DataRow label="Calle 2" value={data.street2} />
+          <DataRow label="Calle 3" value={data.street3} />
+          <DataRow label="Número de Casa" value={data.houseNumber} />
+
+          <View style={{ marginVertical: 8, height: 1, backgroundColor: '#E5E7EB' }} />
+
+          <DataRow label="Email Facturación" value={data.email} />
+          <DataRow label="Teléfono Fijo" value={data.centralPhone || data.phone} />
+          <DataRow label="Teléfono Celular" value={data.mobilePhone} />
+        </View>
       </View>
     );
   };
@@ -486,195 +472,156 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
     );
   };
 
-  const renderDatosEpiContent = () => {
-    if (!epiFormData) return null;
-    const { general, operations, systems, questionnaire, checklist } = epiFormData;
+  /* --- TAB OPERACIONES --- */
+  const renderOperacionesTab = () => {
+    const data = supplierData || {};
+    // Service Focus helper
+    const FocusCard = ({ label, selected }: { label: string, selected: boolean }) => (
+      <View style={{
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        backgroundColor: selected ? '#FFEB3B' : '#1E3A8A', // Yellow if selected, Dark Blue if not
+        borderRadius: 8,
+        marginBottom: 8,
+        minWidth: '45%',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: selected ? '#F59E0B' : '#1E3A8A'
+      }}>
+        <Text style={{
+          color: selected ? '#000' : '#FFF',
+          fontWeight: 'bold',
+          textAlign: 'center'
+        }}>
+          {label}
+        </Text>
+        {selected && (
+          <View style={{ position: 'absolute', top: -8, right: -8, backgroundColor: '#10B981', borderRadius: 10, padding: 2 }}>
+            <Ionicons name="checkmark" size={12} color="#fff" />
+          </View>
+        )}
+      </View>
+    );
 
-    const renderField = (label: string, value: any) => (
+    const focusOptions = ["Servicio Reparación", "Servicios de Construcción", "Servicio de Asesoramiento", "Venta de Repuestos", "Suministros / Materia Prima"];
+
+    return (
+      <View style={styles.tabContent}>
+
+        {/* ENFOQUE DE SERVICIO (Visual) */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
+          <View style={{ padding: 12, backgroundColor: '#06b6d4', borderRadius: 8, marginBottom: 16 }}>
+            <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 16, textAlign: 'center' }}>
+              Su servicio se enfoca en:
+            </Text>
+          </View>
+
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, justifyContent: 'center' }}>
+            {focusOptions.map(opt => (
+              <FocusCard key={opt} label={opt} selected={data.serviceFocus === opt} />
+            ))}
+          </View>
+
+          {data.serviceFocus && (
+            <View style={{ marginTop: 20, backgroundColor: '#FFEB3B', padding: 8, alignItems: 'center' }}>
+              <Text style={{ fontWeight: 'bold', fontSize: 12, color: '#000' }}>HA ELEGIDO:</Text>
+              <Text style={{ fontWeight: '900', fontSize: 16, color: '#000' }}>{data.serviceFocus.toUpperCase()}</Text>
+            </View>
+          )}
+        </View>
+
+        {/* ACTIVIDAD COMERCIAL */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
+          <View style={styles.cardHeader}>
+            <View style={styles.cardHeaderLeft}>
+              <Ionicons name="briefcase-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>ACTIVIDAD COMERCIAL</Text>
+            </View>
+          </View>
+
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Tipos de Negocio</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, flex: 1, justifyContent: 'flex-end' }}>
+              {data.businessType && Array.isArray(data.businessType) ? data.businessType.map((b: string) => (
+                <View key={b} style={{ backgroundColor: '#DBEAFE', padding: 4, borderRadius: 4 }}>
+                  <Text style={{ fontSize: 12, color: '#1E40AF' }}>{b}</Text>
+                </View>
+              )) : <Text style={styles.dataValue}>-</Text>}
+            </View>
+          </View>
+
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Plazo de Entrega (Días)</Text>
+            <Text style={styles.dataValue}>{data.deliveryTime || '-'}</Text>
+          </View>
+
+          <View style={{ marginTop: 12 }}>
+            <Text style={[styles.dataLabel, { marginBottom: 4 }]}>Descripción Comercial</Text>
+            <Text style={[styles.dataValue, { textAlign: 'left', color: '#4B5563' }]}>{data.commercialDescription || 'Sin descripción'}</Text>
+          </View>
+        </View>
+      </View>
+    )
+  }
+
+  /* --- TAB SISTEMAS --- */
+  const renderSistemasTab = () => {
+    const data = supplierData || {};
+    const DataRow = ({ label, value }: { label: string, value: any }) => (
       <View style={styles.dataRow}>
         <Text style={styles.dataLabel}>{label}</Text>
-        <Text style={value ? styles.dataValue : styles.emptyFieldText}>
-          {value || 'No proporcionado'}
-        </Text>
+        <Text style={styles.dataValue}>{value || '-'}</Text>
       </View>
     );
 
     return (
-      <>
-        {/* SECCION 1: DATOS GENERALES */}
-        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+      <View style={styles.tabContent}>
+        {/* INFORMACION BANCARIA */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
           <View style={styles.cardHeader}>
             <View style={styles.cardHeaderLeft}>
-              <Ionicons name="business" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>1. DATOS GENERALES</Text>
+              <Ionicons name="wallet-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>INFORMACIÓN BANCARIA Y FISCAL</Text>
             </View>
           </View>
-          {renderField('Empresa', general?.companyName)}
-          {renderField('RUC', general?.ruc)}
-          {renderField('Dirección', general?.address)}
-          {renderField('Ciudad', general?.city)}
-          {renderField('País', general?.country)}
-          {renderField('Representante Legal', general?.legalRepresentative)}
-          {renderField('Forma Jurídica', general?.legalForm)}
-          {renderField('Tipo de Proveedor', general?.supplierType)}
-          {renderField('Tiempo en Mercado', general?.marketTime)}
-          {renderField('Contacto', general?.contactPersonName)}
+          <DataRow label="Tipo ID Fiscal" value={data.taxIdType} />
+          <DataRow label="Número ID Fiscal" value={data.taxId} />
+          <DataRow label="Banco" value={data.bankName} />
+          <DataRow label="Clave de Banco" value={data.bankKey} />
+          <DataRow label="Cuenta Bancaria" value={data.accountNumber || data.bankAccount} />
+          <DataRow label="Tipo de Cuenta" value={data.accountType} />
+          <DataRow label="IBAN" value={data.iban} />
         </View>
 
-        {/* SECCION 2: OPERACIONES */}
-        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
+        {/* DATOS DE SOCIEDAD */}
+        <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200 }]}>
           <View style={styles.cardHeader}>
             <View style={styles.cardHeaderLeft}>
-              <Ionicons name="stats-chart" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>2. OPERACIONES Y VENTAS</Text>
+              <Ionicons name="business-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
+              <Text style={styles.cardTitle}>DATOS DE SOCIEDAD Y COMPRAS</Text>
             </View>
           </View>
-          {renderField('Enfoque Principal', operations?.mainFocus)}
-          {renderField('Productos/Servicios', operations?.productsOrServices)}
+          <DataRow label="Sociedad (Asignada)" value={data.society || 'INDURAMA'} />
+          <DataRow label="Condición de Pago" value={data.paymentCondition} />
 
-          {operations?.productTags && operations.productTags.length > 0 && (
-            <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
-              <Text style={[styles.dataLabel, { marginBottom: 8 }]}>Productos</Text>
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
-                {operations.productTags.map((tag: string, i: number) => (
-                  <View key={i} style={{ backgroundColor: theme.colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
-                    <Text style={{ color: '#FFF', fontSize: 12 }}>{tag}</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          )}
-
-          {operations?.mainClients && operations.mainClients.length > 0 && (
-            <View style={{ marginBottom: 16, paddingHorizontal: 16 }}>
-              <Text style={[styles.dataLabel, { marginBottom: 8, fontWeight: '600' }]}>Principales Clientes</Text>
-              {operations.mainClients.map((c: any, i: number) => (
-                <View key={i} style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
-                  <Text style={{ flex: 1, fontSize: 14, color: '#374151' }}>{c.name || 'No especificado'}</Text>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: theme.colors.primary }}>{c.share || '-'}%</Text>
+          <View style={styles.dataRow}>
+            <Text style={styles.dataLabel}>Vías de Pago</Text>
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, flex: 1, justifyContent: 'flex-end' }}>
+              {data.paymentMethods && Array.isArray(data.paymentMethods) ? data.paymentMethods.map((p: string) => (
+                <View key={p} style={{ backgroundColor: '#ECFDF5', padding: 4, borderRadius: 4, borderWidth: 0.5, borderColor: '#10B981' }}>
+                  <Text style={{ fontSize: 11, color: '#047857' }}>{p}</Text>
                 </View>
-              ))}
+              )) : <Text style={styles.dataValue}>-</Text>}
             </View>
-          )}
+          </View>
 
-          {renderField('Ventas 2023', operations?.sales2023)}
-          {renderField('Ventas 2024', operations?.sales2024)}
-          {renderField('Ventas 2025', operations?.sales2025)}
-          {renderField('Empleados', operations?.employeesCount)}
-          {renderField('Certificaciones', operations?.certifications)}
+          <DataRow label="Tipo de Retención" value={data.withholdingType} />
+          <DataRow label="Organización de Compras" value={data.purchasingOrg} />
+          <DataRow label="Grupo de Compras" value={data.purchasingGroup} />
         </View>
-
-        {/* SECCION 3: SISTEMAS */}
-        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Ionicons name="hardware-chip" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>3. SISTEMAS Y CONTACTOS</Text>
-            </View>
-          </View>
-
-          <View style={{ paddingHorizontal: 16, marginBottom: 16 }}>
-            <Text style={[styles.dataLabel, { marginBottom: 12, fontWeight: '600' }]}>Sistemas Implementados</Text>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
-              {['ERP', 'CRM', 'MRP', 'WMS', 'SCM', 'BI'].map((sys) => (
-                <View key={sys} style={{ flexDirection: 'row', alignItems: 'center', width: '45%' }}>
-                  <Ionicons
-                    name={systems?.[`has${sys}`] ? "checkbox" : "square-outline"}
-                    size={20}
-                    color={systems?.[`has${sys}`] ? "#10B981" : "#9CA3AF"}
-                  />
-                  <Text style={{ marginLeft: 8, fontSize: 14, color: '#374151' }}>{sys}</Text>
-                </View>
-              ))}
-            </View>
-          </View>
-
-          {systems?.additionalContacts && systems.additionalContacts.length > 0 && (
-            <View style={{ paddingHorizontal: 16 }}>
-              <Text style={[styles.dataLabel, { marginBottom: 8, fontWeight: '600' }]}>Contactos Adicionales</Text>
-              {systems.additionalContacts.map((ct: any, i: number) => (
-                <View key={i} style={{ backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, marginBottom: 8 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '600', color: '#111827', marginBottom: 4 }}>{ct.name}</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Cargo: {ct.position || 'N/A'}</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Tel: {ct.phone}</Text>
-                  <Text style={{ fontSize: 13, color: '#6B7280' }}>Email: {ct.email}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
-
-        {/* SECCION 4: CUESTIONARIO */}
-        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Ionicons name="help-circle" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>4. CUESTIONARIO</Text>
-            </View>
-          </View>
-
-          {questionnaire?.responses && questionnaire.responses.length > 0 ? (
-            questionnaire.responses.map((item: any, i: number) => (
-              <View key={i} style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E5E7EB' }}>
-                <Text style={{ fontSize: 14, color: '#374151', marginBottom: 6 }}>{i + 1}. {item.question}</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons
-                    name={item.answer === 'Si' ? "checkmark-circle" : "close-circle"}
-                    size={18}
-                    color={item.answer === 'Si' ? "#10B981" : "#EF4444"}
-                  />
-                  <Text style={{ marginLeft: 6, fontSize: 14, fontWeight: '600', color: item.answer === 'Si' ? "#10B981" : "#EF4444" }}>
-                    {item.answer || 'No respondida'}
-                  </Text>
-                </View>
-              </View>
-            ))
-          ) : (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={styles.emptyFieldText}>No hay respuestas al cuestionario</Text>
-            </View>
-          )}
-        </View>
-
-        {/* SECCION 5: CHECKLIST */}
-        <View style={[styles.card, isDesktopView && { maxWidth: 1200, width: '100%' }]}>
-          <View style={styles.cardHeader}>
-            <View style={styles.cardHeaderLeft}>
-              <Ionicons name="documents" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.cardTitle}>5. CHECKLIST DE DOCUMENTOS</Text>
-            </View>
-          </View>
-
-          {checklist?.items && checklist.items.length > 0 ? (
-            checklist.items.map((item: any, i: number) => (
-              <TouchableOpacity
-                key={i}
-                style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderColor: '#E5E7EB' }}
-                onPress={() => item.uri && handleOpenDocument(item.uri)}
-                disabled={!item.uri}
-              >
-                <Ionicons
-                  name={item.uri ? "checkmark-circle" : "close-circle-outline"}
-                  size={24}
-                  color={item.uri ? "#10B981" : "#9CA3AF"}
-                />
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontSize: 14, fontWeight: '500', color: '#111827' }}>{item.name}</Text>
-                  <Text style={{ fontSize: 12, color: item.uri ? '#10B981' : '#EF4444', marginTop: 2 }}>
-                    {item.uri ? '✓ Cargado' : 'No cargado'}
-                  </Text>
-                </View>
-                {item.uri && <Ionicons name="open-outline" size={20} color="#3B82F6" />}
-              </TouchableOpacity>
-            ))
-          ) : (
-            <View style={{ padding: 20, alignItems: 'center' }}>
-              <Text style={styles.emptyFieldText}>No hay documentos</Text>
-            </View>
-          )}
-        </View>
-      </>
-    );
+      </View>
+    )
   };
 
   return (
@@ -763,64 +710,26 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
             contentContainerStyle={isDesktopView ? { alignItems: 'center' } : undefined}
           >
             <View style={{ width: '100%', maxWidth: 1200, marginTop: isDesktopView ? 30 : 0 }}>
-              {activeTab === 'Resumen' && renderResumenTab()}
+              {activeTab === 'Datos Generales' && renderDatosGeneralesTab()}
+              {activeTab === 'Operaciones' && renderOperacionesTab()}
+              {activeTab === 'Sistemas' && renderSistemasTab()}
 
-              {activeTab === 'Datos EPI' && !epiFormData && (
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="document-outline" size={60} color="#ccc" style={{ marginBottom: 10 }} />
-                  <Text style={styles.emptyText}>No hay datos EPI disponibles.</Text>
-                </View>
-              )}
-
-              {activeTab === 'Datos EPI' && epiFormData && (
-                <View style={{ paddingBottom: 40 }}>
-                  <Text style={[styles.sectionHeaderTitle, { color: theme.colors.primary, marginBottom: 20 }]}>DATOS FORMULARIO EPI</Text>
-                  {renderDatosEpiContent()}
-                </View>
-              )}
-
-              {activeTab === 'Respuestas' && epiSubmission && (
+              {activeTab === 'Cuestionario' && (
                 <View style={{ paddingBottom: 40 }}>
                   <Text style={[styles.sectionHeaderTitle, { color: theme.colors.primary, margin: 20 }]}>CALIDAD</Text>
-                  {renderRespuestasList(epiSubmission.qualityResponses, 'calidad')}
+                  {epiSubmission ? renderRespuestasList(epiSubmission.qualityResponses, 'calidad') : <Text style={styles.emptyText}>Sin datos</Text>}
+
                   <Text style={[styles.sectionHeaderTitle, { color: '#00BCD4', margin: 20 }]}>ABASTECIMIENTO</Text>
-                  {renderRespuestasList(epiSubmission.supplyResponses, 'abastecimiento')}
+                  {epiSubmission ? renderRespuestasList(epiSubmission.supplyResponses, 'abastecimiento') : <Text style={styles.emptyText}>Sin datos</Text>}
                 </View>
               )}
 
-              {activeTab === 'Evidencias' && renderEvidenciasTab()}
+              {activeTab === 'Documentos' && renderEvidenciasTab()}
 
-              {activeTab === 'Historial' && (
-                <View style={[styles.card, isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center' }]}>
-                  <Text style={styles.historyTitle}>Trazabilidad</Text>
-                  <View style={styles.timelineItem}>
-                    <View style={styles.timelineIconContainer}>
-                      <View style={styles.timelineDot} />
-                      <View style={styles.timelineLine} />
-                    </View>
-                    <View style={styles.timelineContent}>
-                      <Text style={styles.timelineLabel}>Envío</Text>
-                      <Text style={styles.timelineDate}>
-                        {epiSubmission?.createdAt?.toDate ? epiSubmission.createdAt.toDate().toLocaleDateString() : 'N/A'}
-                      </Text>
-                    </View>
-                  </View>
-                  <View style={styles.timelineItem}>
-                    <View style={styles.timelineIconContainer}>
-                      <View style={[styles.timelineDot, { backgroundColor: getStatusColor(epiSubmission?.status) }]} />
-                    </View>
-                    <View style={styles.timelineContent}>
-                      <Text style={styles.timelineLabel}>Estado Actual</Text>
-                      <Text style={[styles.timelineDate, { color: getStatusColor(epiSubmission?.status) }]}>
-                        {getStatusText(epiSubmission?.status)}
-                      </Text>
-                    </View>
-                  </View>
-                </View>
-              )}
               <View style={{ height: 40 }} />
             </View>
           </ScrollView>
+          {/* End of content */}
 
           <Modal
             visible={showApprovalModal}
@@ -843,7 +752,7 @@ const SupplierDetailScreen: React.FC<SupplierDetailScreenProps> = ({
           </Modal>
         </>
       )}
-    </View>
+    </View >
   );
 };
 

@@ -18,6 +18,28 @@ export interface SupplierGeneralData {
     contactPersonName: string; // Nombre de quien llena esta EPI
     contactPersonPhone: string; // Teléfono persona de contacto
     evaluationDate: any; // Fecha de Evaluación realizada
+
+    // SAP Fields: Identificación y Datos Maestros
+    bpType?: 'Persona' | 'Organización' | ''; // Tipo de BP
+    groupingType?: string; // Tipo de agrupador
+    treatment?: string; // Sra., Sr., Empresa, Sres.
+    lastName?: string; // Apellidos (persona natural)
+    nationality?: string; // Nacionalidad
+    maritalStatus?: string; // Estado Civil
+    taxCategory?: string; // Categoría tributaria
+    language?: 'Español' | 'Inglés' | '';
+    searchTerm?: string; // Concepto de búsqueda
+
+    // SAP Fields: Ubicación Desglosada
+    street?: string; // Calle principal
+    street2?: string; // Calle 2
+    street3?: string; // Calle 3
+    houseNumber?: string; // Número de casa
+    district?: string; // Distrito / Población
+    region?: string; // Provincia / Región
+    email?: string; // Email de facturación
+    mobilePhone?: string; // Teléfono celular
+    centralPhone?: string; // Teléfono fijo
 }
 
 export interface SupplierOperationsData {
@@ -42,7 +64,13 @@ export interface SupplierOperationsData {
     shifts: string; // Horarios de atención y entrega
     factoryArea: string; // Área Total de la Fábrica/Bodega (m2)
     certifications: string; // Certificaciones de distribución/marcas
-    productTags: string[]; // Etiquetas de productos para búsqueda
+    productTags?: string[]; // Etiquetas de productos para búsqueda
+
+    // SAP Fields: Enfoque de Servicio y Actividad Comercial
+    serviceFocus?: 'Servicio Reparación' | 'Servicios de Construcción' | 'Servicio de Asesoramiento' | 'Venta de Repuestos' | 'Suministros / Materia Prima' | '';
+    deliveryTime?: string; // Plazo de Entrega (días)
+    commercialDescription?: string; // Descripción comercial detallada
+    businessType?: string[]; // Tipos de negocio (multi-select)
 }
 
 export interface SupplierSystemsData {
@@ -56,6 +84,24 @@ export interface SupplierSystemsData {
     quality: { name: string; email: string; phone?: string };
     technical: { name: string; email: string; phone?: string }; // Cargo: Técnico
     production: { name: string; email: string; phone?: string }; // Cargo: Producción
+
+    // SAP Fields: Información Bancaria
+    taxIdType?: string; // Tipo de identificación fiscal
+    taxId?: string; // Número de identificación fiscal
+    bankName?: string; // Nombre del banco
+    bankKey?: string; // Clave del banco
+    accountNumber?: string; // Número de cuenta bancaria
+    accountType?: 'Ahorros' | 'Corriente' | '';
+    iban?: string; // IBAN
+    bankCertificate?: string; // URL del certificado bancario
+
+    // SAP Fields: Datos de Sociedad (Optional for provider, typically filled by Gestor)
+    society?: string; // Sociedad asignada
+    paymentCondition?: string; // Condición de pago Sociedad
+    paymentMethods?: string[]; // Vías de pago
+    withholdingType?: string; // Tipo de retención
+    purchasingOrg?: string; // Organización de compras
+    purchasingGroup?: string; // Grupo de compras
 }
 
 // The 20 Yes/No Questions from Section 4

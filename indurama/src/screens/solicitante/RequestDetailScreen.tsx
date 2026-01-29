@@ -301,7 +301,42 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
         ]}>
 
-          {/* 1. ACTION CARD (For Awarded) */}
+          {/* 0. ACTION CARD (For Rectification Required) */}
+          {/* @ts-ignore */}
+          {request.status === 'rectification_required' && (
+            <View style={[styles.actionCard, { borderLeftColor: '#FF9800', backgroundColor: '#FFF' }]}>
+              <View style={styles.actionCardHeader}>
+                <View style={[styles.iconCircle, { backgroundColor: '#FFF3E0' }]}>
+                  <Ionicons name="alert-circle-outline" size={28} color="#F57C00" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[styles.actionCardTitle, { color: '#E65100' }]}>Se Requiere Corrección</Text>
+                  <Text style={styles.actionCardSubtitle}>
+                    El gestor ha solicitado cambios en esta solicitud.
+                  </Text>
+                </View>
+              </View>
+
+              {/* @ts-ignore */}
+              {request.rectificationComment && (
+                <View style={{ backgroundColor: '#FFF8E1', padding: 15, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#FFE0B2' }}>
+                  <Text style={{ fontWeight: 'bold', color: '#E65100', marginBottom: 5 }}>Comentario del Gestor:</Text>
+                  {/* @ts-ignore */}
+                  <Text style={{ fontStyle: 'italic', color: '#5D4037' }}>"{request.rectificationComment}"</Text>
+                </View>
+              )}
+
+              <View style={styles.actionButtons}>
+                <TouchableOpacity
+                  style={[styles.btnPrimary, { backgroundColor: '#FF9800', shadowColor: '#FF9800' }]}
+                  onPress={() => onNavigateToEdit?.(request)}
+                >
+                  <Ionicons name="create-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
+                  <Text style={styles.btnPrimaryText}>Editar y Corregir</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           {(request.status === 'awarded' || (request.status as string) === 'adjudicado') && currentUserId && (
             <View style={styles.actionCard}>
               <View style={styles.actionCardHeader}>

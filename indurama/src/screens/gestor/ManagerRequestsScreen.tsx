@@ -255,7 +255,10 @@ export const ManagerRequestsScreen: React.FC<ManagerRequestsScreenProps> = ({
           </View>
           <View>
             <Text style={styles.userName} numberOfLines={1}>{request.userName || 'Usuario'}</Text>
-            <Text style={styles.department} numberOfLines={1}>{request.department || 'General'}</Text>
+            <Text style={styles.department} numberOfLines={1}>
+              {request.companyIdentifier ? `${request.companyIdentifier} · ` : ''}
+              {request.department || 'General'}
+            </Text>
           </View>
         </View>
 

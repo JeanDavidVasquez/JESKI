@@ -245,7 +245,14 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                 <View>
                     <Text style={styles.greeting}>Bienvenido,</Text>
                     <Text style={styles.userName}>{displayName}</Text>
-                    <Text style={styles.userRole}>{user?.department || 'Departamento no asignado'}</Text>
+                    <View style={{ marginTop: 4 }}>
+                        <Text style={styles.userRole}>
+                            {user?.companyIdentifier ? user.companyIdentifier : 'Empresa no asignada'}
+                        </Text>
+                        <Text style={[styles.userRole, { fontSize: 12, marginTop: 1 }]}>
+                            {user?.department ? user.department : 'Departamento no asignado'}
+                        </Text>
+                    </View>
                 </View>
                 <Image
                     source={require('../../../assets/icono_indurama.png')}

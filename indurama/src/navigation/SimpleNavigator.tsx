@@ -765,6 +765,8 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToSupplierDetail={navigateToSupplierDetail}
             currentUser={currentUser}
             onApprove={(requestId, comment) => {
+              // Fix: Persist requestId when approving directly
+              setReviewRequestId(requestId);
               setPreviousScreen('RequestReview');
               setCurrentScreen('SupplierSearch');
             }}
@@ -818,6 +820,7 @@ export const SimpleNavigator: React.FC = () => {
             }}
             onContinueToQuotation={(selectedIds) => {
               setSelectedSupplierIdsForInvite(selectedIds);
+              // Ensure we carry over the requestId from the review flow
               setQuotationRequestId(reviewRequestId);
               setPreviousScreen('SupplierSearch');
               setCurrentScreen('QuotationInvite');
@@ -845,7 +848,7 @@ export const SimpleNavigator: React.FC = () => {
             }}
             onReject={(supplierId) => {
               console.log('Rechazar proveedor:', supplierId);
-              setCurrentScreen('SupplierList');
+              // stay or go back
             }}
             onNavigateToEdit={navigateToSupplierTechnicalSheet}
             onNavigateToAudit={(subId) => {
@@ -968,6 +971,11 @@ export const SimpleNavigator: React.FC = () => {
             }}
             onSuccess={() => {
               // Redirect to QuotationCompareScreen to monitor progress
+              // Ensure we KEEP the requestId (it should be in quotationRequestId state)
+              if (!quotationRequestId) {
+                // Fallback: try to use reviewRequestId if available
+                if (reviewRequestId) setQuotationRequestId(reviewRequestId);
+              }
               setSelectedSupplierIdsForInvite([]);
               setCurrentScreen('QuotationCompare');
             }}
@@ -1017,6 +1025,7 @@ export const SimpleNavigator: React.FC = () => {
               }
             }}
             onSuccess={() => {
+              // When winner is selected or finished
               setQuotationRequestId(null);
               setCurrentScreen('ManagerDashboard');
             }}
