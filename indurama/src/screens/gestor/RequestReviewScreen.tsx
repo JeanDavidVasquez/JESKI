@@ -17,6 +17,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
 import { getRequestById, updateRequestStatus, getRelativeTime } from '../../services/requestService';
+import { NotificationService } from '../../services/notificationService';
 import { Request, RequestStatus, RequestPriority, User } from '../../types';
 import { RequestProcessStepper } from '../../components/RequestProcessStepper';
 import { ProcessHeader } from '../../components/ProcessHeader';
@@ -90,6 +91,20 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       // Logic: If pending, change to IN_PROGRESS (Approved/In Review)
       await updateRequestStatus(request.id, RequestStatus.IN_PROGRESS, user.id);
 
+      // Notify Solicitante
+      try {
+        await NotificationService.create({
+          userId: request.userId,
+          type: 'request_approved',
+          title: 'Solicitud Validada',
+          message: `Tu solicitud ${request.code || ''} ha sido validada y está en fase de búsqueda de proveedores.`,
+          relatedId: request.id,
+          relatedType: 'request'
+        });
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
+
       setShowApprovalModal(false);
 
       // Auto-navigate without blocking alert
@@ -112,6 +127,20 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
     try {
       setActionLoading(true);
       await updateRequestStatus(request.id, RequestStatus.REJECTED, user.id);
+
+      // Notify Solicitante
+      try {
+        await NotificationService.create({
+          userId: request.userId,
+          type: 'request_rejected',
+          title: 'Solicitud Rechazada',
+          message: `Tu solicitud ${request.code || ''} ha sido rechazada. Motivo: ${comment}`,
+          relatedId: request.id,
+          relatedType: 'request'
+        });
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
       Alert.alert('Solicitud Rechazada', 'La solicitud ha sido rechazada.', [
         { text: 'OK', onPress: onNavigateBack }
       ]);
@@ -139,6 +168,20 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       setActionLoading(true);
       // @ts-ignore: RECTIFICATION_REQUIRED is new
       await updateRequestStatus(request.id, RequestStatus.RECTIFICATION_REQUIRED, user.id, comment); // Pass comment
+
+      // Notify Solicitante
+      try {
+        await NotificationService.create({
+          userId: request.userId,
+          type: 'rectification_required',
+          title: 'Corrección Requerida',
+          message: `Tu solicitud ${request.code || ''} requiere corrección: "${comment}"`,
+          relatedId: request.id,
+          relatedType: 'request'
+        });
+      } catch (error) {
+        console.error('Error sending notification:', error);
+      }
 
       // Update local state immediately
       setRequest({

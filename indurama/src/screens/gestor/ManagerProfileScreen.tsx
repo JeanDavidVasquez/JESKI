@@ -26,6 +26,7 @@ interface ManagerProfileScreenProps {
   onNavigateToEPIConfig?: () => void;
   onNavigateToUserManagement?: () => void;
   onLogout?: () => void;
+  onNavigateToNotifications?: () => void;
 }
 
 interface Stats {
@@ -42,6 +43,7 @@ export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
   onNavigateToEPIConfig,
   onNavigateToUserManagement,
   onLogout,
+  onNavigateToNotifications,
 }) => {
   const { user } = useAuth();
   const { isDesktopView } = useResponsive();
@@ -101,6 +103,7 @@ export const ManagerProfileScreen: React.FC<ManagerProfileScreenProps> = ({
       currentScreen="Profile"
       navItems={navItems}
       logo={require('../../../assets/icono_indurama.png')}
+      onNavigateToNotifications={onNavigateToNotifications}
     >
       <StatusBar style="light" />
 

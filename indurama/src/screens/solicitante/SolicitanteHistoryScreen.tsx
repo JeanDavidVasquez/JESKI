@@ -21,6 +21,7 @@ interface SolicitanteHistoryScreenProps {
     onNavigateToNewRequest: () => void;
     onNavigateToProfile: () => void;
     onNavigateToRequestDetail?: (requestId: string) => void;
+    onNavigateToNotifications?: () => void;
 }
 
 export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> = ({
@@ -28,6 +29,7 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
     onNavigateToNewRequest,
     onNavigateToProfile,
     onNavigateToRequestDetail,
+    onNavigateToNotifications,
 }) => {
     // ... (rest of hook logic unchanged)
     const { user } = useAuth();
@@ -139,6 +141,7 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
             currentScreen="History"
             navItems={navItems}
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <StatusBar style="dark" />
 

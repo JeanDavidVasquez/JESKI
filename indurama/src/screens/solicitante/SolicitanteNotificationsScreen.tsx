@@ -74,14 +74,19 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
         switch (type) {
             case 'quotation_awarded':
             case 'award':
+            case 'supplier_selected': // Added
                 return { name: 'trophy' as const, color: '#FFD700' };
             case 'quotation_invitation':
             case 'invitation':
                 return { name: 'mail' as const, color: '#2196F3' };
+            case 'request_created':
+                return { name: 'add-circle' as const, color: '#2196F3' };
             case 'request_approved':
                 return { name: 'checkmark-circle' as const, color: '#4CAF50' };
             case 'request_rejected':
                 return { name: 'close-circle' as const, color: '#F44336' };
+            case 'rectification_required': // Added
+                return { name: 'alert-circle' as const, color: '#F57C00' };
             default:
                 return { name: 'notifications' as const, color: '#9E9E9E' };
         }
@@ -93,6 +98,32 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
         { key: 'History', label: 'Historial', iconName: 'document-text' as const, onPress: onNavigateToHistory },
         { key: 'Profile', label: 'Perfil', iconName: 'person' as const, onPress: onNavigateToProfile },
     ];
+
+    const formatNotificationDate = (dateVal: any) => {
+        if (!dateVal) return '';
+
+        let date: Date;
+
+        // Handle Firestore Timestamp
+        if (dateVal?.toDate) {
+            date = dateVal.toDate();
+        } else if (dateVal?.seconds) {
+            // Handle raw Timestamp object if toDate is missing
+            date = new Date(dateVal.seconds * 1000);
+        } else {
+            // Handle Date object, string or number
+            date = new Date(dateVal);
+        }
+
+        // Check if date is valid
+        if (isNaN(date.getTime())) return '';
+
+        return date.toLocaleDateString('es-ES', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+        });
+    };
 
     const renderNotification = ({ item }: { item: AppNotification }) => {
         const icon = getNotificationIcon(item.type);
@@ -112,11 +143,7 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
                         {item.message}
                     </Text>
                     <Text style={styles.timestamp}>
-                        {new Date(item.createdAt).toLocaleDateString('es-ES', {
-                            day: '2-digit',
-                            month: '2-digit',
-                            year: 'numeric'
-                        })}
+                        {formatNotificationDate(item.createdAt)}
                     </Text>
                 </View>
                 {!item.read && <View style={styles.unreadDot} />}

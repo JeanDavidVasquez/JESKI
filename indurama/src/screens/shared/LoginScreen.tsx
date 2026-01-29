@@ -339,7 +339,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Bottom Section - Logo (same as Register) */}
+            {/* Bottom Section - Logo (Restored) */}
             <View style={styles.bottomSection}>
               <View style={styles.brandContainer}>
                 <Image
@@ -372,32 +372,32 @@ const styles = StyleSheet.create({
   mainContainer: {
     flex: 1,
     paddingHorizontal: theme.spacing[8],
-    paddingVertical: theme.spacing[12],
+    paddingVertical: isMobile ? theme.spacing[6] : theme.spacing[12],
     justifyContent: 'center',
   },
   headerSection: {
     alignItems: 'center',
-    marginBottom: theme.spacing[12],
+    marginBottom: isMobile ? theme.spacing[6] : theme.spacing[12],
   },
   loginTitle: {
-    fontSize: isMobile ? 48 : 56,
+    fontSize: isMobile ? 36 : 42, // Keeping it balanced
     fontWeight: '700',
     color: '#333333',
-    marginBottom: theme.spacing[3],
+    marginBottom: theme.spacing[2],
     letterSpacing: 2,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: isMobile ? 16 : 18,
+    fontSize: isMobile ? 14 : 18,
     color: '#666666',
-    lineHeight: isMobile ? 22 : 24,
+    lineHeight: isMobile ? 20 : 24,
     textAlign: 'center',
   },
   formContainer: {
     width: '100%',
     maxWidth: 400,
     alignSelf: 'center',
-    marginBottom: theme.spacing[16],
+    marginBottom: isMobile ? theme.spacing[4] : theme.spacing[16],
   },
   inputWrapper: {
     marginBottom: theme.spacing[4],
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: isMobile ? 56 : 60,
+    height: isMobile ? 50 : 60, // Reduced height slightly for mobile
     paddingHorizontal: theme.spacing[4],
     ...Platform.select({
       ios: {
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     alignSelf: 'flex-end',
-    marginBottom: theme.spacing[6],
+    marginBottom: theme.spacing[4], // Reduced margin
     paddingVertical: theme.spacing[2],
   },
   forgotPasswordText: {
@@ -462,8 +462,9 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     paddingVertical: theme.spacing[3],
     paddingHorizontal: theme.spacing[4],
-    marginBottom: theme.spacing[6],
+    marginBottom: theme.spacing[4],
     borderWidth: 1,
+    borderColor: 'transparent',
   },
   feedbackSuccess: {
     backgroundColor: `${theme.colors.success}10`,
@@ -490,10 +491,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    height: isMobile ? 56 : 60,
+    height: isMobile ? 50 : 60, // Reduced height slightly for mobile
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.primary,
-    marginBottom: theme.spacing[6],
+    marginBottom: theme.spacing[4], // Reduced margin
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -519,8 +520,8 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     alignItems: 'center',
-    paddingVertical: theme.spacing[4],
-    marginBottom: theme.spacing[8],
+    paddingVertical: theme.spacing[2], // Reduced padding
+    marginBottom: theme.spacing[2], // Minimized margin to fit logo better
   },
   bottomSection: {
     alignItems: 'center',
@@ -532,7 +533,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoImage: {
-    width: isMobile ? 140 : 96,
-    height: isMobile ? 90 : 96,
+    width: isMobile ? 260 : 350, // Slightly optimized for mobile fit
+    height: isMobile ? 90 : 120,
   },
 });

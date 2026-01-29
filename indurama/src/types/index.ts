@@ -599,7 +599,12 @@ export type NotificationType =
   | 'comment_received'          // Nuevo comentario
   | 'new_request'               // Nueva solicitud creada por solicitante
   | 'supplier_registered'       // Nuevo proveedor registrado
-  | 'epi_submitted';            // Proveedor envió evaluación EPI
+  | 'epi_submitted'            // Proveedor envió evaluación EPI
+  // Detailed Request Status Notifications
+  | 'request_approved'
+  | 'request_rejected'
+  | 'rectification_required'
+  | 'request_created';
 
 /**
  * Notificación in-app

@@ -217,6 +217,20 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           console.error('Error creating notifications:', notifError);
           // Don't fail the request creation if notifications fail
         }
+
+        // Notify the Solicitante (Self)
+        try {
+          await NotificationService.create({
+            userId: user.id, // Current user
+            type: 'request_created',
+            title: 'Solicitud Creada',
+            message: `Has creado exitosamente la solicitud ${requestData.code}.`,
+            relatedId: docRef.id,
+            relatedType: 'request'
+          });
+        } catch (error) {
+          console.error('Error creating self notification:', error);
+        }
       }
 
       setShowSuccessModal(true);
@@ -457,6 +471,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                   {Platform.OS === 'web' ? (
                     <input
                       type="date"
+                      min={new Date().toISOString().split('T')[0]}
                       style={{
                         backgroundColor: '#F9FAFB',
                         borderWidth: 1,
@@ -496,6 +511,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                           value={formData.dueDate}
                           mode="date"
                           display="default"
+                          minimumDate={new Date()}
                           onChange={(event, selectedDate) => {
                             setShowDatePicker(false);
                             if (selectedDate) setFormData({ ...formData, dueDate: selectedDate });

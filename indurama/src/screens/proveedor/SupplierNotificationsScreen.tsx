@@ -23,6 +23,7 @@ interface SupplierNotificationsScreenProps {
     onNavigateToProfile: () => void;
     onNavigateToNotifications: () => void;
     onLogout: () => void;
+    onNavigateToDashboard: () => void;
 }
 
 export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenProps> = ({
@@ -30,6 +31,7 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
     onNavigateToProfile,
     onNavigateToNotifications,
     onLogout,
+    onNavigateToDashboard,
 }) => {
     const { user } = useAuth();
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -37,7 +39,7 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
     const [refreshing, setRefreshing] = useState(false);
 
     const navItems = [
-        { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: () => { } },
+        { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: onNavigateToDashboard },
         { key: 'Quotations', label: 'Cotizaciones', iconName: 'pricetags-outline' as any, onPress: onNavigateToQuotations },
         { key: 'Profile', label: 'Perfil', iconName: 'person-outline' as any, onPress: onNavigateToProfile },
         { key: 'Logout', label: 'Salir', iconName: 'log-out-outline' as any, onPress: onLogout },

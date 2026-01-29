@@ -23,6 +23,7 @@ interface SupplierProfileScreenProps {
     onNavigateToDashboard?: () => void;
     onNavigateToQuotations?: () => void;
     onLogout: () => void;
+    onNavigateToNotifications?: () => void;
 }
 
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
@@ -34,6 +35,7 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
     onNavigateToDashboard,
     onNavigateToQuotations,
     onLogout,
+    onNavigateToNotifications,
 }) => {
     const { user } = useAuth();
     const { width } = useWindowDimensions();
@@ -112,6 +114,7 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
             navItems={navItems}
             title="INDURAMA"
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <View style={styles.container}>
                 <StatusBar style="light" />

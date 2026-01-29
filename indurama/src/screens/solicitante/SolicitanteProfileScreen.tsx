@@ -23,6 +23,7 @@ interface SolicitanteProfileScreenProps {
     onNavigateToNewRequest: () => void;
     onNavigateToHistory: () => void;
     onLogout: () => void;
+    onNavigateToNotifications?: () => void;
 }
 
 export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> = ({
@@ -30,6 +31,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
     onNavigateToNewRequest,
     onNavigateToHistory,
     onLogout,
+    onNavigateToNotifications,
 }) => {
     const { user, updateProfile } = useAuth();
     const [stats, setStats] = useState({ total: 0, thisMonth: 0, approvedPercentage: 0 });
@@ -126,6 +128,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
             currentScreen="Profile"
             navItems={navItems}
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <StatusBar style="light" />
 

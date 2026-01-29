@@ -32,6 +32,7 @@ interface ProviderQuotationsScreenProps {
     onLogout?: () => void;
     onNavigateToQuotationForm: (invitationId: string, requestId: string) => void;
     onNavigateToQuotationDetail?: (quotationId: string) => void;
+    onNavigateToNotifications?: () => void;
 }
 
 export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> = ({
@@ -42,6 +43,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
     onLogout,
     onNavigateToQuotationForm,
     onNavigateToQuotationDetail,
+    onNavigateToNotifications,
 }) => {
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -201,6 +203,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
             navItems={navItems}
             title="INDURAMA"
             logo={require('../../../assets/icono_indurama.png')}
+            onNavigateToNotifications={onNavigateToNotifications}
         >
             <View style={styles.container}>
                 <StatusBar style="light" />

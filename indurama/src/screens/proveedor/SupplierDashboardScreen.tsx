@@ -605,7 +605,7 @@ const styles = StyleSheet.create({
     mainCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 28,
-        marginTop: -60,
+        marginTop: -30,
         shadowColor: "#003E85",
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.15,
@@ -615,7 +615,7 @@ const styles = StyleSheet.create({
         overflow: 'hidden',
     },
     mainCardWeb: {
-        marginTop: -70,
+        marginTop: -40,
     },
     mainCardGradient: {
         borderRadius: 28,

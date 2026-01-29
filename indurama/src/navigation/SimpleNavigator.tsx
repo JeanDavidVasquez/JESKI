@@ -526,6 +526,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToNewRequest={() => { setEditingRequest(null); setCurrentScreen('NewRequest'); }}
             onNavigateToProfile={() => setCurrentScreen('SolicitanteProfile')}
             onNavigateToRequestDetail={handleNavigateToRequestDetail}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
 
@@ -536,6 +537,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToNewRequest={() => setCurrentScreen('NewRequest')}
             onNavigateToHistory={() => setCurrentScreen('SolicitanteHistory')}
             onLogout={handleLogout}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
 
@@ -559,6 +561,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
             onNavigateToQuotations={navigateToProviderQuotations}
             onLogout={handleLogout}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
 
@@ -926,6 +929,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToEPIConfig={navigateToEPIConfig}
             onNavigateToUserManagement={navigateToUserManagement}
             onLogout={handleLogout}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
       case 'EPIConfig':
@@ -989,6 +993,7 @@ export const SimpleNavigator: React.FC = () => {
             onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
             onNavigateToProfile={() => setCurrentScreen('SupplierProfile')}
             onLogout={handleLogout}
+            onNavigateToNotifications={navigateToNotifications}
             onNavigateToQuotationForm={(invitationId, requestId) => {
               setQuotationInvitationId(invitationId);
               setQuotationRequestId(requestId);
@@ -1047,6 +1052,7 @@ export const SimpleNavigator: React.FC = () => {
               onNavigateToProfile={() => setCurrentScreen('SupplierProfile')}
               onNavigateToNotifications={navigateToNotifications}
               onLogout={handleLogout}
+              onNavigateToDashboard={() => setCurrentScreen('SupplierDashboard')}
             />
           );
         }
