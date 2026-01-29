@@ -29,6 +29,7 @@ import {
     PickedMedia
 } from '../../services/imagePickerService';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
+import { Ionicons } from '@expo/vector-icons';
 
 interface EPIAuditScreenProps {
     submissionId: string;
@@ -411,97 +412,109 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             <View style={isDesktopView ? { width: '100%', alignItems: 'center' } : undefined}>
                 {sections.map((section: any, i: number) => (
                     <View key={i} style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center' }]}>
+                        {/* Section Header if needed, but usually redundant with category tab */}
+
                         <View style={isDesktopView ? { flexDirection: 'row', flexWrap: 'wrap', gap: 16 } : undefined}>
                             {section.questions.map((q: any, j: number) => {
                                 const answerObj = responses?.find((r: any) => r.questionId === q.id);
-                                const isYes = answerObj?.answer === 'SI';
+                                const answerText = (answerObj?.answer || '').toUpperCase();
+                                const isYes = answerText === 'SI' || answerText === 'CUMPLE' || answerText === 'TRUE';
                                 const points = isYes ? (category === 'calidad' ? 5 : 5.5) : 0;
                                 const audit = auditState[q.id] || { isValid: true, finding: '' };
 
                                 return (
                                     <View key={j} style={[styles.questionCard, isDesktopView && { width: '48%', marginBottom: 0 }]}>
-                                        <View style={styles.questionHeader}>
+                                        <View style={styles.questionMain}>
                                             <Text style={styles.questionTitle}>{q.text}</Text>
-                                            <View style={styles.pointsBadge}>
-                                                <Text style={styles.pointsText}>{category === 'calidad' ? '5' : '5.5'} pts</Text>
+                                            <View style={styles.pointsPill}>
+                                                <Text style={styles.pointsPillText}>{category === 'calidad' ? '5.0' : '5.5'} pts</Text>
                                             </View>
                                         </View>
 
-                                        {/* Proveedor Declaró */}
-                                        <View style={styles.declarationRow}>
-                                            <Text style={styles.declarationLabel}>PROVEEDOR DECLARÓ:</Text>
-                                            <View style={styles.declarationValue}>
-                                                <View style={[styles.statusDot, isYes ? styles.dotGreen : styles.dotRed]} />
-                                                <Text style={styles.declarationText}>{isYes ? 'SI CUMPLE' : 'NO CUMPLE'}</Text>
+                                        {/* Row: Supplier Declaration vs Validation */}
+                                        <View style={styles.comparisonContainer}>
+                                            {/* Left: Supplier */}
+                                            <View style={styles.comparisonBox}>
+                                                <Text style={styles.comparisonLabel}>PROVEEDOR</Text>
+                                                <View style={[styles.statusBadge, isYes ? styles.bgGreenLight : styles.bgRedLight]}>
+                                                    <Ionicons name={isYes ? "checkmark-circle" : "close-circle"} size={16} color={isYes ? "#10B981" : "#EF4444"} />
+                                                    <Text style={[styles.statusText, isYes ? styles.textGreen : styles.textRed]}>
+                                                        {isYes ? 'Cumple' : 'No Cumple'}
+                                                    </Text>
+                                                </View>
+                                                {answerObj?.observation && (
+                                                    <Text style={styles.obsText} numberOfLines={2}>
+                                                        "{answerObj.observation}"
+                                                    </Text>
+                                                )}
                                             </View>
-                                            {answerObj?.observation && (
-                                                <Text style={styles.linkText} numberOfLines={1}>
-                                                    {answerObj.observation.length > 20 ? 'Ver Obs.' : answerObj.observation}
-                                                </Text>
-                                            )}
+
+                                            {/* Divider Arrow */}
+                                            <View style={{ justifyContent: 'center', paddingHorizontal: 8 }}>
+                                                <Ionicons name="arrow-forward" size={20} color="#CBD5E1" />
+                                            </View>
+
+                                            {/* Right: Audit Validation */}
+                                            <View style={styles.comparisonBox}>
+                                                <Text style={styles.comparisonLabel}>AUDITORÍA</Text>
+                                                <View style={styles.toggleWrapper}>
+                                                    <Text style={[styles.validationLabelSmall, !audit.isValid ? styles.textRed : { color: '#64748B' }]}>
+                                                        {audit.isValid ? 'Validado' : 'Rechazado'}
+                                                    </Text>
+                                                    <Switch
+                                                        trackColor={{ false: "#FECACA", true: "#BBF7D0" }}
+                                                        thumbColor={audit.isValid ? "#16A34A" : "#DC2626"}
+                                                        ios_backgroundColor="#FECACA"
+                                                        onValueChange={(val) => handleToggleValidation(q.id, val)}
+                                                        value={audit.isValid}
+                                                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                                                    />
+                                                </View>
+                                            </View>
                                         </View>
 
-                                        {/* Validación Toggle */}
-                                        <View style={styles.validationRow}>
-                                            <Text style={styles.validationLabel}>Validación:</Text>
-                                            <View style={styles.toggleContainer}>
-                                                <Switch
-                                                    trackColor={{ false: "#EF4444", true: "#10B981" }}
-                                                    thumbColor={'#FFF'}
-                                                    ios_backgroundColor="#EF4444"
-                                                    onValueChange={(val) => handleToggleValidation(q.id, val)}
-                                                    value={audit.isValid}
-                                                />
-                                                <Text style={[styles.validationStatus, audit.isValid ? styles.textGreen : styles.textRed]}>
-                                                    {audit.isValid ? 'Cumple' : 'No Cumple'}
-                                                </Text>
-                                            </View>
-                                        </View>
-
-                                        {/* No Cumple - Recalibration Section */}
+                                        {/* Recalibration / Finding Section - Only if Invalid */}
                                         {!audit.isValid && (
-                                            <View style={styles.recalibrationBox}>
-                                                <View style={styles.recalHeader}>
-                                                    <Text style={styles.recalLabel}>Recalibración:</Text>
-                                                    <Text style={styles.recalPoints}>0 Puntos</Text>
+                                            <View style={styles.findingContainer}>
+                                                <View style={styles.findingHeader}>
+                                                    <Ionicons name="alert-circle" size={20} color="#DC2626" style={{ marginRight: 6 }} />
+                                                    <Text style={styles.findingTitle}>Hallazgo de Auditoría (0 Puntos)</Text>
                                                 </View>
 
-                                                <Text style={styles.inputLabel}>EVIDENCIA DEL HALLAZGO (OBLIGATORIO)</Text>
                                                 <TextInput
-                                                    style={styles.textInput}
-                                                    placeholder="Describa por qué no cumple"
+                                                    style={styles.findingInput}
+                                                    placeholder="Describa el motivo del rechazo o hallazgo..."
                                                     multiline
                                                     value={audit.finding}
                                                     onChangeText={(text) => handleFindingChange(q.id, text)}
                                                 />
 
                                                 <TouchableOpacity
-                                                    style={styles.attachButton}
+                                                    style={styles.evidenceButton}
                                                     onPress={() => handleEvidenceUpload(q.id)}
                                                     disabled={uploadingQuestion === q.id}
                                                 >
                                                     {uploadingQuestion === q.id ? (
                                                         <ActivityIndicator size="small" color="#003E85" />
                                                     ) : (
-                                                        <Image source={require('../../../assets/icons/folder-upload.png')} style={styles.attachIcon} />
+                                                        <Ionicons name={audit.evidenceUrl ? "image" : "camera"} size={18} color="#003E85" style={{ marginRight: 8 }} />
                                                     )}
-                                                    <Text style={styles.attachText}>
-                                                        {uploadingQuestion === q.id ? 'Subiendo...' : 'Adjuntar Evidencia'}
+                                                    <Text style={styles.evidenceButtonText}>
+                                                        {audit.evidenceUrl ? 'Cambiar Evidencia' : 'Adjuntar Evidencia'}
                                                     </Text>
                                                 </TouchableOpacity>
 
-                                                {/* Show uploaded evidence */}
                                                 {audit.evidenceUrl && (
-                                                    <View style={styles.evidencePreview}>
-                                                        <Image source={{ uri: audit.evidenceUrl }} style={styles.evidenceImage} />
+                                                    <View style={styles.evidenceThumbnailBox}>
+                                                        <Image source={{ uri: audit.evidenceUrl }} style={styles.evidenceThumbnail} />
                                                         <TouchableOpacity
-                                                            style={styles.removeEvidence}
+                                                            style={styles.removeEvidenceBtn}
                                                             onPress={() => setAuditState(prev => ({
                                                                 ...prev,
                                                                 [q.id]: { ...prev[q.id], evidenceUrl: undefined }
                                                             }))}
                                                         >
-                                                            <Text style={styles.removeEvidenceText}>✕</Text>
+                                                            <Ionicons name="close" size={14} color="#FFF" />
                                                         </TouchableOpacity>
                                                     </View>
                                                 )}
@@ -791,161 +804,168 @@ const styles = StyleSheet.create({
     questionCard: {
         backgroundColor: '#FFF',
         borderRadius: 12,
-        padding: 16,
+        padding: 0, // Reset padding for inner structure
         marginBottom: 16,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
         elevation: 2,
+        overflow: 'hidden'
     },
-    questionHeader: {
+    questionMain: {
+        padding: 16,
+        paddingBottom: 12,
         flexDirection: 'row',
         justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 12,
+        alignItems: 'flex-start'
     },
     questionTitle: {
         fontSize: 15,
-        fontWeight: 'bold',
+        fontWeight: '600',
         color: '#1F2937',
         flex: 1,
-        marginRight: 8,
+        marginRight: 10
     },
-    pointsBadge: {
-        backgroundColor: '#DBEAFE',
+    pointsPill: {
+        backgroundColor: '#EFF6FF',
         paddingHorizontal: 8,
         paddingVertical: 4,
-        borderRadius: 4,
+        borderRadius: 12,
+        borderWidth: 1,
+        borderColor: '#DBEAFE'
     },
-    pointsText: {
-        color: '#1E40AF',
+    pointsPillText: {
         fontSize: 12,
         fontWeight: 'bold',
+        color: '#1D4ED8'
     },
-    declarationRow: {
-        backgroundColor: '#F9FAFB',
-        padding: 10,
-        borderRadius: 8,
-        marginBottom: 12,
+    comparisonContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
-        justifyContent: 'space-between',
+        borderTopWidth: 1,
+        borderTopColor: '#F3F4F6',
+        backgroundColor: '#F9FAFB'
     },
-    declarationLabel: {
+    comparisonBox: {
+        flex: 1,
+        padding: 12
+    },
+    comparisonLabel: {
         fontSize: 10,
+        fontWeight: 'bold',
         color: '#9CA3AF',
-        fontWeight: 'bold',
+        marginBottom: 6,
+        letterSpacing: 0.5
     },
-    declarationValue: {
+    statusBadge: {
         flexDirection: 'row',
         alignItems: 'center',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 6,
+        alignSelf: 'flex-start',
+        marginBottom: 6
     },
-    statusDot: {
-        width: 8,
-        height: 8,
-        borderRadius: 4,
-        marginRight: 6,
-    },
-    dotGreen: { backgroundColor: '#10B981' },
-    dotRed: { backgroundColor: '#EF4444' },
-    declarationText: {
-        fontSize: 12,
-        fontWeight: 'bold',
-        color: '#374151',
-    },
-    linkText: {
-        fontSize: 12,
-        color: '#3B82F6',
+    bgGreenLight: { backgroundColor: '#ECFDF5' },
+    bgRedLight: { backgroundColor: '#FEF2F2' },
+    statusText: {
+        marginLeft: 6,
         fontWeight: '600',
-        textDecorationLine: 'underline',
-        maxWidth: 80,
-    },
-    validationRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        paddingVertical: 8,
-    },
-    validationLabel: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#374151',
-    },
-    toggleContainer: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    validationStatus: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        marginLeft: 8,
-        minWidth: 70,
-        textAlign: 'right',
+        fontSize: 13
     },
     textGreen: { color: '#10B981' },
     textRed: { color: '#EF4444' },
-    recalibrationBox: {
-        marginTop: 12,
-        borderWidth: 1,
-        borderColor: '#FECACA',
-        backgroundColor: '#FEF2F2',
-        borderRadius: 8,
-        padding: 12,
+    obsText: {
+        fontSize: 12,
+        color: '#6B7280',
+        fontStyle: 'italic',
+        marginTop: 4
     },
-    recalHeader: {
+    toggleWrapper: {
         flexDirection: 'row',
+        alignItems: 'center',
         justifyContent: 'space-between',
-        marginBottom: 8,
+        backgroundColor: '#FFF',
+        padding: 6,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
     },
-    recalLabel: {
-        fontSize: 13,
-        color: '#374151',
+    validationLabelSmall: {
+        fontSize: 12,
+        fontWeight: '600',
+        marginLeft: 4
     },
-    recalPoints: {
-        fontSize: 13,
+    findingContainer: {
+        padding: 16,
+        backgroundColor: '#FEF2F2',
+        borderTopWidth: 1,
+        borderTopColor: '#FCA5A5'
+    },
+    findingHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 10
+    },
+    findingTitle: {
+        color: '#DC2626',
         fontWeight: 'bold',
-        color: '#EF4444',
+        fontSize: 13
     },
-    inputLabel: {
-        fontSize: 10,
-        fontWeight: 'bold',
-        color: '#9CA3AF',
-        marginBottom: 4,
-    },
-    textInput: {
+    findingInput: {
         backgroundColor: '#FFF',
         borderWidth: 1,
-        borderColor: '#E5E7EB',
-        borderRadius: 4,
-        padding: 8,
-        height: 60,
+        borderColor: '#FECACA',
+        borderRadius: 8,
+        padding: 10,
         fontSize: 13,
+        minHeight: 60,
         textAlignVertical: 'top',
-        marginBottom: 8,
+        marginBottom: 12
     },
-    attachButton: {
+    evidenceButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#DBEAFE',
-        borderRadius: 6,
-        paddingVertical: 8,
-        borderStyle: 'dashed',
+        padding: 10,
+        backgroundColor: '#EFF6FF',
+        borderRadius: 8,
         borderWidth: 1,
-        borderColor: '#93C5FD',
+        borderColor: '#DBEAFE',
+        borderStyle: 'dashed'
     },
-    attachIcon: {
-        width: 16,
-        height: 16,
-        tintColor: '#1E40AF',
-        marginRight: 6,
-    },
-    attachText: {
-        fontSize: 13,
+    evidenceButtonText: {
+        color: '#003E85',
         fontWeight: '600',
-        color: '#1E3A8A',
+        fontSize: 13
     },
+    evidenceThumbnailBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 12,
+        backgroundColor: '#FFF',
+        borderRadius: 8,
+        padding: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB'
+    },
+    evidenceThumbnail: {
+        width: 40,
+        height: 40,
+        borderRadius: 4,
+        marginRight: 10,
+        backgroundColor: '#F3F4F6'
+    },
+    removeEvidenceBtn: {
+        width: 24,
+        height: 24,
+        borderRadius: 12,
+        backgroundColor: '#9CA3AF',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 'auto'
+    },
+
     footer: {
         position: 'absolute',
         bottom: 0,
@@ -975,33 +995,7 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         fontSize: 16,
     },
-    evidencePreview: {
-        marginTop: 12,
-        position: 'relative',
-        alignItems: 'center',
-    },
-    evidenceImage: {
-        width: '100%',
-        height: 120,
-        borderRadius: 8,
-        backgroundColor: '#F3F4F6',
-    },
-    removeEvidence: {
-        position: 'absolute',
-        top: -8,
-        right: -8,
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#EF4444',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    removeEvidenceText: {
-        color: '#FFF',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
+
     uploadModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0, 0, 0, 0.5)',

@@ -224,11 +224,18 @@ export const QuotationService = {
         quotationId: string,
         data: Partial<Quotation>
     ): Promise<void> {
-        // Validar integridad básica (opcionalmente se podrían añadir más chequeos aquí)
+        // Remove undefined values to prevent Firestore errors
+        const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
+            if (value !== undefined) {
+                acc[key] = value;
+            }
+            return acc;
+        }, {} as any);
+
         await updateDoc(doc(db, QUOTATIONS_COLLECTION, quotationId), {
-            ...data,
+            ...cleanData,
             updatedAt: serverTimestamp(),
-            status: 'submitted', // Asegurar que vuelva a submitted si estaba en otro estado (o mantener)
+            status: 'submitted', // Asegurar que vuelva a submitted
         });
     },
 

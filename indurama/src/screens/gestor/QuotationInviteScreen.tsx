@@ -137,14 +137,27 @@ export const QuotationInviteScreen: React.FC<QuotationInviteScreenProps> = ({
                 message || ''
             );
 
-            Alert.alert(
-                'Éxito',
-                `Se enviaron ${selectedSuppliers.length} invitaciones a cotizar`,
-                [{ text: 'OK', onPress: () => onSuccess?.() }]
-            );
-        } catch (error) {
+            if (Platform.OS === 'web') {
+                // Web specific handling
+                window.alert(`Éxito: Se enviaron ${selectedSuppliers.length} invitaciones a cotizar`);
+                onSuccess?.();
+            } else {
+                // Native handling
+                Alert.alert(
+                    'Éxito',
+                    `Se enviaron ${selectedSuppliers.length} invitaciones a cotizar`,
+                    [{ text: 'OK', onPress: () => onSuccess?.() }]
+                );
+            }
+        } catch (error: any) {
             console.error('Error sending invitations:', error);
-            Alert.alert('Error', 'No se pudieron enviar las invitaciones');
+            const errorMessage = error.message || 'No se pudieron enviar las invitaciones';
+
+            if (Platform.OS === 'web') {
+                window.alert(`Error: ${errorMessage}`);
+            } else {
+                Alert.alert('Error', errorMessage);
+            }
         } finally {
             setSending(false);
         }

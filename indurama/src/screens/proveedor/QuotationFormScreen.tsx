@@ -14,6 +14,7 @@ import {
     Platform,
     KeyboardAvoidingView,
     useWindowDimensions,
+    Linking,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -123,8 +124,8 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
             Alert.alert('Error', 'Ingresa días de entrega válidos');
             return false;
         }
-        if (!paymentTerms.trim()) {
-            Alert.alert('Error', 'Ingresa las condiciones de pago');
+        if (!validityDays || isNaN(parseInt(validityDays)) || parseInt(validityDays) <= 0) {
+            Alert.alert('Error', 'Ingresa una vigencia de oferta válida');
             return false;
         }
         return true;
@@ -145,7 +146,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                 deliveryDays: parseInt(deliveryDays),
                 paymentTerms: paymentTerms.trim(),
                 validUntil,
-                notes: notes.trim() || undefined,
+                notes: notes.trim() || '', // Use empty string instead of undefined
             };
 
             if (existingQuotation && existingQuotation.status !== 'cancelled') {
@@ -153,15 +154,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                     ...quotationData,
                     invitationId
                 });
-                Alert.alert('Éxito', 'Oferta actualizada correctamente', [
-                    {
-                        text: 'OK',
-                        onPress: () => {
-                            onSuccess?.();
-                            onNavigateBack();
-                        }
-                    }
-                ]);
             } else {
                 await QuotationService.submitQuotation(
                     invitationId,
@@ -169,11 +161,26 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                     supplierName,
                     quotationData
                 );
-                Alert.alert('Éxito', 'Cotización enviada correctamente', [
+            }
+
+            // Success handling
+            const successMessage = existingQuotation ? 'Oferta actualizada correctamente' : 'Cotización enviada correctamente';
+            const successTitle = 'Éxito';
+
+            if (Platform.OS === 'web') {
+                // Web specific handling to ensure redirect happens
+                window.alert(`${successTitle}: ${successMessage}`);
+
+                // Fallback cleanup
+                if (onSuccess) onSuccess();
+                onNavigateBack();
+            } else {
+                // Native Alert
+                Alert.alert(successTitle, successMessage, [
                     {
                         text: 'OK',
                         onPress: () => {
-                            onSuccess?.();
+                            if (onSuccess) onSuccess();
                             onNavigateBack();
                         }
                     }
@@ -317,6 +324,45 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                             </View>
                                         </View>
                                     )}
+
+                                    {/* Documentos Adjuntos */}
+                                    {((request?.documents && request.documents.length > 0) || (request?.attachments && request.attachments.length > 0)) && (
+                                        <View style={styles.documentsContainer}>
+                                            <Text style={styles.documentsTitle}>Documentos Adjuntos</Text>
+                                            {request.documents?.map((doc, index) => (
+                                                <TouchableOpacity
+                                                    key={`doc-${index}`}
+                                                    style={styles.documentItem}
+                                                    onPress={() => Linking.openURL(doc.url)}
+                                                >
+                                                    <View style={styles.docIcon}>
+                                                        <Ionicons name="document-text-outline" size={24} color={theme.colors.primary} />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.docName} numberOfLines={1}>{doc.name}</Text>
+                                                        <Text style={styles.docType}>Click para ver archivo</Text>
+                                                    </View>
+                                                    <Ionicons name="open-outline" size={20} color="#6B7280" />
+                                                </TouchableOpacity>
+                                            ))}
+                                            {request.attachments?.map((url, index) => (
+                                                <TouchableOpacity
+                                                    key={`att-${index}`}
+                                                    style={styles.documentItem}
+                                                    onPress={() => Linking.openURL(url)}
+                                                >
+                                                    <View style={styles.docIcon}>
+                                                        <Ionicons name="link-outline" size={24} color={theme.colors.secondary} />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text style={styles.docName} numberOfLines={1}>Documento Adjunto {index + 1}</Text>
+                                                        <Text style={styles.docType}>External Link</Text>
+                                                    </View>
+                                                    <Ionicons name="open-outline" size={20} color="#6B7280" />
+                                                </TouchableOpacity>
+                                            ))}
+                                        </View>
+                                    )}
                                 </View>
                             )}
 
@@ -381,7 +427,9 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                                 <View style={styles.paymentDetails}>
                                                     <Text style={styles.paymentLabel}>Fecha:</Text>
                                                     <Text style={styles.paymentValue}>
-                                                        {new Date((request.paymentDate as any).seconds * 1000).toLocaleDateString()}
+                                                        {request.paymentDate?.toDate
+                                                            ? request.paymentDate.toDate().toLocaleDateString('es-EC')
+                                                            : new Date(request.paymentDate).toLocaleDateString('es-EC')}
                                                     </Text>
                                                 </View>
                                             )}
@@ -902,12 +950,52 @@ const styles = StyleSheet.create({
         opacity: 0.7,
     },
     cancelLink: {
+        paddingVertical: 12,
         paddingHorizontal: 16,
     },
     cancelLinkText: {
         color: '#EF4444',
         fontSize: 15,
         fontWeight: '500',
+    },
+    // Documents Styles
+    documentsContainer: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTopWidth: 1,
+        borderTopColor: '#E5E7EB',
+    },
+    documentsTitle: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#374151',
+        marginBottom: 12,
+    },
+    documentItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3F4F6',
+        padding: 12,
+        borderRadius: 12,
+        marginBottom: 8,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    docIcon: {
+        marginRight: 12,
+        backgroundColor: '#FFF',
+        padding: 8,
+        borderRadius: 8,
+    },
+    docName: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#1F2937',
+        marginBottom: 2,
+    },
+    docType: {
+        fontSize: 12,
+        color: '#6B7280',
     },
 });
 

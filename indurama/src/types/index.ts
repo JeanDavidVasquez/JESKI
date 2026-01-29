@@ -527,6 +527,7 @@ export interface QuotationComment {
   id: string;
   requestId: string;
   quotationId?: string; // Opcional: si es específico de una oferta
+  invitationId?: string; // Opcional: link to invitation
   supplierId: string;   // Contexto de la conversación (quién es el proveedor involucrado)
   authorId: string;
   authorName: string;
@@ -570,17 +571,7 @@ export interface Quotation {
 /**
  * Comentario en una cotización
  */
-export interface QuotationComment {
-  id: string;
-  quotationId?: string;
-  invitationId?: string;
-  requestId: string;
-  authorId: string;
-  authorName: string;
-  authorRole: 'gestor' | 'proveedor';
-  message: string;
-  createdAt: any;
-}
+// Duplicate removed and merged above
 
 // ============================================
 // NOTIFICATION SYSTEM TYPES

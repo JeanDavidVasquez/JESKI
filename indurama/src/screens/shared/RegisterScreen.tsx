@@ -185,11 +185,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const selectRole = (supplier: boolean) => {
     setIsSupplier(supplier);
     setErrors({});
-    if (supplier) {
-      setStep('service_focus');
-    } else {
-      setStep('form');
-    }
+    // Simplify: Both roles go directly to form
+    setStep('form');
   };
 
   // --- Validation & Submit ---
@@ -199,7 +196,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
     // Validate Empty Fields
     if (isSupplier) {
-      if (!companyName.trim()) newErrors.companyName = 'Nombre de la Empresa es obligatorio';
+      if (!companyName.trim()) newErrors.companyName = 'Razón Social es obligatoria';
+      if (!taxId.trim()) newErrors.taxId = 'RUC / ID Fiscal es obligatorio';
       if (!phone.trim()) newErrors.phone = 'Teléfono de Contacto es obligatorio';
     } else {
       if (!firstName.trim()) newErrors.firstName = 'Nombre es obligatorio';
@@ -261,9 +259,10 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         additionalData.phone = phone;
 
         // SAP Identity
-        additionalData.bpType = bpType;
+        additionalData.bpType = bpType || 'Organization';
         additionalData.taxId = taxId;
-        additionalData.searchTerm = searchTerm;
+        additionalData.ruc = taxId; // Ensure mapping for EPI
+        additionalData.searchTerm = searchTerm || companyName.toUpperCase();
 
         // Location
         additionalData.country = country;
@@ -800,9 +799,50 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         </Text>
       </View>
 
-      {/* Note: Supplier Identity Fields are now in the Wizard. 
-          Here we only show personal fields OR common fields. */}
+      {/* --- SUPPLIER GENERAL INFO (NEW SIMPLIFIED) --- */}
+      {isSupplier && (
+        <>
+          <View style={styles.inputContainer}>
+            <Text style={styles.inputLabel}>Razón Social</Text>
+            <TextInput
+              style={[styles.directInput, errors.companyName ? styles.inputError : null]}
+              placeholder="Indurama Ecuador S.A."
+              value={companyName}
+              onChangeText={(t) => { setCompanyName(t); clearFieldError('companyName'); }}
+              placeholderTextColor="#999"
+            />
+            {errors.companyName ? <Text style={styles.errorText}>{errors.companyName}</Text> : null}
+          </View>
 
+          <View style={styles.nameRow}>
+            <View style={[styles.inputContainer, styles.halfWidth]}>
+              <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
+              <TextInput
+                style={[styles.directInput, errors.taxId ? styles.inputError : null]}
+                placeholder="0190..."
+                value={taxId}
+                onChangeText={(t) => { setTaxId(t); clearFieldError('taxId'); }}
+                keyboardType="numeric"
+                placeholderTextColor="#999"
+              />
+              {errors.taxId ? <Text style={styles.errorText}>{errors.taxId}</Text> : null}
+            </View>
+
+            <View style={[styles.inputContainer, styles.halfWidth]}>
+              <Text style={styles.inputLabel}>Teléfono</Text>
+              <TextInput
+                style={[styles.directInput, errors.phone ? styles.inputError : null]}
+                placeholder="099..."
+                value={phone}
+                onChangeText={(t) => { setPhone(t); clearFieldError('phone'); }}
+                keyboardType="phone-pad"
+                placeholderTextColor="#999"
+              />
+              {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
+            </View>
+          </View>
+        </>
+      )}
 
       {/* --- PERSONAL FIELDS --- */}
       {!isSupplier && (
@@ -982,10 +1022,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
             </View>
 
             {step === 'selection' && renderSelectionStep()}
-            {step === 'service_focus' && renderServiceFocusStep()}
             {step === 'form' && renderFormStep()}
-            {/* Context: Provider Wizard will be implemented in next step, showing placeholder or basic form for now if wizard step is active but not rendered */}
-            {step === 'provider_wizard' && renderFormStep()} {/* Temporary: Redirect to form until wizard is ready, or use this to inject the wizard next */}
 
             {step === 'selection' && (
               <View style={styles.bottomSection}>

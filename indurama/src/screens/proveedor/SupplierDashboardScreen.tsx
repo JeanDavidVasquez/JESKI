@@ -1,8 +1,3 @@
-/**
- * SupplierDashboardScreen - Diseño Visual Mejorado
- * Mejoras: Gradientes modernos, animaciones sutiles, micro-interacciones,
- * mejor jerarquía visual, cards con depth mejorado, paleta refinada
- */
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -204,36 +199,9 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
             <View style={styles.container}>
                 <StatusBar style="light" />
 
-                {/* Header con gradiente mejorado */}
-                <LinearGradient
-                    colors={['#001F3F', '#003E85', '#0056B3']}
-                    start={{ x: 0, y: 0 }}
-                    end={{ x: 1, y: 1 }}
-                    style={[styles.headerGradient, isDesktop && styles.headerWeb]}
-                >
-                    <View style={[styles.contentConstraint, styles.headerFlex]}>
-                        <View style={styles.greetingContainer}>
-                            <Text style={styles.greeting}>Bienvenido de nuevo,</Text>
-                            <Text style={styles.userName}>{displayName}</Text>
-                            <View style={styles.statusDot}>
-                                <View style={styles.dotInner} />
-                            </View>
-                        </View>
-                        <TouchableOpacity onPress={onNavigateToNotifications} style={styles.notificationButton}>
-                            <View style={styles.notificationIconBg}>
-                                <Ionicons name="notifications" size={24} color="#FFF" />
-                            </View>
-                            {unreadNotifications > 0 && (
-                                <View style={styles.badge}>
-                                    <Text style={styles.badgeText}>
-                                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
-                                    </Text>
-                                </View>
-                            )}
-                        </TouchableOpacity>
-                    </View>
-                </LinearGradient>
-
+                {/* CORRECCIÓN: Header movido DENTRO del ScrollView 
+                   Esto evita que el contenido se sobreponga incorrectamente o se corte.
+                */}
                 <ScrollView
                     style={styles.scrollView}
                     contentContainerStyle={{ flexGrow: 1, alignItems: 'center', paddingBottom: 40 }}
@@ -243,10 +211,41 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             onRefresh={onRefresh}
                             tintColor="#003E85"
                             colors={['#003E85']}
+                            progressViewOffset={Platform.OS === 'ios' ? 0 : 40}
                         />
                     }
                     showsVerticalScrollIndicator={false}
                 >
+                    {/* Header integrado en el scroll */}
+                    <LinearGradient
+                        colors={['#001F3F', '#003E85', '#0056B3']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 1 }}
+                        style={[styles.headerGradient, isDesktop && styles.headerWeb]}
+                    >
+                        <View style={[styles.contentConstraint, styles.headerFlex]}>
+                            <View style={styles.greetingContainer}>
+                                <Text style={styles.greeting}>Bienvenido de nuevo,</Text>
+                                <Text style={styles.userName}>{displayName}</Text>
+                                <View style={styles.statusDot}>
+                                    <View style={styles.dotInner} />
+                                </View>
+                            </View>
+                            <TouchableOpacity onPress={onNavigateToNotifications} style={styles.notificationButton}>
+                                <View style={styles.notificationIconBg}>
+                                    <Ionicons name="notifications" size={24} color="#FFF" />
+                                </View>
+                                {unreadNotifications > 0 && (
+                                    <View style={styles.badge}>
+                                        <Text style={styles.badgeText}>
+                                            {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                                        </Text>
+                                    </View>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </LinearGradient>
+
                     <View style={styles.contentConstraint}>
 
                         {/* Tarjeta EPI Score Rediseñada */}
@@ -391,7 +390,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             </AnimatedCard>
                         </View>
 
-                        {/* Invitaciones Recientes Mejoradas */}
+                        {/* Invitaciones Recientes */}
                         <AnimatedCard delay={400}>
                             <View style={styles.recentSection}>
                                 <View style={styles.sectionHeader}>
@@ -508,15 +507,17 @@ const styles = StyleSheet.create({
     },
     headerGradient: {
         paddingTop: Platform.OS === 'ios' ? 50 : 40,
-        paddingBottom: 50,
+        // CORRECCIÓN: Aumentado el padding inferior para asegurar espacio para la tarjeta flotante
+        paddingBottom: 70,
         width: '100%',
         alignItems: 'center',
         borderBottomLeftRadius: 40,
         borderBottomRightRadius: 40,
+        // Eliminado position: relative innecesario en este contexto
     },
     headerWeb: {
         paddingTop: 30,
-        paddingBottom: 60,
+        paddingBottom: 80, // Más espacio en web
     },
     headerFlex: {
         flexDirection: 'row',
@@ -605,7 +606,7 @@ const styles = StyleSheet.create({
     mainCard: {
         backgroundColor: '#FFFFFF',
         borderRadius: 28,
-        marginTop: -30,
+        marginTop: -30, // Se mantiene el margen negativo para el efecto visual
         shadowColor: "#003E85",
         shadowOffset: { width: 0, height: 12 },
         shadowOpacity: 0.15,

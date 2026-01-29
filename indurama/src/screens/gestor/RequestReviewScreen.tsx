@@ -20,10 +20,9 @@ import { getRequestById, updateRequestStatus, getRelativeTime } from '../../serv
 import { NotificationService } from '../../services/notificationService';
 import { Request, RequestStatus, RequestPriority, User } from '../../types';
 import { RequestProcessStepper } from '../../components/RequestProcessStepper';
-import { ProcessHeader } from '../../components/ProcessHeader';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { Ionicons } from '@expo/vector-icons';
-
+import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 
 interface RequestReviewScreenProps {
   requestId?: string;
@@ -33,11 +32,11 @@ interface RequestReviewScreenProps {
   onNavigateToSupplierDetail?: (supplierId: string) => void;
   onApprove?: (requestId: string, comment?: string) => void;
   onReject?: (requestId: string, comment: string) => void;
-  currentUser?: User | null; // Added prop
+  currentUser?: User | null;
+  onNavigateToNotifications?: () => void;
 }
 
 const { width } = Dimensions.get('window');
-// const isMobile = width < 768;
 
 export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   requestId,
@@ -47,10 +46,10 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   onNavigateToSupplierDetail,
   onApprove,
   onReject,
-  currentUser
+  currentUser,
+  onNavigateToNotifications
 }) => {
   const { user: contextUser, isLoading: authLoading } = useAuth();
-  // Fallback to prop user if context user is missing (Test Mode support)
   const user = contextUser || currentUser;
   const [request, setRequest] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
@@ -62,6 +61,12 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   const [comment, setComment] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRectificationModal, setShowRectificationModal] = useState(false);
+
+  const navItems = [
+    { key: 'Dashboard', label: 'Inicio', iconName: 'home' as const, onPress: onNavigateToDashboard || (() => { }) },
+    { key: 'Requests', label: 'Solicitudes', iconName: 'document-text' as const, onPress: onNavigateToDashboard || (() => { }) },
+    { key: 'Back', label: 'Volver', iconName: 'arrow-back' as const, onPress: onNavigateBack || (() => { }) },
+  ];
 
   const loadRequest = useCallback(async () => {
     if (!requestId) return;
@@ -88,10 +93,8 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
 
     try {
       setActionLoading(true);
-      // Logic: If pending, change to IN_PROGRESS (Approved/In Review)
       await updateRequestStatus(request.id, RequestStatus.IN_PROGRESS, user.id);
 
-      // Notify Solicitante
       try {
         await NotificationService.create({
           userId: request.userId,
@@ -106,11 +109,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       }
 
       setShowApprovalModal(false);
-
-      // Auto-navigate without blocking alert
-      if (Platform.OS === 'web') {
-        // window.alert('Solicitud validada. Redirigiendo a búsqueda de proveedores...');
-      }
       onNavigateToProveedores?.(request.id);
     } finally {
       setActionLoading(false);
@@ -128,7 +126,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       setActionLoading(true);
       await updateRequestStatus(request.id, RequestStatus.REJECTED, user.id);
 
-      // Notify Solicitante
       try {
         await NotificationService.create({
           userId: request.userId,
@@ -166,10 +163,9 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
 
     try {
       setActionLoading(true);
-      // @ts-ignore: RECTIFICATION_REQUIRED is new
-      await updateRequestStatus(request.id, RequestStatus.RECTIFICATION_REQUIRED, user.id, comment); // Pass comment
+      // @ts-ignore
+      await updateRequestStatus(request.id, RequestStatus.RECTIFICATION_REQUIRED, user.id, comment);
 
-      // Notify Solicitante
       try {
         await NotificationService.create({
           userId: request.userId,
@@ -183,7 +179,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
         console.error('Error sending notification:', error);
       }
 
-      // Update local state immediately
       setRequest({
         ...request,
         status: RequestStatus.RECTIFICATION_REQUIRED,
@@ -203,9 +198,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   };
 
   const handleOpenDocument = async (url: string) => {
-    console.log('Attempting to open document URL:', url);
-
-    // Check for blob URL (invalid for other users)
     if (typeof url === 'string' && url.startsWith('blob:')) {
       const msg = 'Este documento tiene un enlace local caducado. El solicitante debe editar la solicitud y volver a subir el archivo.';
       if (Platform.OS === 'web') {
@@ -218,7 +210,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
 
     try {
       if (Platform.OS === 'web') {
-        // On Web, open immediately to avoid popup blockers
         window.open(url, '_blank');
       } else {
         const supported = await Linking.canOpenURL(url);
@@ -233,8 +224,6 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
       Alert.alert('Error', 'No se pudo abrir el archivo');
     }
   };
-
-
 
   if (loading || authLoading) {
     return (
@@ -256,331 +245,331 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="dark" />
+    <ResponsiveNavShell
+      title={request.code || "Validar Solicitud"}
+      navItems={navItems}
+      currentScreen="Requests"
+      onNavigateToNotifications={onNavigateToNotifications}
+      logo={require('../../../assets/icono_indurama.png')}
+    >
+      <View style={{ flex: 1, width: '100%', backgroundColor: '#F8F9FB' }}>
+        <StatusBar style="dark" />
 
-      <StatusBar style="dark" />
-      <ProcessHeader
-        title={request.code || 'SOLICITUD'}
-        onBack={onNavigateBack || (() => { })}
-      />
+        <ScrollView contentContainerStyle={[
+          styles.content,
+          isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
+        ]}>
 
-      <ScrollView contentContainerStyle={[
-        styles.content,
-        isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
-      ]}>
+          <Text style={styles.mainTitle}>{request.title || 'IDENTIFICAR NECESIDAD'}</Text>
+          <Text style={styles.subTitle}>Materia prima para línea de producción</Text>
 
-        <Text style={styles.mainTitle}>{request.title || 'IDENTIFICAR NECESIDAD'}</Text>
-        <Text style={styles.subTitle}>Materia prima para línea de producción</Text>
+          <RequestProcessStepper currentStep={1} />
 
-        <RequestProcessStepper currentStep={1} />
-
-        {/* Información del Solicitante */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Información del Solicitante</Text>
-          <View style={styles.userInfoRow}>
-            <View style={styles.avatarContainer}>
-              <Text style={styles.avatarText}>{request.userName ? request.userName.charAt(0) : 'U'}</Text>
-            </View>
-            <View>
-              <Text style={styles.userName}>{request.userName}</Text>
-              <Text style={styles.userRole}>
-                {request.companyIdentifier ? `${request.companyIdentifier} · ` : ''}
-                {request.department}
-              </Text>
-            </View>
-          </View>
-
-          <View style={isDesktopView ? { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -10 } : {}}>
-            <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
-              <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha de Solicitud:</Text><Text style={styles.infoValue}>{getRelativeTime(request.createdAt)}</Text></View>
-              <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha Límite:</Text><Text style={[styles.infoValue, { color: '#FF4444' }]}>{request.dueDate ? new Date(request.dueDate).toLocaleDateString() : 'N/A'}</Text></View>
-            </View>
-            <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
-              <View style={styles.infoRow}><Text style={styles.infoLabel}>Tipo de Proyecto:</Text><Text style={styles.infoValue}>{request.tipoProyecto || 'Presupuesto Aprobado'}</Text></View>
-              <View style={styles.infoRow}><Text style={styles.infoLabel}>Clase de Búsqueda:</Text><Text style={styles.infoValue}>{request.claseBusqueda || 'Materia Prima'}</Text></View>
-            </View>
-          </View>
-        </View>
-
-        {/* Detalle de la Necesidad */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Detalle de la Necesidad</Text>
-          <Text style={styles.descriptionText}>{request.description}</Text>
-        </View>
-
-        {/* Supplier Criteria - NEW */}
-        {(request.requiredBusinessType || request.requiredCategories?.length ||
-          request.requiredTags?.length || request.customRequiredTags?.length) && (
-            <View style={styles.card}>
-              <Text style={styles.cardTitle}>Criterios de Búsqueda de Proveedor</Text>
-
-              {request.requiredBusinessType && request.requiredBusinessType !== 'cualquiera' && (
-                <View style={styles.infoRow}>
-                  <Text style={styles.infoLabel}>Tipo:</Text>
-                  <Text style={styles.infoValue}>
-                    {request.requiredBusinessType.charAt(0).toUpperCase() + request.requiredBusinessType.slice(1)}
-                  </Text>
-                </View>
-              )}
-
-              {request.requiredCategories && request.requiredCategories.length > 0 && (
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={styles.infoLabel}>Categorías:</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    {request.requiredCategories.map((cat, idx) => (
-                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#D1D5DB' }}>
-                        <Text style={{ fontSize: 12, color: '#4B5563' }}>{cat.replace(/_/g, ' ')}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {request.requiredTags && request.requiredTags.length > 0 && (
-                <View style={{ marginBottom: 10 }}>
-                  <Text style={styles.infoLabel}>Tags:</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    {request.requiredTags.map((tag, idx) => (
-                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#3B82F6' }}>
-                        <Text style={{ fontSize: 12, color: '#1E40AF' }}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-
-              {request.customRequiredTags && request.customRequiredTags.length > 0 && (
-                <View>
-                  <Text style={styles.infoLabel}>Custom:</Text>
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
-                    {request.customRequiredTags.map((tag, idx) => (
-                      <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D' }}>
-                        <Text style={{ fontSize: 12, color: '#92400E' }}>{tag}</Text>
-                      </View>
-                    ))}
-                  </View>
-                </View>
-              )}
-            </View>
-          )}
-
-        {/* Sugerencia de Proveedor */}
-        <View style={styles.card}>
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-            <Image source={require('../../../assets/icons/comment.png')} style={{ width: 22, height: 22, marginRight: 10, tintColor: '#003E85' }} resizeMode="contain" />
-            <Text style={[styles.cardTitle, { marginBottom: 0 }]}>Sugerencia de Proveedor</Text>
-          </View>
-
-          {request.supplierSuggestion ? (
-            <View
-              style={[
-                isDesktopView ? { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } : {},
-                { width: '100%' }
-              ]}
-            >
-              <View style={styles.supplierRow}>
-                <View style={styles.supplierAvatar}><Text style={styles.supplierAvatarText}>{request.supplierSuggestion.charAt(0)}</Text></View>
-                <View>
-                  <Text style={styles.supplierName}>{request.supplierSuggestion}</Text>
-                  <Text style={styles.supplierSub}>Proveedor sugerido</Text>
-                </View>
+          {/* Información del Solicitante */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Información del Solicitante</Text>
+            <View style={styles.userInfoRow}>
+              <View style={styles.avatarContainer}>
+                <Text style={styles.avatarText}>{request.userName ? request.userName.charAt(0) : 'U'}</Text>
+              </View>
+              <View>
+                <Text style={styles.userName}>{request.userName}</Text>
+                <Text style={styles.userRole}>
+                  {request.companyIdentifier ? `${request.companyIdentifier} · ` : ''}
+                  {request.department}
+                </Text>
               </View>
             </View>
-          ) : (
-            <Text style={{ color: '#666', fontStyle: 'italic', marginLeft: 32 }}>No hay sugerencia de proveedor.</Text>
-          )}
-        </View>
 
-        {/* Documentos */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Documentos Técnicos Adjuntos</Text>
-          <View style={styles.grayBox}>
-            <Text style={{ fontWeight: 'bold', marginBottom: 10, color: '#555' }}>Documentos Adjuntos</Text>
-            {/* @ts-ignore: documents property issue */}
-            {request.documents && request.documents.length > 0 ? (
-              // @ts-ignore
-              // @ts-ignore
-              request.documents.map((doc: any, index: number) => (
-                <TouchableOpacity
-                  key={index}
-                  style={styles.docItem}
-                  onPress={() => handleOpenDocument(doc.url)}
-                >
-                  <View style={styles.docIconContainer}><Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20, tintColor: '#003E85' }} resizeMode="contain" /></View>
-                  <View style={{ flex: 1, marginLeft: 10 }}>
-                    <Text style={{ fontWeight: 'bold', color: '#333' }}>{doc.name || `Documento ${index + 1}`}</Text>
-                    <Text style={{ fontSize: 12, color: '#999' }}>Click para abrir</Text>
+            <View style={isDesktopView ? { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -10 } : {}}>
+              <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
+                <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha de Solicitud:</Text><Text style={styles.infoValue}>{getRelativeTime(request.createdAt)}</Text></View>
+                <View style={styles.infoRow}><Text style={styles.infoLabel}>Fecha Límite:</Text><Text style={[styles.infoValue, { color: '#FF4444' }]}>{request.dueDate ? new Date(request.dueDate).toLocaleDateString() : 'N/A'}</Text></View>
+              </View>
+              <View style={isDesktopView ? { width: '50%', paddingHorizontal: 10 } : {}}>
+                <View style={styles.infoRow}><Text style={styles.infoLabel}>Tipo de Proyecto:</Text><Text style={styles.infoValue}>{request.tipoProyecto || 'Presupuesto Aprobado'}</Text></View>
+                <View style={styles.infoRow}><Text style={styles.infoLabel}>Clase de Búsqueda:</Text><Text style={styles.infoValue}>{request.claseBusqueda || 'Materia Prima'}</Text></View>
+              </View>
+            </View>
+          </View>
+
+          {/* Detalle de la Necesidad */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Detalle de la Necesidad</Text>
+            <Text style={styles.descriptionText}>{request.description}</Text>
+          </View>
+
+          {/* Supplier Criteria */}
+          {(request.requiredBusinessType || request.requiredCategories?.length ||
+            request.requiredTags?.length || request.customRequiredTags?.length) && (
+              <View style={styles.card}>
+                <Text style={styles.cardTitle}>Criterios de Búsqueda de Proveedor</Text>
+
+                {request.requiredBusinessType && request.requiredBusinessType !== 'cualquiera' && (
+                  <View style={styles.infoRow}>
+                    <Text style={styles.infoLabel}>Tipo:</Text>
+                    <Text style={styles.infoValue}>
+                      {request.requiredBusinessType.charAt(0).toUpperCase() + request.requiredBusinessType.slice(1)}
+                    </Text>
                   </View>
-                  <Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
-                </TouchableOpacity>
-              ))
+                )}
+
+                {request.requiredCategories && request.requiredCategories.length > 0 && (
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={styles.infoLabel}>Categorías:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      {request.requiredCategories.map((cat, idx) => (
+                        <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#F3F4F6', borderWidth: 1, borderColor: '#D1D5DB' }}>
+                          <Text style={{ fontSize: 12, color: '#4B5563' }}>{cat.replace(/_/g, ' ')}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {request.requiredTags && request.requiredTags.length > 0 && (
+                  <View style={{ marginBottom: 10 }}>
+                    <Text style={styles.infoLabel}>Tags:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      {request.requiredTags.map((tag, idx) => (
+                        <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#DBEAFE', borderWidth: 1, borderColor: '#3B82F6' }}>
+                          <Text style={{ fontSize: 12, color: '#1E40AF' }}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+
+                {request.customRequiredTags && request.customRequiredTags.length > 0 && (
+                  <View>
+                    <Text style={styles.infoLabel}>Custom:</Text>
+                    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginTop: 6 }}>
+                      {request.customRequiredTags.map((tag, idx) => (
+                        <View key={idx} style={{ paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12, backgroundColor: '#FEF3C7', borderWidth: 1, borderColor: '#FCD34D' }}>
+                          <Text style={{ fontSize: 12, color: '#92400E' }}>{tag}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  </View>
+                )}
+              </View>
+            )}
+
+          {/* Sugerencia de Proveedor */}
+          <View style={styles.card}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
+              <Image source={require('../../../assets/icons/comment.png')} style={{ width: 22, height: 22, marginRight: 10, tintColor: '#003E85' }} resizeMode="contain" />
+              <Text style={[styles.cardTitle, { marginBottom: 0 }]}>Sugerencia de Proveedor</Text>
+            </View>
+
+            {request.supplierSuggestion ? (
+              <View
+                style={[
+                  isDesktopView ? { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' } : {},
+                  { width: '100%' }
+                ]}
+              >
+                <View style={styles.supplierRow}>
+                  <View style={styles.supplierAvatar}><Text style={styles.supplierAvatarText}>{request.supplierSuggestion.charAt(0)}</Text></View>
+                  <View>
+                    <Text style={styles.supplierName}>{request.supplierSuggestion}</Text>
+                    <Text style={styles.supplierSub}>Proveedor sugerido</Text>
+                  </View>
+                </View>
+              </View>
             ) : (
-              <Text style={{ color: '#999' }}>No hay documentos.</Text>
+              <Text style={{ color: '#666', fontStyle: 'italic', marginLeft: 32 }}>No hay sugerencia de proveedor.</Text>
             )}
           </View>
-        </View>
 
-        {/* Agregar Comentario - SOLO EN FASE IDENTIFICAR (PENDING) Y SI NO HAY CORRECCION */}
-        {request.status === RequestStatus.PENDING && !request.rectificationComment && (
+          {/* Documentos */}
           <View style={styles.card}>
-            <Text style={styles.cardTitle}>Agregar Comentario</Text>
-            <Text style={styles.commentInstruction}>
-              El solicitante recibirá una notificación y podrá ver su comentario en la trazabilidad de la solicitud.
-            </Text>
-
-            <View style={styles.commentBox}>
-              <TextInput
-                style={styles.commentInput}
-                placeholder="Escriba sus observaciones o solicitudes adicionales..."
-                value={comment}
-                onChangeText={setComment}
-                multiline
-                numberOfLines={4}
-                placeholderTextColor="#9CA3AF"
-              />
+            <Text style={styles.cardTitle}>Documentos Técnicos Adjuntos</Text>
+            <View style={styles.grayBox}>
+              <Text style={{ fontWeight: 'bold', marginBottom: 10, color: '#555' }}>Documentos Adjuntos</Text>
+              {/* @ts-ignore */}
+              {request.documents && request.documents.length > 0 ? (
+                // @ts-ignore
+                request.documents.map((doc: any, index: number) => (
+                  <TouchableOpacity
+                    key={index}
+                    style={styles.docItem}
+                    onPress={() => handleOpenDocument(doc.url)}
+                  >
+                    <View style={styles.docIconContainer}><Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20, tintColor: '#003E85' }} resizeMode="contain" /></View>
+                    <View style={{ flex: 1, marginLeft: 10 }}>
+                      <Text style={{ fontWeight: 'bold', color: '#333' }}>{doc.name || `Documento ${index + 1}`}</Text>
+                      <Text style={{ fontSize: 12, color: '#999' }}>Click para abrir</Text>
+                    </View>
+                    <Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20 }} resizeMode="contain" />
+                  </TouchableOpacity>
+                ))
+              ) : (
+                <Text style={{ color: '#999' }}>No hay documentos.</Text>
+              )}
             </View>
+          </View>
 
-            <TouchableOpacity style={styles.sendCommentButton} onPress={handleRequestRectification} disabled={actionLoading}>
-              <Image source={require('../../../assets/icons/send.png')} style={{ width: 16, height: 16, tintColor: '#FFF', marginRight: 8 }} />
-              <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Solicitar Corrección</Text>
-            </TouchableOpacity>
+          {/* Agregar Comentario */}
+          {request.status === RequestStatus.PENDING && !request.rectificationComment && (
+            <View style={styles.card}>
+              <Text style={styles.cardTitle}>Agregar Comentario</Text>
+              <Text style={styles.commentInstruction}>
+                El solicitante recibirá una notificación y podrá ver su comentario en la trazabilidad de la solicitud.
+              </Text>
+
+              <View style={styles.commentBox}>
+                <TextInput
+                  style={styles.commentInput}
+                  placeholder="Escriba sus observaciones o solicitudes adicionales..."
+                  value={comment}
+                  onChangeText={setComment}
+                  multiline
+                  numberOfLines={4}
+                  placeholderTextColor="#9CA3AF"
+                />
+              </View>
+
+              <TouchableOpacity style={styles.sendCommentButton} onPress={handleRequestRectification} disabled={actionLoading}>
+                <Image source={require('../../../assets/icons/send.png')} style={{ width: 16, height: 16, tintColor: '#FFF', marginRight: 8 }} />
+                <Text style={{ color: '#FFF', fontWeight: 'bold' }}>Solicitar Corrección</Text>
+              </TouchableOpacity>
+            </View>
+          )}
+
+          {/* Mostrar Corrección Solicitada */}
+          {request.rectificationComment && (
+            <View style={[styles.card, { backgroundColor: '#FFF3E0', borderColor: '#FFE0B2', borderWidth: 1 }]}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
+                <Image source={require('../../../assets/icons/bell.png')} style={{ width: 20, height: 20, tintColor: '#F57C00', marginRight: 10 }} resizeMode="contain" />
+                <Text style={[styles.cardTitle, { color: '#E65100', marginBottom: 0 }]}>Corrección Solicitada</Text>
+              </View>
+              <Text style={{ color: '#5D4037', marginBottom: 10 }}>Usted ha solicitado la siguiente corrección:</Text>
+              <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 5, borderLeftWidth: 3, borderLeftColor: '#F57C00' }}>
+                <Text style={{ fontStyle: 'italic', color: '#333' }}>"{request.rectificationComment}"</Text>
+              </View>
+            </View>
+          )}
+
+          <View style={styles.bottomSpacing} />
+
+        </ScrollView>
+
+        {/* Footer Actions */}
+        {request.status === RequestStatus.PENDING && (
+          <View style={styles.footerContainer}>
+            <View style={styles.footerContent}>
+              <TouchableOpacity
+                style={styles.rejectButton}
+                onPress={handleReject}
+                disabled={actionLoading}
+              >
+                <Image source={require('../../../assets/icons/close.png')} style={styles.rejectIcon} resizeMode="contain" />
+                <Text style={styles.rejectButtonText}>Rechazar</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.validateButton}
+                onPress={() => setShowApprovalModal(true)}
+                disabled={actionLoading}
+              >
+                <Image source={require('../../../assets/icons/check.png')} style={styles.validateIcon} resizeMode="contain" />
+                <Text style={styles.validateButtonText}>Validar y Buscar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         )}
 
-        {/* Mostrar Corrección Solicitada - SI EXISTE UN COMENTARIO */}
-        {request.rectificationComment && (
-          <View style={[styles.card, { backgroundColor: '#FFF3E0', borderColor: '#FFE0B2', borderWidth: 1 }]}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
-              <Image source={require('../../../assets/icons/bell.png')} style={{ width: 20, height: 20, tintColor: '#F57C00', marginRight: 10 }} resizeMode="contain" />
-              <Text style={[styles.cardTitle, { color: '#E65100', marginBottom: 0 }]}>Corrección Solicitada</Text>
-            </View>
-            <Text style={{ color: '#5D4037', marginBottom: 10 }}>Usted ha solicitado la siguiente corrección:</Text>
-            <View style={{ backgroundColor: '#FFF', padding: 10, borderRadius: 5, borderLeftWidth: 3, borderLeftColor: '#F57C00' }}>
-              <Text style={{ fontStyle: 'italic', color: '#333' }}>"{request.rectificationComment}"</Text>
+        {request.status === RequestStatus.IN_PROGRESS && (
+          <View style={styles.footerContainer}>
+            <View style={styles.footerContent}>
+              <TouchableOpacity
+                style={[styles.validateButton, { flex: 1, backgroundColor: '#10B981' }]}
+                onPress={() => onNavigateToProveedores?.(request.id)}
+              >
+                <Image source={require('../../../assets/icons/search.png')} style={styles.validateIcon} resizeMode="contain" />
+                <Text style={styles.validateButtonText}>Continuar a Búsqueda de Proveedores</Text>
+              </TouchableOpacity>
             </View>
           </View>
         )}
 
-        <View style={styles.bottomSpacing} />
-
-      </ScrollView>
-
-      {/* Footer Actions - Only for PENDING */}
-      {request.status === RequestStatus.PENDING && (
-        <View style={styles.footerContainer}>
-          <View style={styles.footerContent}>
-            <TouchableOpacity
-              style={styles.rejectButton}
-              onPress={handleReject}
-              disabled={actionLoading}
-            >
-              <Image source={require('../../../assets/icons/close.png')} style={styles.rejectIcon} resizeMode="contain" />
-              <Text style={styles.rejectButtonText}>Rechazar</Text>
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.validateButton}
-              onPress={() => setShowApprovalModal(true)}
-              disabled={actionLoading}
-            >
-              <Image source={require('../../../assets/icons/check.png')} style={styles.validateIcon} resizeMode="contain" />
-              <Text style={styles.validateButtonText}>Validar y Buscar</Text>
-            </TouchableOpacity>
+        {/* @ts-ignore */}
+        {request.status === RequestStatus.RECTIFICATION_REQUIRED && (
+          <View style={[styles.footerContainer, { backgroundColor: '#FFF3CD', borderTopColor: '#FFECB3' }]}>
+            <View style={[styles.footerContent, { justifyContent: 'center' }]}>
+              <Text style={{ color: '#856404', fontWeight: 'bold' }}>⚠️ Esperando corrección del solicitante...</Text>
+            </View>
           </View>
-        </View>
-      )}
+        )}
 
-      {/* Footer Actions - For IN_PROGRESS (Already Approved) */}
-      {request.status === RequestStatus.IN_PROGRESS && (
-        <View style={styles.footerContainer}>
-          <View style={styles.footerContent}>
-            <TouchableOpacity
-              style={[styles.validateButton, { flex: 1, backgroundColor: '#10B981' }]}
-              onPress={() => onNavigateToProveedores?.(request.id)}
-            >
-              <Image source={require('../../../assets/icons/search.png')} style={styles.validateIcon} resizeMode="contain" />
-              <Text style={styles.validateButtonText}>Continuar a Búsqueda de Proveedores</Text>
-            </TouchableOpacity>
+        {/* Modal de Confirmación */}
+        <Modal
+          visible={showApprovalModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowApprovalModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>¿Validar Solicitud?</Text>
+              <Text style={styles.modalMessage}>
+                Esta acción validará la solicitud y procederá a la fase de búsqueda de proveedores.
+              </Text>
+
+              <TouchableOpacity
+                style={styles.modalApproveButton}
+                onPress={handleApprove}
+              >
+                {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Confirmar Validación</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowApprovalModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
+        </Modal>
 
-      {/* @ts-ignore: RECTIFICATION_REQUIRED is new */}
-      {request.status === RequestStatus.RECTIFICATION_REQUIRED && (
-        <View style={[styles.footerContainer, { backgroundColor: '#FFF3CD', borderTopColor: '#FFECB3' }]}>
-          <View style={[styles.footerContent, { justifyContent: 'center' }]}>
-            <Text style={{ color: '#856404', fontWeight: 'bold' }}>⚠️ Esperando corrección del solicitante...</Text>
+        {/* Modal de Rectificación */}
+        <Modal
+          visible={showRectificationModal}
+          transparent={true}
+          animationType="fade"
+          onRequestClose={() => setShowRectificationModal(false)}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContent}>
+              <Text style={styles.modalTitle}>¿Solicitar Corrección?</Text>
+              <Text style={styles.modalMessage}>
+                Esta acción devolverá la solicitud al solicitante para que realice los cambios indicados en el comentario.
+              </Text>
+              <Text style={[styles.modalMessage, { fontStyle: 'italic', color: '#555', marginTop: -10 }]}>
+                "{comment}"
+              </Text>
+
+              <TouchableOpacity
+                style={[styles.modalApproveButton, { backgroundColor: '#F59E0B' }]}
+                onPress={confirmRectification}
+              >
+                {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Solicitar Corrección</Text>}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.modalCancelButton}
+                onPress={() => setShowRectificationModal(false)}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
-        </View>
-      )}
+        </Modal>
 
-      {/* Modal de Confirmación */}
-      <Modal
-        visible={showApprovalModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowApprovalModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>¿Validar Solicitud?</Text>
-            <Text style={styles.modalMessage}>
-              Esta acción validará la solicitud y procederá a la fase de búsqueda de proveedores.
-            </Text>
-
-            <TouchableOpacity
-              style={styles.modalApproveButton}
-              onPress={handleApprove}
-            >
-              {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Confirmar Validación</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowApprovalModal(false)}
-            >
-              <Text style={styles.modalCancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Modal de Rectificación */}
-      <Modal
-        visible={showRectificationModal}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={() => setShowRectificationModal(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>¿Solicitar Corrección?</Text>
-            <Text style={styles.modalMessage}>
-              Esta acción devolverá la solicitud al solicitante para que realice los cambios indicados en el comentario.
-            </Text>
-            <Text style={[styles.modalMessage, { fontStyle: 'italic', color: '#555', marginTop: -10 }]}>
-              "{comment}"
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.modalApproveButton, { backgroundColor: '#F59E0B' }]}
-              onPress={confirmRectification}
-            >
-              {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Solicitar Corrección</Text>}
-            </TouchableOpacity>
-
-            <TouchableOpacity
-              style={styles.modalCancelButton}
-              onPress={() => setShowRectificationModal(false)}
-            >
-              <Text style={styles.modalCancelButtonText}>Cancelar</Text>
-            </TouchableOpacity>
-          </View>
-        </View>
-      </Modal>
-
-    </View>
+      </View>
+    </ResponsiveNavShell>
   );
 };
 
@@ -588,7 +577,6 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FB' },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  // Header styles removed (using component)
   content: { padding: 20 },
   mainTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 5 },
   subTitle: { fontSize: 14, color: '#666', marginBottom: 20 },
