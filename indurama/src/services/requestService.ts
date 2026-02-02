@@ -406,3 +406,93 @@ export const getEfficiencyMetrics = async (): Promise<{
         return { approvalRate: 0, averageTimeDays: 0, averageCost: 0 };
     }
 };
+
+/**
+ * Calculate business days from a start date
+ */
+export const addBusinessDays = (startDate: Date, days: number): Date => {
+    const result = new Date(startDate);
+    let addedDays = 0;
+    while (addedDays < days) {
+        result.setDate(result.getDate() + 1);
+        const dayOfWeek = result.getDay();
+        if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+            addedDays++;
+        }
+    }
+    return result;
+};
+
+/**
+ * Report non-compliance (Solicitante reports that provider didn't deliver)
+ * Changes status from 'awarded' to 'reopened_noncompliance'
+ */
+export const reportNonCompliance = async (
+    requestId: string,
+    userId: string,
+    reason: string
+): Promise<void> => {
+    try {
+        const requestRef = doc(db, 'requests', requestId);
+        const requestSnap = await getDoc(requestRef);
+
+        if (!requestSnap.exists()) {
+            throw new Error('Solicitud no encontrada');
+        }
+
+        const requestData = requestSnap.data();
+
+        // Validate current status is awarded
+        if (requestData.status !== RequestStatus.AWARDED && requestData.status !== 'adjudicado') {
+            throw new Error('Solo se puede reportar incumplimiento en solicitudes adjudicadas');
+        }
+
+        const previousWinnerId = requestData.winnerId;
+        const previousWinnerQuotationId = requestData.winnerQuotationId;
+
+        // Update request status to reopened
+        await updateDoc(requestRef, {
+            status: RequestStatus.REOPENED_NONCOMPLIANCE,
+            nonComplianceReportedAt: serverTimestamp(),
+            nonComplianceReason: reason,
+            previousWinnerId,
+            previousWinnerQuotationId,
+            reselectionCount: (requestData.reselectionCount || 0) + 1,
+            // Clear winner fields for re-selection
+            winnerId: null,
+            winnerQuotationId: null,
+            updatedAt: serverTimestamp()
+        });
+
+        // Mark the original quotation as revoked
+        if (previousWinnerQuotationId) {
+            const quotationRef = doc(db, 'quotations', previousWinnerQuotationId);
+            await updateDoc(quotationRef, {
+                status: 'revoked',
+                isWinner: false,
+                revokedAt: serverTimestamp(),
+                revokedReason: reason
+            });
+        }
+
+        console.log(`Non-compliance reported for request ${requestId}`);
+    } catch (error) {
+        console.error(`Error reporting non-compliance for request ${requestId}:`, error);
+        throw error;
+    }
+};
+
+/**
+ * Get the delivery deadline for an awarded request
+ */
+export const getDeliveryDeadline = (request: Request): Date | null => {
+    if (!request.adjudicatedAt || !request.winnerDeliveryDays) {
+        return null;
+    }
+
+    const adjudicatedDate = request.adjudicatedAt.toDate
+        ? request.adjudicatedAt.toDate()
+        : new Date(request.adjudicatedAt);
+
+    return addBusinessDays(adjudicatedDate, request.winnerDeliveryDays);
+};

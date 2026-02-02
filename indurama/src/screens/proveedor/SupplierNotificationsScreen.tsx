@@ -17,6 +17,7 @@ import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { NotificationService } from '../../services/notificationService';
 import { AppNotification } from '../../types';
 import { useAuth } from '../../hooks/useAuth';
+import { useTranslation } from 'react-i18next';
 
 interface SupplierNotificationsScreenProps {
     onNavigateToQuotations: () => void;
@@ -37,12 +38,13 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [loading, setLoading] = useState(false);
     const [refreshing, setRefreshing] = useState(false);
+    const { t } = useTranslation();
 
     const navItems = [
-        { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: onNavigateToDashboard },
-        { key: 'Quotations', label: 'Cotizaciones', iconName: 'pricetags-outline' as any, onPress: onNavigateToQuotations },
-        { key: 'Profile', label: 'Perfil', iconName: 'person-outline' as any, onPress: onNavigateToProfile },
-        { key: 'Logout', label: 'Salir', iconName: 'log-out-outline' as any, onPress: onLogout },
+        { key: 'Dashboard', label: t('navigation.home'), iconName: 'home' as any, onPress: onNavigateToDashboard },
+        { key: 'Quotations', label: t('navigation.quotations'), iconName: 'pricetags-outline' as any, onPress: onNavigateToQuotations },
+        { key: 'Profile', label: t('navigation.profile'), iconName: 'person-outline' as any, onPress: onNavigateToProfile },
+        { key: 'Logout', label: t('auth.logout'), iconName: 'log-out-outline' as any, onPress: onLogout },
     ];
 
     const loadNotifications = async () => {
@@ -123,6 +125,52 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
         return date.toLocaleDateString('es-ES');
     };
 
+    const getTranslatedTitle = (title: string) => {
+        if (title === '¡Felicitaciones!' || title === '🏆 ¡Felicitaciones!') return t('notifications.congratulations');
+        if (title === 'Resultado de Cotización') return t('notifications.quotationResult');
+        if (title === 'Nueva Invitación a Cotizar') return t('notifications.newInvitation');
+        if (title === 'Proveedor Seleccionado') return t('notifications.supplierSelected');
+        if (title === 'Cotización Recibida') return t('notifications.quotationReceived');
+        if (title === 'Registro Aprobado') return t('notifications.registrationApproved'); // Possible legacy
+        return title;
+    };
+
+    const getTranslatedMessage = (message: string) => {
+        if (!message) return '';
+
+        // Invitation
+        if (message.startsWith('Has sido invitado a cotizar')) {
+            const code = message.split('#')[1]?.trim() || '';
+            return t('notifications.invitationMessage', { code });
+        }
+
+        // Winner
+        if (message.startsWith('Tu oferta fue seleccionada')) {
+            const code = message.split('#')[1]?.trim() || '';
+            return t('notifications.quotationWinnerMessage', { code });
+        }
+
+        // Rejected
+        if (message.startsWith('Gracias por participar')) {
+            const parts = message.split('#');
+            if (parts.length > 1) {
+                // "CODE. text..."
+                const code = parts[1].split('.')[0].trim().split(' ')[0];
+                return t('notifications.quotationRejectedMessage', { code });
+            }
+        }
+
+        // Supplier Selected (for Requestor, but maybe visible here?)
+        if (message.startsWith('Se seleccionó a')) {
+            const match = message.match(/Se seleccionó a (.*) para tu solicitud #(.*)/);
+            if (match) {
+                return t('notifications.supplierSelectedMessage', { supplier: match[1], code: match[2] });
+            }
+        }
+
+        return message;
+    };
+
     const renderNotification = ({ item }: { item: AppNotification }) => {
         const icon = getNotificationIcon(item.type);
 
@@ -135,9 +183,9 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
                     <Ionicons name={icon.name} size={24} color={icon.color} />
                 </View>
                 <View style={styles.notificationContent}>
-                    <Text style={styles.notificationTitle}>{item.title}</Text>
+                    <Text style={styles.notificationTitle}>{getTranslatedTitle(item.title)}</Text>
                     <Text style={styles.notificationMessage} numberOfLines={2}>
-                        {item.message}
+                        {getTranslatedMessage(item.message)}
                     </Text>
                     <Text style={styles.notificationTime}>{formatDate(item.createdAt)}</Text>
                 </View>
@@ -160,10 +208,10 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
                 {/* Header */}
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.headerTitle}>Notificaciones</Text>
+                        <Text style={styles.headerTitle}>{t('navigation.notifications')}</Text>
                         {unreadCount > 0 && (
                             <Text style={styles.unreadCount}>
-                                {unreadCount} sin leer
+                                {unreadCount} {t('notifications.unread')}
                             </Text>
                         )}
                     </View>
@@ -172,7 +220,7 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
                             onPress={handleMarkAllAsRead}
                             style={styles.markAllButton}
                         >
-                            <Text style={styles.markAllText}>Marcar todas</Text>
+                            <Text style={styles.markAllText}>{t('notifications.markAllAsRead')}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -181,7 +229,7 @@ export const SupplierNotificationsScreen: React.FC<SupplierNotificationsScreenPr
                 {notifications.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Ionicons name="notifications-off-outline" size={64} color="#ccc" />
-                        <Text style={styles.emptyText}>No tienes notificaciones</Text>
+                        <Text style={styles.emptyText}>{t('notifications.noNotifications')}</Text>
                     </View>
                 ) : (
                     <FlatList

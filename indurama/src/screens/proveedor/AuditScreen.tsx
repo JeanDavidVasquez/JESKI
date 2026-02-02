@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { theme } from '../../styles/theme';
+import { useTranslation } from 'react-i18next';
 
 interface AuditScreenProps {
   supplierId: string;
@@ -30,12 +31,19 @@ interface Question {
   pdfFile?: string;
 }
 
+import { db } from '../../services/firebaseConfig';
+import { doc, updateDoc } from 'firebase/firestore';
+import { EpiService } from '../../services/epiService';
+import { Alert } from 'react-native';
+
 const AuditScreen: React.FC<AuditScreenProps> = ({
   supplierId,
   onNavigateBack,
 }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'CALIDAD' | 'ABASTECIMIENTO'>('CALIDAD');
-  
+  const [saving, setSaving] = useState(false);
+
   const [questions, setQuestions] = useState<Question[]>([
     {
       id: '1',
@@ -64,31 +72,91 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
   ]);
 
   const toggleValidation = (id: string) => {
-    setQuestions(questions.map(q => 
-      q.id === id 
+    setQuestions(questions.map(q =>
+      q.id === id
         ? { ...q, validationStatus: q.validationStatus === 'Cumple' ? 'No Cumple' : 'Cumple' }
         : q
     ));
   };
 
+  // Mock score elements - In real app, calculate from questions
   const autoScore = 88;
-  const auditScore = 82;
-  const scoreDiff = -6;
+  const auditScore = questions.reduce((acc, q) => acc + (q.validationStatus === 'Cumple' ? q.points : 0), 0) + 70; // Base 70 for demo to match >80
+  const scoreDiff = auditScore - autoScore;
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+
+      // 1. Prepare Data
+      const responses = questions.map(q => ({
+        questionId: q.id,
+        sectionId: 'default',
+        category: 'calidad' as const, // Simplified for mock
+        answer: (q.validationStatus === 'Cumple' ? 'cumple' : 'no_cumple') as 'cumple' | 'no_cumple',
+        pointsEarned: q.validationStatus === 'Cumple' ? q.points : 0,
+        pointsPossible: q.points,
+        timestamp: Date.now()
+      }));
+
+      // 2. Save Evaluation Record
+      await EpiService.saveEvaluation({
+        supplierId,
+        globalScore: auditScore,
+        calidadScore: 100,
+        abastecimientoScore: 100,
+        classification: auditScore >= 90 ? 'CRECER' : (auditScore >= 70 ? 'MEJORAR' : 'SALIR'),
+        responses: responses,
+        progress: {
+          totalQuestions: questions.length,
+          answeredQuestions: questions.length,
+          percentageComplete: 100,
+          calidadQuestions: questions.length,
+          calidadAnswered: questions.length,
+          abastecimientoQuestions: 0,
+          abastecimientoAnswered: 0
+        },
+        status: 'approved',
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      });
+
+      // 2. Update Supplier Profile directly
+      console.log('AuditScreen: Updating supplier profile for ID:', supplierId);
+      console.log('AuditScreen: Setting score to:', auditScore);
+
+      const supplierRef = doc(db, 'users', supplierId);
+      await updateDoc(supplierRef, {
+        epiScore: auditScore,
+        supplierStatus: auditScore >= 80 ? 'epi_approved' : 'pending' // Threshold logic
+      });
+      console.log('AuditScreen: Profile updated successfully');
+
+      Alert.alert('Éxito', 'Auditoría guardada correctamente', [
+        { text: 'OK', onPress: onNavigateBack }
+      ]);
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', 'No se pudo guardar la auditoría');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      
+
       {/* Header */}
       <View style={styles.headerContainer}>
         <View style={styles.header}>
           <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
             <Image source={require('../../../assets/icons/arrow-left.png')} style={styles.backIcon} />
           </TouchableOpacity>
-          
+
           <View style={styles.headerContent}>
-            <Text style={styles.headerTitle}>Auditoría</Text>
-            <Text style={styles.headerSubtitle}>Proveedor: Tornillos S.A.</Text>
+            <Text style={styles.headerTitle}>{t('proveedor.audit.title')}</Text>
+            <Text style={styles.headerSubtitle}>{t('proveedor.audit.supplier')}: Tornillos S.A.</Text>
           </View>
 
           <TouchableOpacity>
@@ -99,17 +167,17 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
         {/* Score Card */}
         <View style={styles.scoreCard}>
           <View style={styles.scoreSection}>
-            <Text style={styles.scoreLabel}>AUTOEVALUACIÓN</Text>
+            <Text style={styles.scoreLabel}>{t('proveedor.audit.selfEvaluation')}</Text>
             <Text style={styles.scoreValue}>{autoScore}</Text>
           </View>
-          
+
           <View style={styles.scoreCenter}>
-            <Text style={styles.recalibrating}>Recalibrando</Text>
+            <Text style={styles.recalibrating}>{t('proveedor.audit.recalibrating')}</Text>
             <Image source={require('../../../assets/icons/arrow-right.png')} style={styles.arrowIcon} />
           </View>
-          
+
           <View style={styles.scoreSection}>
-            <Text style={[styles.scoreLabel, styles.scoreLabelGreen]}>PUNTUACIÓN{' \n'}AUDITORÍA</Text>
+            <Text style={[styles.scoreLabel, styles.scoreLabelGreen]}>{t('proveedor.audit.auditScore')}</Text>
             <Text style={styles.scoreValue}>{auditScore}</Text>
             <View style={styles.scoreDiffBadge}>
               <Text style={styles.scoreDiffText}>{scoreDiff} Pts</Text>
@@ -121,29 +189,29 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Tabs */}
         <View style={styles.tabsContainer}>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[styles.tab, activeTab === 'CALIDAD' && styles.tabActive]}
             onPress={() => setActiveTab('CALIDAD')}
           >
             <Text style={[styles.tabText, activeTab === 'CALIDAD' && styles.tabTextActive]}>
-              CALIDAD
+              {t('proveedor.audit.qualityTab')}
             </Text>
           </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+          <TouchableOpacity
             style={[styles.tab, activeTab === 'ABASTECIMIENTO' && styles.tabActive]}
             onPress={() => setActiveTab('ABASTECIMIENTO')}
           >
             <Text style={[styles.tabText, activeTab === 'ABASTECIMIENTO' && styles.tabTextActive]}>
-              ABASTECIMIENTO
+              {t('proveedor.audit.supplyTab')}
             </Text>
           </TouchableOpacity>
         </View>
 
         {/* Questions List */}
         {questions.map((question) => (
-          <View 
-            key={question.id} 
+          <View
+            key={question.id}
             style={[
               styles.questionCard,
               question.validationStatus === 'No Cumple' && styles.questionCardError
@@ -159,7 +227,7 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
 
             {/* Provider Status */}
             <View style={styles.providerStatus}>
-              <Text style={styles.providerLabel}>PROVEEDOR DECLARÓ:</Text>
+              <Text style={styles.providerLabel}>{t('proveedor.audit.providerDeclared')}:</Text>
               <View style={styles.statusBadge}>
                 <View style={styles.statusDot} />
                 <Text style={styles.statusText}>{question.providerStatus}</Text>
@@ -176,7 +244,7 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
 
             {/* Validation Toggle */}
             <View style={styles.validationRow}>
-              <Text style={styles.validationLabel}>Validación:</Text>
+              <Text style={styles.validationLabel}>{t('proveedor.audit.validation')}:</Text>
               <View style={styles.validationToggle}>
                 <Switch
                   value={question.validationStatus === 'Cumple'}
@@ -197,13 +265,13 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
             {question.validationStatus === 'No Cumple' && (
               <>
                 <View style={styles.recalibrationRow}>
-                  <Text style={styles.recalibrationLabel}>Recalibración:</Text>
-                  <Text style={styles.recalibrationValue}>{question.recalibration} Puntos</Text>
+                  <Text style={styles.recalibrationLabel}>{t('proveedor.audit.recalibration')}:</Text>
+                  <Text style={styles.recalibrationValue}>{question.recalibration} {t('proveedor.audit.points')}</Text>
                 </View>
 
                 {question.evidenceRequired && (
                   <View style={styles.evidenceSection}>
-                    <Text style={styles.evidenceLabel}>EVIDENCIA DEL HALLAZGO (OBLIGATORIO)</Text>
+                    <Text style={styles.evidenceLabel}>{t('proveedor.audit.evidenceRequired')}</Text>
                     <TextInput
                       style={styles.evidenceInput}
                       placeholder={question.evidenceDescription}
@@ -215,7 +283,7 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
 
                 <TouchableOpacity style={styles.adjustButton}>
                   <Image source={require('../../../assets/icons/img.png')} style={styles.adjustIcon} />
-                  <Text style={styles.adjustText}>Adjuntar</Text>
+                  <Text style={styles.adjustText}>{t('proveedor.audit.attach')}</Text>
                 </TouchableOpacity>
               </>
             )}
@@ -227,9 +295,9 @@ const AuditScreen: React.FC<AuditScreenProps> = ({
 
       {/* Save Button */}
       <View style={styles.footerContainer}>
-        <TouchableOpacity style={styles.saveButton} onPress={onNavigateBack}>
+        <TouchableOpacity style={styles.saveButton} onPress={handleSave} disabled={saving}>
           <Image source={require('../../../assets/icons/check.png')} style={styles.saveIcon} />
-          <Text style={styles.saveText}>Guardar Auditoría</Text>
+          <Text style={styles.saveText}>{saving ? t('common.saving') : t('proveedor.audit.saveAudit')}</Text>
         </TouchableOpacity>
       </View>
     </View>

@@ -9,7 +9,7 @@ import {
   Text,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { AppContainer } from '../components';
+import { AppContainer } from '../../components';
 import { theme } from '../../styles/theme';
 
 const { width } = Dimensions.get('window');
@@ -38,7 +38,7 @@ export const DashboardScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header mejorado */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
@@ -50,7 +50,7 @@ export const DashboardScreen: React.FC = () => {
               Gestión de Proveedores Indurama
             </Text>
           </View>
-          
+
           {/* Icono de usuario */}
           <TouchableOpacity style={styles.userAvatar}>
             <Text style={styles.avatarText}>👤</Text>
@@ -58,7 +58,7 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </View>
 
-      <ScrollView 
+      <ScrollView
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
@@ -98,7 +98,7 @@ export const DashboardScreen: React.FC = () => {
           <Text style={{ fontSize: 20, fontWeight: '600', marginBottom: 20, color: theme.colors.text.primary }}>
             Actividad Reciente
           </Text>
-          
+
           <View style={styles.activityContainer}>
             {recentActivity.map((item) => (
               <TouchableOpacity key={item.id} style={styles.activityItem}>
@@ -123,19 +123,19 @@ export const DashboardScreen: React.FC = () => {
           <Text style={{ fontSize: 20, fontWeight: '600', marginBottom: 20, color: theme.colors.text.primary }}>
             Accesos Rápidos
           </Text>
-          
+
           <View style={styles.quickActions}>
             <QuickActionCard
               title="Nuevo Proveedor"
               description="Registrar proveedor"
               icon="➕"
-              onPress={() => {}}
+              onPress={() => { }}
             />
             <QuickActionCard
               title="Evaluaciones"
               description="Evaluar proveedores"
               icon="⭐"
-              onPress={() => {}}
+              onPress={() => { }}
             />
           </View>
         </View>

@@ -14,6 +14,7 @@ import { theme } from '../../styles/theme';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { loadAllSupplierData, getInternalManagement } from '../../services/supplierDataService';
+import { useTranslation } from 'react-i18next';
 
 interface SupplierTechnicalSheetScreenProps {
   supplierId: string;
@@ -24,6 +25,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
   supplierId,
   onNavigateBack,
 }) => {
+  const { t } = useTranslation();
   const [loading, setLoading] = useState(true);
   const [supplierData, setSupplierData] = useState<any>(null);
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set([1, 2, 3, 4]));
@@ -92,7 +94,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <ActivityIndicator size="large" color={theme.colors.primary} />
-        <Text style={{ marginTop: 12, color: '#6B7280' }}>Cargando datos...</Text>
+        <Text style={{ marginTop: 12, color: '#6B7280' }}>{t('common.loading')}</Text>
       </View>
     );
   }
@@ -108,8 +110,8 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
         </TouchableOpacity>
 
         <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Ficha Técnica</Text>
-          <Text style={styles.headerSubtitle}>Datos Maestros del Proveedor</Text>
+          <Text style={styles.headerTitle}>{t('proveedor.technicalSheet.title')}</Text>
+          <Text style={styles.headerSubtitle}>{t('proveedor.technicalSheet.subtitle')}</Text>
         </View>
 
         <TouchableOpacity>
@@ -120,9 +122,9 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Supplier Header Card */}
         <View style={styles.supplierCard}>
-          <Text style={styles.supplierName}>{supplierData?.companyName || 'Sin nombre'}</Text>
+          <Text style={styles.supplierName}>{supplierData?.companyName || t('proveedor.technicalSheet.noName')}</Text>
           <Text style={styles.supplierLocation}>
-            {supplierData?.category || 'Proveedor'} • {supplierData?.country || 'N/A'}
+            {supplierData?.category || t('proveedor.technicalSheet.supplier')} • {supplierData?.country || 'N/A'}
           </Text>
 
           <View style={styles.supplierIds}>
@@ -142,7 +144,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               <View style={styles.sectionNumber}>
                 <Text style={styles.sectionNumberText}>1</Text>
               </View>
-              <Text style={styles.sectionTitle}>Información General</Text>
+              <Text style={styles.sectionTitle}>{t('proveedor.technicalSheet.generalInfo')}</Text>
             </View>
             <Image
               source={require('../../../assets/icons/chevron-down.png')}
@@ -153,53 +155,53 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
           {expandedSections.has(1) && (
             <View style={styles.sectionContent}>
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>DIRECCIÓN FISCAL</Text>
-                <Text style={styles.infoValue}>{supplierData?.fiscalAddress || supplierData?.address || 'No especificado'}</Text>
+                <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.fiscalAddress')}</Text>
+                <Text style={styles.infoValue}>{supplierData?.fiscalAddress || supplierData?.address || t('proveedor.technicalSheet.notSpecified')}</Text>
               </View>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>TELÉFONO CENTRAL</Text>
-                <Text style={styles.infoValueLink}>{supplierData?.centralPhone || supplierData?.phone || 'No especificado'}</Text>
+                <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.centralPhone')}</Text>
+                <Text style={styles.infoValueLink}>{supplierData?.centralPhone || supplierData?.phone || t('proveedor.technicalSheet.notSpecified')}</Text>
               </View>
 
               <View style={styles.infoRow}>
-                <Text style={styles.infoLabel}>SITIO WEB</Text>
-                <Text style={styles.infoValueLink}>{supplierData?.website || 'No especificado'}</Text>
+                <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.website')}</Text>
+                <Text style={styles.infoValueLink}>{supplierData?.website || t('proveedor.technicalSheet.notSpecified')}</Text>
               </View>
 
               <View style={styles.infoRowHeader}>
-                <Text style={styles.infoLabel}>GESTIÓN INTERNA INDURAMA</Text>
+                <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.internalManagement')}</Text>
                 <TouchableOpacity>
-                  <Text style={styles.editLink}>Editar</Text>
+                  <Text style={styles.editLink}>{t('common.edit')}</Text>
                 </TouchableOpacity>
               </View>
 
               {!supplierData?.induramaExecutive && !supplierData?.epiAuditor ? (
                 <View style={styles.warningCard}>
                   <Image source={require('../../../assets/icons/clock.png')} style={styles.warningIcon} />
-                  <Text style={styles.warningText}>Debe asignar un evaluador para esta empresa</Text>
+                  <Text style={styles.warningText}>{t('proveedor.technicalSheet.assignEvaluator')}</Text>
                 </View>
               ) : (
                 <>
                   <View style={styles.infoGrid}>
                     <View style={styles.infoGridItem}>
-                      <Text style={styles.infoLabel}>EJECUTIVO</Text>
-                      <Text style={styles.infoValue}>{supplierData?.induramaExecutive || 'No asignado'}</Text>
+                      <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.executive')}</Text>
+                      <Text style={styles.infoValue}>{supplierData?.induramaExecutive || t('proveedor.technicalSheet.notAssigned')}</Text>
                     </View>
                     <View style={styles.infoGridItem}>
-                      <Text style={styles.infoLabel}>AUDITOR EPI</Text>
-                      <Text style={styles.infoValue}>{supplierData?.epiAuditor || 'No asignado'}</Text>
+                      <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.epiAuditor')}</Text>
+                      <Text style={styles.infoValue}>{supplierData?.epiAuditor || t('proveedor.technicalSheet.notAssigned')}</Text>
                     </View>
                   </View>
 
                   <View style={styles.infoGrid}>
                     <View style={styles.infoGridItem}>
-                      <Text style={styles.infoLabel}>TIPO AUDITORÍA</Text>
-                      <Text style={styles.infoValue}>{supplierData?.auditType || 'No especificado'}</Text>
+                      <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.auditType')}</Text>
+                      <Text style={styles.infoValue}>{supplierData?.auditType || t('proveedor.technicalSheet.notSpecified')}</Text>
                     </View>
                     <View style={styles.infoGridItem}>
-                      <Text style={styles.infoLabel}>FECHA EVAL.</Text>
-                      <Text style={styles.infoValue}>{supplierData?.evalDate || 'No especificado'}</Text>
+                      <Text style={styles.infoLabel}>{t('proveedor.technicalSheet.evalDate')}</Text>
+                      <Text style={styles.infoValue}>{supplierData?.evalDate || t('proveedor.technicalSheet.notSpecified')}</Text>
                     </View>
                   </View>
                 </>
@@ -218,7 +220,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               <View style={styles.sectionNumber}>
                 <Text style={styles.sectionNumberText}>2</Text>
               </View>
-              <Text style={styles.sectionTitle}>Perfil Operativo</Text>
+              <Text style={styles.sectionTitle}>{t('proveedor.technicalSheet.operationalProfile')}</Text>
             </View>
             <Image
               source={require('../../../assets/icons/chevron-down.png')}
@@ -313,7 +315,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               <View style={styles.sectionNumber}>
                 <Text style={styles.sectionNumberText}>3</Text>
               </View>
-              <Text style={styles.sectionTitle}>Contactos y Certif.</Text>
+              <Text style={styles.sectionTitle}>{t('proveedor.technicalSheet.contactsCerts')}</Text>
             </View>
             <Image
               source={require('../../../assets/icons/chevron-down.png')}
@@ -369,7 +371,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
               <View style={styles.sectionNumber}>
                 <Text style={styles.sectionNumberText}>4</Text>
               </View>
-              <Text style={styles.sectionTitle}>Datos Bancarios</Text>
+              <Text style={styles.sectionTitle}>{t('proveedor.technicalSheet.bankingData')}</Text>
             </View>
             <Image
               source={require('../../../assets/icons/chevron-down.png')}
@@ -427,7 +429,7 @@ const SupplierTechnicalSheetScreen: React.FC<SupplierTechnicalSheetScreenProps> 
       <View style={styles.footerContainer}>
         <TouchableOpacity style={styles.editMasterButton}>
           <Image source={require('../../../assets/icons/edit.png')} style={styles.editMasterIcon} />
-          <Text style={styles.editMasterText}>Editar Datos Maestros</Text>
+          <Text style={styles.editMasterText}>{t('proveedor.technicalSheet.editMasterData')}</Text>
         </TouchableOpacity>
       </View>
     </View >

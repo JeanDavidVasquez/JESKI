@@ -1,5 +1,6 @@
 /**
  * PaymentScreen - Pantalla para que el Gestor registre pagos
+ * Corregido para soporte Web y Móvil
  */
 import React, { useState, useEffect } from 'react';
 import {
@@ -64,7 +65,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         try {
             const reqDoc = await getDoc(doc(db, 'requests', requestId));
             if (!reqDoc.exists()) {
-                Alert.alert('Error', 'Solicitud no encontrada');
+                const msg = 'Solicitud no encontrada';
+                Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
                 onBack();
                 return;
             }
@@ -80,7 +82,8 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
             }
         } catch (error) {
             console.error('Error loading payment data:', error);
-            Alert.alert('Error', 'No se pudo cargar la información');
+            const msg = 'No se pudo cargar la información';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
         } finally {
             setLoading(false);
         }
@@ -101,44 +104,74 @@ export const PaymentScreen: React.FC<PaymentScreenProps> = ({
         }
     };
 
+    // Lógica central para registrar el pago en Firebase
+    const executePaymentRegistration = async () => {
+        try {
+            setProcessing(true);
+            if (!request) return;
+
+            await updateDoc(doc(db, 'requests', request.id), {
+                paymentStatus: 'paid',
+                paymentReference,
+                paymentNotes,
+                paymentDate: serverTimestamp(),
+                status: RequestStatus.COMPLETED
+            });
+
+            const successMsg = 'Pago registrado correctamente';
+
+            // Manejo de feedback post-guardado
+            if (Platform.OS === 'web') {
+                // En web usamos un pequeño timeout o simplemente el alert directo
+                // para asegurar que el UI tenga tiempo de reaccionar si es necesario
+                window.alert(successMsg);
+            } else {
+                Alert.alert('Éxito', successMsg);
+            }
+
+            onPaymentComplete();
+        } catch (error) {
+            console.error('Error registering payment:', error);
+            const errorMsg = 'No se pudo registrar el pago';
+            Platform.OS === 'web' ? window.alert(errorMsg) : Alert.alert('Error', errorMsg);
+        } finally {
+            setProcessing(false);
+        }
+    };
+
+    // Manejador del botón que decide cómo confirmar según la plataforma
     const handleRegisterPayment = async () => {
         if (!paymentReference.trim()) {
-            Alert.alert('Error', 'Por favor ingrese el número de referencia del pago');
+            const msg = 'Por favor ingrese el número de referencia del pago';
+            Platform.OS === 'web' ? window.alert(msg) : Alert.alert('Error', msg);
             return;
         }
 
-        Alert.alert(
-            'Confirmar Pago',
-            '¿Está seguro de registrar este pago? Esta acción notificará al proveedor.',
-            [
-                { text: 'Cancelar', style: 'cancel' },
-                {
-                    text: 'Confirmar',
-                    onPress: async () => {
-                        try {
-                            setProcessing(true);
-                            if (!request) return;
 
-                            await updateDoc(doc(db, 'requests', request.id), {
-                                paymentStatus: 'paid',
-                                paymentReference,
-                                paymentNotes,
-                                paymentDate: serverTimestamp(),
-                                status: RequestStatus.COMPLETED
-                            });
 
-                            Alert.alert('Éxito', 'Pago registrado correctamente');
-                            onPaymentComplete();
-                        } catch (error) {
-                            console.error('Error registering payment:', error);
-                            Alert.alert('Error', 'No se pudo registrar el pago');
-                        } finally {
-                            setProcessing(false);
-                        }
+        const confirmTitle = 'Confirmar Pago';
+        const confirmMsg = '¿Está seguro de registrar este pago? Esta acción notificará al proveedor.';
+
+        if (Platform.OS === 'web') {
+            // WEB: Usamos window.confirm nativo del navegador
+            const confirmed = window.confirm(`${confirmTitle}\n\n${confirmMsg}`);
+            if (confirmed) {
+                await executePaymentRegistration();
+            }
+        } else {
+            // MÓVIL: Usamos Alert.alert nativo de React Native
+            Alert.alert(
+                confirmTitle,
+                confirmMsg,
+                [
+                    { text: 'Cancelar', style: 'cancel' },
+                    {
+                        text: 'Confirmar',
+                        onPress: executePaymentRegistration
                     }
-                }
-            ]
-        );
+                ]
+            );
+        }
     };
 
     const totalAmount = quotation ? (quotation.totalAmount * 1.15).toFixed(2) : '0.00';

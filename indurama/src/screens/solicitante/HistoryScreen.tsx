@@ -11,6 +11,7 @@ import {
   TextInput,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useLanguage } from '../../hooks/useLanguage';
 
 const { width } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -35,12 +36,13 @@ interface HistoryScreenProps {
 /**
  * Pantalla de Historial de Solicitudes para el rol de Solicitante
  */
-export const HistoryScreen: React.FC<HistoryScreenProps> = ({ 
-  onNavigateToRequests, 
+export const HistoryScreen: React.FC<HistoryScreenProps> = ({
+  onNavigateToRequests,
   onNavigateToNewRequest,
   onNavigateToProfile,
   onNavigateToDetail
 }) => {
+  const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [historyRequests] = useState<HistoryRequest[]>([
     {
@@ -127,17 +129,17 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
-      
+
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.titleSection}>
-            <Text style={styles.title}>HISTORIAL DE SOLICITUDES</Text>
-            
+            <Text style={styles.title}>{t('history.title')}</Text>
+
             {/* Logo de Indurama */}
             <View style={styles.logoContainer}>
-              <Image 
-                source={require('../../../assets/icono_indurama.png')} 
+              <Image
+                source={require('../../../assets/icono_indurama.png')}
                 style={styles.logoImage}
                 resizeMode="contain"
               />
@@ -148,23 +150,23 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
       {/* Contenido */}
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
-        
+
         {/* Subtítulo */}
         <Text style={styles.subtitle}>
-          Revise todas sus solicitudes anteriores
+          {t('history.subtitle')}
         </Text>
 
         {/* Barra de Búsqueda */}
         <View style={styles.searchContainer}>
           <View style={styles.searchInputContainer}>
-            <Image 
-              source={require('../../../assets/icons/search.png')} 
+            <Image
+              source={require('../../../assets/icons/search.png')}
               style={styles.searchIcon}
               resizeMode="contain"
             />
             <TextInput
               style={styles.searchInput}
-              placeholder="Buscar Solicitudes"
+              placeholder={t('history.searchPlaceholder')}
               placeholderTextColor="#999999"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -174,8 +176,8 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
 
         {/* Solicitudes Recientes */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
-          
+          <Text style={styles.sectionTitle}>{t('history.recentRequests')}</Text>
+
           <View style={styles.requestsList}>
             {filteredRequests.map((request) => (
               <HistoryCard
@@ -191,35 +193,35 @@ export const HistoryScreen: React.FC<HistoryScreenProps> = ({
       {/* Bottom Navigation */}
       <View style={styles.bottomNav}>
         <TouchableOpacity style={styles.navItem} onPress={handleBackToRequests}>
-          <Image 
-            source={require('../../../assets/icons/home.png')} 
+          <Image
+            source={require('../../../assets/icons/home.png')}
             style={styles.navIconImage}
           />
-          <Text style={styles.navText}>Mis Solicitudes</Text>
+          <Text style={styles.navText}>{t('navigation.dashboard')}</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.navItem} onPress={handleNewRequest}>
-          <Image 
-            source={require('../../../assets/icons/plus.png')} 
+          <Image
+            source={require('../../../assets/icons/plus.png')}
             style={styles.navIconImage}
           />
-          <Text style={styles.navText}>Nueva Solicitud</Text>
+          <Text style={styles.navText}>{t('solicitante.dashboard.createRequest')}</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={[styles.navItem, styles.navItemActive]}>
-          <Image 
-            source={require('../../../assets/icons/chart.png')} 
+          <Image
+            source={require('../../../assets/icons/chart.png')}
             style={[styles.navIconImage, styles.navIconActive]}
           />
-          <Text style={[styles.navText, styles.navTextActive]}>Historial</Text>
+          <Text style={[styles.navText, styles.navTextActive]}>{t('navigation.history')}</Text>
         </TouchableOpacity>
-        
+
         <TouchableOpacity style={styles.navItem} onPress={handleProfile}>
-          <Image 
-            source={require('../../../assets/icons/profile.png')} 
+          <Image
+            source={require('../../../assets/icons/profile.png')}
             style={styles.navIconImage}
           />
-          <Text style={styles.navText}>Perfil</Text>
+          <Text style={styles.navText}>{t('navigation.profile')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -231,12 +233,14 @@ const HistoryCard: React.FC<{
   request: HistoryRequest;
   onViewDetails: (id: string) => void;
 }> = ({ request, onViewDetails }) => {
+  const { t } = useLanguage();
+
   const getStatusColor = (status: string) => {
     return status === 'En Progreso' ? '#003E85' : '#CACACA';
   };
 
   const getStatusText = (status: string) => {
-    return status === 'En Progreso' ? 'En Progreso' : 'Completado';
+    return status === 'En Progreso' ? t('solicitante.status.inProgress') : t('solicitante.status.completed');
   };
 
   const getStatusTextColor = (status: string) => {
@@ -244,7 +248,7 @@ const HistoryCard: React.FC<{
   };
 
   return (
-    <TouchableOpacity 
+    <TouchableOpacity
       style={styles.historyCard}
       onPress={() => onViewDetails(request.id)}
       activeOpacity={0.7}
@@ -260,7 +264,7 @@ const HistoryCard: React.FC<{
         </View>
         <Text style={styles.requestDate}>{request.date}</Text>
       </View>
-      
+
       <Text style={styles.requestTitle}>{request.title}</Text>
     </TouchableOpacity>
   );

@@ -530,10 +530,17 @@ export const getSuppliersList = async (): Promise<SupplierSummary[]> => {
 
             const score = Math.round((submission.calculatedScore ?? submission.globalScore ?? 0) as number);
 
-            // STRICT FILTER: Only show suppliers with Score > 80 AND (Approved or Active)
-            const isApproved = userData.supplierStatus === 'epi_approved' || userData.supplierStatus === 'active' || userData.approved === true;
+            // STRICT FILTER: Score > 80 AND (Approved or Active) AND NOT Expired
+            const isApproved = userData.supplierStatus === 'epi_approved' ||
+                userData.supplierStatus === 'active' ||
+                userData.approved === true;
 
-            if (!isApproved || score <= 80) {
+            // Check EPI expiration - exclude suppliers with expired EPI
+            const epiExpiresAt = userData.epiExpiresAt?.toDate?.() ||
+                (submission.expiresAt?.toDate?.() || null);
+            const isExpired = epiExpiresAt ? epiExpiresAt < new Date() : false;
+
+            if (!isApproved || score <= 80 || isExpired) {
                 return null;
             }
 

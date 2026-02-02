@@ -41,5 +41,4 @@ yarn-error.*
 /ios
 /android
 
-# FORCE IGNORING LOCKFILE TO SOLVE NPM CI ERRORS
-package-lock.json
+

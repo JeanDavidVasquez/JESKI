@@ -10,6 +10,8 @@ import {
   Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { useLanguage } from '../../hooks/useLanguage';
+import { useAuth } from '../../hooks/useAuth';
 import { theme } from '../../styles/theme';
 
 const { width } = Dimensions.get('window');
@@ -43,44 +45,7 @@ interface RequestsScreenProps {
   onNavigateToProfile?: () => void;
 }
 
-const summaryData: Summary[] = [
-  { id: 'in-progress', label: 'En Curso', value: 10, subLabel: 'Solicitudes activas', variant: 'primary' },
-  { id: 'attention', label: 'Atención', value: 11, subLabel: 'Requieren acción', variant: 'warning' },
-  { id: 'completed', label: 'Listas', value: 2, subLabel: 'Últimos 30 días', variant: 'success' },
-];
 
-const recentRequests: RequestCardData[] = [
-  {
-    id: 'sol-2025-042',
-    code: '#SOL-2025-042',
-    title: 'Materia prima línea A',
-    description: 'Solicitud de 55,000 unidades para producción',
-    date: '15 Ene 2025',
-    status: 'COTIZANDO',
-    statusVariant: 'info',
-    currentStage: 'Aprobación',
-  },
-  {
-    id: 'sol-2025-044',
-    code: '#SOL-2025-044',
-    title: 'Materia prima línea A',
-    description: 'Solicitud de 55,000 unidades para producción',
-    date: '15 Ene 2025',
-    status: 'ESPERANDO APROBACIÓN',
-    statusVariant: 'warning',
-    currentStage: 'Solicitado',
-  },
-  {
-    id: 'sol-2025-038',
-    code: '#SOL-2025-038',
-    title: 'EPP Personal Nuevo',
-    description: 'Orden de compra generada',
-    date: '13 Ene 2025',
-    status: 'LISTO / COMPRA',
-    statusVariant: 'success',
-    currentStage: 'Orden',
-  },
-];
 
 /**
  * Pantalla de Mis Solicitudes para el rol de Solicitante (dashboard principal)
@@ -91,6 +56,9 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
   onNavigateToDetail,
   onNavigateToProfile,
 }) => {
+  const { t } = useLanguage();
+  const { user } = useAuth();
+
   const handleNewRequest = () => {
     onNavigateToNewRequest?.();
   };
@@ -107,6 +75,45 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
     onNavigateToDetail?.(requestId);
   };
 
+  const summaryData: Summary[] = [
+    { id: 'in-progress', label: t('solicitante.dashboard.summary.inProgress'), value: 10, subLabel: t('solicitante.dashboard.summary.inProgressSub'), variant: 'primary' },
+    { id: 'attention', label: t('solicitante.dashboard.summary.attention'), value: 11, subLabel: t('solicitante.dashboard.summary.attentionSub'), variant: 'warning' },
+    { id: 'completed', label: t('solicitante.dashboard.summary.ready'), value: 2, subLabel: t('solicitante.dashboard.summary.readySub'), variant: 'success' },
+  ];
+
+  const recentRequests: RequestCardData[] = [
+    {
+      id: 'sol-2025-042',
+      code: '#SOL-2025-042',
+      title: 'Materia prima línea A',
+      description: 'Solicitud de 55,000 unidades para producción',
+      date: '15 Ene 2025',
+      status: 'COTIZANDO',
+      statusVariant: 'info',
+      currentStage: 'Aprobación',
+    },
+    {
+      id: 'sol-2025-044',
+      code: '#SOL-2025-044',
+      title: 'Materia prima línea A',
+      description: 'Solicitud de 55,000 unidades para producción',
+      date: '15 Ene 2025',
+      status: 'ESPERANDO APROBACIÓN',
+      statusVariant: 'warning',
+      currentStage: 'Solicitado',
+    },
+    {
+      id: 'sol-2025-038',
+      code: '#SOL-2025-038',
+      title: 'EPP Personal Nuevo',
+      description: 'Orden de compra generada',
+      date: '13 Ene 2025',
+      status: 'LISTO / COMPRA',
+      statusVariant: 'success',
+      currentStage: 'Orden',
+    },
+  ];
+
   return (
     <View style={styles.container}>
       <StatusBar style="dark" />
@@ -114,9 +121,11 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
         {/* Header */}
         <View style={styles.headerCard}>
           <View>
-            <Text style={styles.welcomeLabel}>Bienvenido,</Text>
-            <Text style={styles.userName}>Juan Pérez</Text>
-            <Text style={styles.userMeta}>Producción · Planta A</Text>
+            <Text style={styles.welcomeLabel}>{t('solicitante.dashboard.welcome')}</Text>
+            <Text style={styles.userName}>
+              {user ? `${user.firstName} ${user.lastName}` : t('common.user')}
+            </Text>
+            <Text style={styles.userMeta}>{user?.department || 'Departamento'}</Text>
           </View>
 
           <View style={styles.logoWrapper}>
@@ -131,13 +140,13 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
         {/* CTA card */}
         <View style={styles.ctaCard}>
           <View style={styles.ctaContent}>
-            <Text style={styles.ctaTitle}>¿Qué necesitas hoy?</Text>
+            <Text style={styles.ctaTitle}>{t('solicitante.dashboard.ctaTitle')}</Text>
             <Text style={styles.ctaSubtitle}>
-              Gestione y realice seguimiento a sus solicitudes de necesidades
+              {t('solicitante.dashboard.ctaSubtitle')}
             </Text>
             <TouchableOpacity style={styles.ctaButton} onPress={handleNewRequest}>
               <Image source={require('../../../assets/icons/plus.png')} style={styles.ctaButtonIcon} />
-              <Text style={styles.ctaButtonText}>Crear Nueva Solicitud</Text>
+              <Text style={styles.ctaButtonText}>{t('solicitante.dashboard.createRequest')}</Text>
             </TouchableOpacity>
           </View>
           <View style={styles.ctaAccent} />
@@ -145,7 +154,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
 
         {/* Summary */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Tu Resumen</Text>
+          <Text style={styles.sectionTitle}>{t('solicitante.dashboard.summaryTitle')}</Text>
         </View>
         <View style={styles.summaryGrid}>
           {summaryData.map((item) => (
@@ -159,9 +168,9 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
 
         {/* Recent requests */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
+          <Text style={styles.sectionTitle}>{t('solicitante.dashboard.recentRequests')}</Text>
           <TouchableOpacity onPress={handleHistory}>
-            <Text style={styles.sectionLink}>Ver todas</Text>
+            <Text style={styles.sectionLink}>{t('solicitante.dashboard.viewAll')}</Text>
           </TouchableOpacity>
         </View>
 
@@ -195,7 +204,7 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
                   <Text style={styles.footerText}>{request.date}</Text>
                 </View>
                 <TouchableOpacity style={styles.detailsLink} onPress={() => handleViewDetails(request.id)}>
-                  <Text style={styles.detailsLinkText}>Ver Detalles</Text>
+                  <Text style={styles.detailsLinkText}>{t('solicitante.dashboard.viewDetails')}</Text>
                   <Image
                     source={require('../../../assets/icons/arrow-right.png')}
                     style={styles.arrowIcon}
@@ -215,19 +224,19 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
             source={require('../../../assets/icons/home.png')}
             style={[styles.navIcon, styles.navIconActive]}
           />
-          <Text style={[styles.navLabel, styles.navLabelActive]}>Mis Solicitudes</Text>
+          <Text style={[styles.navLabel, styles.navLabelActive]}>{t('navigation.dashboard')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleNewRequest}>
           <Image source={require('../../../assets/icons/plus.png')} style={styles.navIcon} />
-          <Text style={styles.navLabel}>Nueva Solicitud</Text>
+          <Text style={styles.navLabel}>{t('solicitante.dashboard.createRequest')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleHistory}>
           <Image source={require('../../../assets/icons/home.png')} style={styles.navIcon} />
-          <Text style={styles.navLabel}>Historial</Text>
+          <Text style={styles.navLabel}>{t('navigation.history')}</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.navItem} onPress={handleProfile}>
           <Image source={require('../../../assets/icons/profile.png')} style={styles.navIcon} />
-          <Text style={styles.navLabel}>Perfil</Text>
+          <Text style={styles.navLabel}>{t('navigation.profile')}</Text>
         </TouchableOpacity>
       </View>
     </View>
@@ -235,18 +244,34 @@ export const RequestsScreen: React.FC<RequestsScreenProps> = ({
 };
 
 const RequestTimeline: React.FC<{ activeStage: RequestStage }> = ({ activeStage }) => {
-  const stages: RequestStage[] = ['Solicitado', 'Aprobación', 'Gestión', 'Orden'];
+  const { t } = useLanguage();
+  // We need to map the Stage types to translated strings, but also keep track of 'index' for active logic
+  // Since activeStage comes as 'Solicitado' (from mock data), we need to handle that mapping or just assume it matches order
+
+  // For this mock component, let's keep it simple and just translate the display Labels
+  // assuming activeStage is one of the Mock values. 
+  // Ideally, activeStage should be a code ('requested', 'approval', etc.)
+
+  const stagesList = [
+    { id: 'Solicitado', label: t('solicitante.dashboard.stages.requested') },
+    { id: 'Aprobación', label: t('solicitante.dashboard.stages.approval') },
+    { id: 'Gestión', label: t('solicitante.dashboard.stages.management') },
+    { id: 'Orden', label: t('solicitante.dashboard.stages.order') }
+  ];
+
+  const activeIndex = stagesList.findIndex(s => s.id === activeStage);
+
   return (
     <View style={styles.timeline}>
-      {stages.map((stage, index) => {
-        const isActive = stages.indexOf(activeStage) >= index;
+      {stagesList.map((stage, index) => {
+        const isActive = activeIndex >= index;
         return (
-          <React.Fragment key={stage}>
+          <React.Fragment key={stage.id}>
             <View style={styles.timelineItem}>
               <View style={[styles.timelineDot, isActive && styles.timelineDotActive]} />
-              <Text style={[styles.timelineLabel, isActive && styles.timelineLabelActive]}>{stage}</Text>
+              <Text style={[styles.timelineLabel, isActive && styles.timelineLabelActive]}>{stage.label}</Text>
             </View>
-            {index < stages.length - 1 && <View style={[styles.timelineBar, isActive && styles.timelineBarActive]} />}
+            {index < stagesList.length - 1 && <View style={[styles.timelineBar, isActive && styles.timelineBarActive]} />}
           </React.Fragment>
         );
       })}

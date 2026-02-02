@@ -53,6 +53,34 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
       return;
     }
 
+    // Validate bilingual fields are complete
+    const missingTranslations: string[] = [];
+    ['calidad', 'abastecimiento'].forEach((category) => {
+      const cat = category as 'calidad' | 'abastecimiento';
+      config[cat].sections.forEach((section, sIndex) => {
+        if (!section.title_en || section.title_en.trim() === '') {
+          missingTranslations.push(`Sección ${sIndex + 1} (${category}): Falta título en inglés`);
+        }
+        section.questions.forEach((q, qIndex) => {
+          if (!q.text_en || q.text_en.trim() === '') {
+            missingTranslations.push(`Pregunta ${sIndex + 1}.${qIndex + 1} (${category}): Falta texto en inglés`);
+          }
+        });
+      });
+    });
+
+    if (missingTranslations.length > 0) {
+      const showAll = missingTranslations.length <= 5;
+      const message = showAll
+        ? missingTranslations.join('\n')
+        : `${missingTranslations.slice(0, 5).join('\n')}\n... y ${missingTranslations.length - 5} más`;
+      Alert.alert(
+        'Traducciones Incompletas',
+        `Todos los campos de inglés son obligatorios:\n\n${message}`
+      );
+      return;
+    }
+
     setSaving(true);
     try {
       await EpiService.saveEpiConfig(config);
@@ -138,6 +166,7 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
         newConfig[activeTab].sections[sectionIndex].questions.push({
           id: Date.now().toString(),
           text: '',
+          text_en: '',
           weight: 0,
           isNew: true
         });
@@ -236,6 +265,31 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
     setHasChanges(true);
   };
 
+  const updateSectionTitleEn = (sectionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) section.title_en = text;
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
+  const updateQuestionTextEn = (sectionId: string, questionId: string, text: string) => {
+    setConfig(prev => {
+      if (!prev) return null;
+      const newConfig = { ...prev };
+      const section = newConfig[activeTab].sections.find(s => s.id === sectionId);
+      if (section) {
+        const question = section.questions.find(q => q.id === questionId);
+        if (question) question.text_en = text;
+      }
+      return newConfig;
+    });
+    setHasChanges(true);
+  };
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -287,13 +341,10 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
           </View>
 
           {/* Titles & Context - CONDITIONAL DISPLAY */}
-          {isDesktopView ? (
+          {isDesktopView && (
             <View style={styles.headerContent}>
               <Text style={styles.headerTitleMain}>Configuración EPI</Text>
-              <Text style={styles.headerSubtitle}>Gestión de Pesos y Criterios de Evaluación</Text>
             </View>
-          ) : (
-            null /* Hide titles on mobile to save space, Logo is enough context */
           )}
 
           {/* Progress / Status Card - COMPACT FOR MOBILE */}
@@ -326,14 +377,19 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
             </View>
           </View>
 
-          {/* Tabs */}
+          {/* Tabs with Question Count */}
           <View style={[styles.tabsContainer, !isDesktopView && { gap: 0 }]}>
             <TouchableOpacity
               style={[styles.tabItem, activeTab === 'calidad' && styles.tabItemActive]}
               onPress={() => setActiveTab('calidad')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, activeTab === 'calidad' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>CALIDAD</Text>
+              <View style={styles.tabWithBadge}>
+                <Text style={[styles.tabText, activeTab === 'calidad' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>CALIDAD</Text>
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{config.calidad.sections.reduce((sum, s) => sum + s.questions.length, 0)}</Text>
+                </View>
+              </View>
               {activeTab === 'calidad' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
             <TouchableOpacity
@@ -341,7 +397,12 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
               onPress={() => setActiveTab('abastecimiento')}
               activeOpacity={0.8}
             >
-              <Text style={[styles.tabText, activeTab === 'abastecimiento' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>ABASTECIMIENTO</Text>
+              <View style={styles.tabWithBadge}>
+                <Text style={[styles.tabText, activeTab === 'abastecimiento' && styles.tabTextActive, !isDesktopView && { fontSize: 13 }]}>ABASTECIMIENTO</Text>
+                <View style={styles.tabBadge}>
+                  <Text style={styles.tabBadgeText}>{config.abastecimiento.sections.reduce((sum, s) => sum + s.questions.length, 0)}</Text>
+                </View>
+              </View>
               {activeTab === 'abastecimiento' && <View style={styles.activeTabIndicator} />}
             </TouchableOpacity>
           </View>
@@ -375,8 +436,22 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                         <Text style={styles.sectionCircleText}>{i + 1}</Text>
                       </View>
                       <View style={{ flex: 1, paddingRight: 10 }}>
-                        <Text style={styles.sectionTitleStatic} numberOfLines={1}>{section.title}</Text>
-                        <Text style={styles.sectionSubtitle}>{questionCount} Preguntas • {section.weight}% del total</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                          <Text style={styles.sectionTitleStatic} numberOfLines={1}>{section.title}</Text>
+                          {section.title_en ? (
+                            <View style={styles.translatedBadge}>
+                              <Text style={styles.translatedBadgeText}>EN ✓</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.missingBadge}>
+                              <Text style={styles.missingBadgeText}>EN ✗</Text>
+                            </View>
+                          )}
+                        </View>
+                        <Text style={styles.sectionSubtitle}>
+                          {questionCount} Preguntas • {section.weight}% •
+                          {section.questions.filter(q => q.text_en && q.text_en.trim()).length}/{questionCount} traducidas
+                        </Text>
                       </View>
                     </View>
 
@@ -406,13 +481,30 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                   {isExpanded && (
                     <View style={styles.expandedContent}>
                       {/* Editable Title only when expanded */}
+                      {/* Section Title - Bilingual */}
                       <View style={styles.inputGroup}>
-                        <Text style={styles.inputLabel}>Título de la Sección</Text>
+                        <View style={styles.bilingualHeader}>
+                          <Text style={styles.langFlag}>🇪🇸</Text>
+                          <Text style={styles.inputLabel}>Título de la Sección (Español)</Text>
+                        </View>
                         <TextInput
                           style={styles.sectionTitleInput}
                           value={section.title}
                           onChangeText={(text) => updateSectionTitle(section.id, text)}
                           placeholder="Nombre de la sección"
+                        />
+                      </View>
+                      <View style={styles.inputGroup}>
+                        <View style={styles.bilingualHeader}>
+                          <Text style={styles.langFlag}>🇬🇧</Text>
+                          <Text style={styles.inputLabel}>Section Title (English)</Text>
+                        </View>
+                        <TextInput
+                          style={[styles.sectionTitleInput, styles.englishInput]}
+                          value={section.title_en || ''}
+                          onChangeText={(text) => updateSectionTitleEn(section.id, text)}
+                          placeholder="Section name (optional)"
+                          placeholderTextColor="#9CA3AF"
                         />
                       </View>
 
@@ -424,13 +516,29 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                               <Text style={styles.questionNumber}>{i + 1}.{qIndex + 1}</Text>
                             </View>
                             <View style={{ flex: 1 }}>
-                              <TextInput
-                                style={styles.questionTextInput}
-                                value={question.text}
-                                onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
-                                placeholder="Escribe la pregunta aquí..."
-                                multiline
-                              />
+                              {/* Spanish Question */}
+                              <View style={styles.bilingualQuestionRow}>
+                                <Text style={styles.langFlagSmall}>🇪🇸</Text>
+                                <TextInput
+                                  style={styles.questionTextInput}
+                                  value={question.text}
+                                  onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                                  placeholder="Escribe la pregunta aquí..."
+                                  multiline
+                                />
+                              </View>
+                              {/* English Question */}
+                              <View style={[styles.bilingualQuestionRow, { marginTop: 8 }]}>
+                                <Text style={styles.langFlagSmall}>🇬🇧</Text>
+                                <TextInput
+                                  style={[styles.questionTextInput, styles.englishInputSmall]}
+                                  value={question.text_en || ''}
+                                  onChangeText={(text) => updateQuestionTextEn(section.id, question.id, text)}
+                                  placeholder="Write the question here (English)..."
+                                  placeholderTextColor="#9CA3AF"
+                                  multiline
+                                />
+                              </View>
                             </View>
 
                             <View style={styles.questionWeightContainer}>
@@ -463,21 +571,38 @@ export const EPIConfigScreen: React.FC<{ onNavigateBack?: () => void; onNavigate
                         <View key={question.id} style={styles.newQuestionCard}>
                           <View style={styles.newQuestionHeaderRow}>
                             <View style={styles.newBadge}>
-                              <Text style={styles.newBadgeText}>NUEVA</Text>
+                              <Text style={styles.newBadgeText}>NUEVA / NEW</Text>
                             </View>
                             <TouchableOpacity onPress={() => deleteQuestion(section.id, question.id)}>
                               <MaterialCommunityIcons name="close" size={20} color="#9CA3AF" />
                             </TouchableOpacity>
                           </View>
 
-                          <TextInput
-                            style={styles.newQuestionInput}
-                            value={question.text}
-                            onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
-                            placeholder="Escribe la nueva pregunta..."
-                            placeholderTextColor="#9CA3AF"
-                            multiline
-                          />
+                          {/* Spanish Question */}
+                          <View style={styles.bilingualQuestionRow}>
+                            <Text style={styles.langFlagSmall}>🇪🇸</Text>
+                            <TextInput
+                              style={[styles.newQuestionInput, { flex: 1 }]}
+                              value={question.text}
+                              onChangeText={(text) => updateQuestionText(section.id, question.id, text)}
+                              placeholder="Escribe la nueva pregunta..."
+                              placeholderTextColor="#9CA3AF"
+                              multiline
+                            />
+                          </View>
+
+                          {/* English Question */}
+                          <View style={[styles.bilingualQuestionRow, { marginTop: 8 }]}>
+                            <Text style={styles.langFlagSmall}>🇬🇧</Text>
+                            <TextInput
+                              style={[styles.newQuestionInput, styles.englishInputSmall, { flex: 1 }]}
+                              value={question.text_en || ''}
+                              onChangeText={(text) => updateQuestionTextEn(section.id, question.id, text)}
+                              placeholder="Write the new question (English)..."
+                              placeholderTextColor="#9CA3AF"
+                              multiline
+                            />
+                          </View>
 
                           <View style={styles.newQuestionFooter}>
                             <View style={styles.evidenceContainer}>
@@ -605,8 +730,8 @@ const styles = StyleSheet.create({
   centerContent: { justifyContent: 'center', alignItems: 'center' },
   blueHeaderContainer: {
     backgroundColor: '#004CA3',
-    paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 20,
+    paddingTop: Platform.OS === 'ios' ? 50 : 30,
+    paddingBottom: 12,
     borderBottomLeftRadius: 0,
     borderBottomRightRadius: 0,
     shadowColor: "#000",
@@ -621,7 +746,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 24,
-    marginBottom: 20
+    marginBottom: 10
   },
   backButton: {
     padding: 8,
@@ -632,24 +757,24 @@ const styles = StyleSheet.create({
   logoContainer: {},
   logo: { width: 110, height: 32, resizeMode: 'contain', tintColor: '#fff' },
 
-  headerContent: { alignItems: 'center', marginBottom: 24 },
-  headerTitleMain: { fontSize: 26, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-  headerSubtitle: { fontSize: 13, color: '#BFDBFE', marginTop: 4, fontWeight: '500' },
+  headerContent: { alignItems: 'center', marginBottom: 12 },
+  headerTitleMain: { fontSize: 22, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
+  headerSubtitle: { fontSize: 12, color: '#BFDBFE', marginTop: 2, fontWeight: '500' },
 
   summaryCard: {
     backgroundColor: 'rgba(255,255,255,0.1)',
     marginHorizontal: 24,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.2)'
   },
   summaryCardMobile: {
     marginHorizontal: 16,
-    padding: 12,
-    marginBottom: 12,
-    borderRadius: 12
+    padding: 10,
+    marginBottom: 8,
+    borderRadius: 10
   },
   summaryInfo: {
     flexDirection: 'row',
@@ -850,6 +975,80 @@ const styles = StyleSheet.create({
   },
   evidenceContainer: { flex: 1, flexDirection: 'row', alignItems: 'center', paddingRight: 10 },
   evidenceInput: { flex: 1, fontSize: 12, color: '#4B5563' },
+
+  // Bilingual styles
+  bilingualHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 6
+  },
+  langFlag: {
+    fontSize: 16,
+    marginRight: 8
+  },
+  langFlagSmall: {
+    fontSize: 14,
+    marginRight: 8,
+    marginTop: 2
+  },
+  englishInput: {
+    backgroundColor: '#F0F9FF',
+    borderColor: '#BAE6FD'
+  },
+  englishInputSmall: {
+    backgroundColor: '#F0F9FF',
+    color: '#0369A1'
+  },
+  bilingualQuestionRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start'
+  },
+
+  // Tab badge styles
+  tabWithBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6
+  },
+  tabBadge: {
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 10,
+    minWidth: 20,
+    alignItems: 'center'
+  },
+  tabBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '700'
+  },
+
+  // Translation status badges
+  translatedBadge: {
+    backgroundColor: '#DCFCE7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8
+  },
+  translatedBadgeText: {
+    color: '#166534',
+    fontSize: 9,
+    fontWeight: '700'
+  },
+  missingBadge: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 8
+  },
+  missingBadgeText: {
+    color: '#DC2626',
+    fontSize: 9,
+    fontWeight: '700'
+  },
 
   sectionActions: {
     flexDirection: 'row',

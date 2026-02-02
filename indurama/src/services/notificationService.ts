@@ -45,14 +45,27 @@ export const NotificationService = {
      * Obtener notificaciones de un usuario
      */
     async getUserNotifications(userId: string, limitCount: number = 50): Promise<AppNotification[]> {
+        // Query without orderBy to avoid index issues or missing fields filtering
         const q = query(
             collection(db, NOTIFICATIONS_COLLECTION),
-            where('userId', '==', userId),
-            orderBy('createdAt', 'desc'),
-            limit(limitCount)
+            where('userId', '==', userId)
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification));
+
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification));
+
+        // Sort client-side
+        docs.sort((a, b) => {
+            const getTime = (date: any) => {
+                if (!date) return 0;
+                if (date.seconds) return date.seconds; // Firestore Timestamp
+                if (date.getTime) return date.getTime() / 1000; // JS Date
+                return 0;
+            };
+            return getTime(b.createdAt) - getTime(a.createdAt);
+        });
+
+        return docs.slice(0, limitCount);
     },
 
     /**
@@ -102,10 +115,23 @@ export const NotificationService = {
         const q = query(
             collection(db, NOTIFICATIONS_COLLECTION),
             where('userId', '==', userId),
-            where('read', '==', false),
-            orderBy('createdAt', 'desc')
+            where('read', '==', false)
+            // orderBy removed
         );
         const snapshot = await getDocs(q);
-        return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification));
+        const docs = snapshot.docs.map(d => ({ id: d.id, ...d.data() } as AppNotification));
+
+        // Sort client-side
+        docs.sort((a, b) => {
+            const getTime = (date: any) => {
+                if (!date) return 0;
+                if (date.seconds) return date.seconds;
+                if (date.getTime) return date.getTime() / 1000;
+                return 0;
+            };
+            return getTime(b.createdAt) - getTime(a.createdAt);
+        });
+
+        return docs;
     },
 };

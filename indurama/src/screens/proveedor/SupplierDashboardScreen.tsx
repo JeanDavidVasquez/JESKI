@@ -22,6 +22,7 @@ import { NotificationService } from '../../services/notificationService';
 import { SupplierResponseService } from '../../services/supplierResponseService';
 import { QuotationInvitation } from '../../types';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { useTranslation } from 'react-i18next';
 
 interface SupplierDashboardScreenProps {
     onNavigateToQuotations: () => void;
@@ -87,6 +88,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
     user: userProp,
 }) => {
     const { user: contextUser } = useAuth();
+    const { t } = useTranslation();
     const user = userProp || contextUser;
 
     const [loading, setLoading] = useState(true);
@@ -99,6 +101,12 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
         epiScore: 0,
     });
     const [recentInvitations, setRecentInvitations] = useState<QuotationInvitation[]>([]);
+    // EPI Expiration Status
+    const [epiExpirationStatus, setEpiExpirationStatus] = useState<{
+        isExpired: boolean;
+        expiresAt: Date | null;
+        daysUntilExpiry: number;
+    }>({ isExpired: false, expiresAt: null, daysUntilExpiry: -1 });
 
     const { width: windowWidth } = useWindowDimensions();
     const isDesktop = windowWidth >= 1024;
@@ -140,6 +148,10 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                 epiScore: epiSubmission?.calculatedScore || user?.epiScore || 0,
             });
 
+            // Check EPI expiration status
+            const epiStatus = await SupplierResponseService.checkEPIExpiration(user.id);
+            setEpiExpirationStatus(epiStatus);
+
             setRecentInvitations(pending.slice(0, 3));
             setUnreadNotifications(unreadCount);
         } catch (error) {
@@ -155,20 +167,20 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
         loadDashboardData();
     };
 
-    const displayName = user?.companyName || user?.firstName || 'Proveedor';
+    const displayName = user?.companyName || user?.firstName || t('proveedor.dashboard.supplier');
 
     const navItems = [
-        { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: () => { } },
-        { key: 'Quotations', label: 'Cotizaciones', iconName: 'pricetags-outline' as any, onPress: onNavigateToQuotations },
-        { key: 'Profile', label: 'Perfil', iconName: 'person-outline' as any, onPress: onNavigateToProfile },
-        { key: 'Logout', label: 'Salir', iconName: 'log-out-outline' as any, onPress: onLogout },
+        { key: 'Dashboard', label: t('navigation.home'), iconName: 'home' as any, onPress: () => { } },
+        { key: 'Quotations', label: t('navigation.quotations'), iconName: 'pricetags-outline' as any, onPress: onNavigateToQuotations },
+        { key: 'Profile', label: t('navigation.profile'), iconName: 'person-outline' as any, onPress: onNavigateToProfile },
+        { key: 'Logout', label: t('auth.logout'), iconName: 'log-out-outline' as any, onPress: onLogout },
     ];
 
     if (loading) {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#003E85" />
-                <Text style={styles.loadingText}>Cargando tu dashboard...</Text>
+                <Text style={styles.loadingText}>{t('common.loading')}</Text>
             </View>
         );
     }
@@ -225,7 +237,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                     >
                         <View style={[styles.contentConstraint, styles.headerFlex]}>
                             <View style={styles.greetingContainer}>
-                                <Text style={styles.greeting}>Bienvenido de nuevo,</Text>
+                                <Text style={styles.greeting}>{t('proveedor.dashboard.welcome')},</Text>
                                 <Text style={styles.userName}>{displayName}</Text>
                                 <View style={styles.statusDot}>
                                     <View style={styles.dotInner} />
@@ -247,6 +259,42 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                     </LinearGradient>
 
                     <View style={styles.contentConstraint}>
+
+                        {/* EPI Expiration Warning Banner */}
+                        {epiExpirationStatus.isExpired && (
+                            <View style={styles.warningBanner}>
+                                <View style={styles.warningIconContainer}>
+                                    <Ionicons name="warning" size={24} color="#DC2626" />
+                                </View>
+                                <View style={styles.warningContentBox}>
+                                    <Text style={styles.warningTitle}>
+                                        {t('proveedor.notifications.epiExpired')}
+                                    </Text>
+                                    <Text style={styles.warningText}>
+                                        {t('proveedor.epi.pendingApproval')}
+                                    </Text>
+                                    <TouchableOpacity
+                                        style={styles.renewButton}
+                                        onPress={onNavigateToEPIStatus}
+                                    >
+                                        <Text style={styles.renewButtonText}>{t('common.edit')}</Text>
+                                        <Ionicons name="arrow-forward" size={16} color="#FFF" />
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
+                        )}
+
+                        {/* EPI Expiring Soon Alert */}
+                        {!epiExpirationStatus.isExpired &&
+                            epiExpirationStatus.daysUntilExpiry >= 0 &&
+                            epiExpirationStatus.daysUntilExpiry <= 30 && (
+                                <View style={styles.alertBanner}>
+                                    <Ionicons name="time-outline" size={20} color="#F59E0B" />
+                                    <Text style={styles.alertText}>
+                                        {t('proveedor.notifications.epiExpiring')} - {epiExpirationStatus.daysUntilExpiry} {t('proveedor.quotations.days')}
+                                    </Text>
+                                </View>
+                            )}
 
                         {/* Tarjeta EPI Score Rediseñada */}
                         <AnimatedCard delay={0}>
@@ -270,17 +318,17 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                                     end={{ x: 1, y: 0 }}
                                                     style={styles.scoreBadgeGradient}
                                                 >
-                                                    <Text style={styles.scoreBadgeText}>EPI SCORE</Text>
+                                                    <Text style={styles.scoreBadgeText}>{t('proveedor.dashboard.epiScore')}</Text>
                                                 </LinearGradient>
                                             </View>
-                                            <Text style={styles.epiLabel}>Tu Calificación</Text>
+                                            <Text style={styles.epiLabel}>{t('proveedor.dashboard.myEpiScore')}</Text>
                                             <Text style={styles.epiDescription}>
-                                                Evaluación de Proveedores Indurama
+                                                {t('proveedor.epi.title')}
                                             </Text>
                                             <View style={styles.scoreMetrics}>
                                                 <View style={styles.metricItem}>
                                                     <Ionicons name="trending-up" size={16} color="#10B981" />
-                                                    <Text style={styles.metricText}>Activo</Text>
+                                                    <Text style={styles.metricText}>{t('proveedor.dashboard.active')}</Text>
                                                 </View>
                                             </View>
                                         </View>
@@ -307,7 +355,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                     </View>
 
                                     <View style={styles.cardFooter}>
-                                        <Text style={styles.footerText}>Ver análisis detallado</Text>
+                                        <Text style={styles.footerText}>{t('common.viewMore')}</Text>
                                         <View style={styles.arrowContainer}>
                                             <Ionicons name="arrow-forward" size={20} color="#003E85" />
                                         </View>
@@ -317,7 +365,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                         </AnimatedCard>
 
                         {/* Stats Cards Mejoradas */}
-                        <Text style={styles.sectionTitle}>Resumen General</Text>
+                        <Text style={styles.sectionTitle}>{t('dashboard.recentActivity')}</Text>
                         <View style={[
                             styles.statsRow,
                             isDesktop && styles.statsRowWeb,
@@ -338,7 +386,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                         <Ionicons name="hourglass-outline" size={28} color="#F59E0B" />
                                     </LinearGradient>
                                     <Text style={styles.statNumber}>{stats.pendingInvitations}</Text>
-                                    <Text style={styles.statSubtitle}>Pendientes</Text>
+                                    <Text style={styles.statSubtitle}>{t('proveedor.quotations.pending')}</Text>
                                     <View style={[styles.statBar, { backgroundColor: '#FED7AA' }]}>
                                         <View style={[styles.statBarFill, { width: '60%', backgroundColor: '#F59E0B' }]} />
                                     </View>
@@ -360,7 +408,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                         <Ionicons name="send-outline" size={28} color="#3B82F6" />
                                     </LinearGradient>
                                     <Text style={styles.statNumber}>{stats.submittedQuotations}</Text>
-                                    <Text style={styles.statSubtitle}>Enviadas</Text>
+                                    <Text style={styles.statSubtitle}>{t('proveedor.quotations.submitted')}</Text>
                                     <View style={[styles.statBar, { backgroundColor: '#BFDBFE' }]}>
                                         <View style={[styles.statBarFill, { width: '80%', backgroundColor: '#3B82F6' }]} />
                                     </View>
@@ -382,7 +430,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                         <Ionicons name="trophy-outline" size={28} color="#10B981" />
                                     </LinearGradient>
                                     <Text style={styles.statNumber}>{stats.wonQuotations}</Text>
-                                    <Text style={styles.statSubtitle}>Ganadas</Text>
+                                    <Text style={styles.statSubtitle}>{t('proveedor.quotations.awarded')}</Text>
                                     <View style={[styles.statBar, { backgroundColor: '#A7F3D0' }]}>
                                         <View style={[styles.statBarFill, { width: '90%', backgroundColor: '#10B981' }]} />
                                     </View>
@@ -395,9 +443,9 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                             <View style={styles.recentSection}>
                                 <View style={styles.sectionHeader}>
                                     <View>
-                                        <Text style={styles.sectionTitle}>Invitaciones Recientes</Text>
+                                        <Text style={styles.sectionTitle}>{t('proveedor.quotations.invitations')}</Text>
                                         <Text style={styles.sectionSubtitle}>
-                                            {recentInvitations.length} solicitudes activas
+                                            {recentInvitations.length} {t('proveedor.dashboard.pendingInvitations').toLowerCase()}
                                         </Text>
                                     </View>
                                     {recentInvitations.length > 0 && (
@@ -405,7 +453,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                             onPress={onNavigateToQuotations}
                                             style={styles.seeAllButton}
                                         >
-                                            <Text style={styles.seeAllLink}>Ver todo</Text>
+                                            <Text style={styles.seeAllLink}>{t('common.viewMore')}</Text>
                                             <Ionicons name="arrow-forward" size={16} color="#003E85" />
                                         </TouchableOpacity>
                                     )}
@@ -446,7 +494,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                                         ]}>
                                                             <View style={styles.statusDotSmall} />
                                                             <Text style={styles.invitationStatus}>
-                                                                {invitation.status === 'pending' ? 'Nueva' : 'Pendiente'}
+                                                                {invitation.status === 'pending' ? t('proveedor.quotations.newInvitation') : t('proveedor.quotations.pending')}
                                                             </Text>
                                                         </View>
                                                     </View>
@@ -467,9 +515,9 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                                 <Ionicons name="checkmark-done-outline" size={40} color="#9CA3AF" />
                                             </LinearGradient>
                                         </View>
-                                        <Text style={styles.emptyText}>¡Todo al día!</Text>
+                                        <Text style={styles.emptyText}>{t('proveedor.quotations.noInvitations')}</Text>
                                         <Text style={styles.emptySubtext}>
-                                            No tienes invitaciones pendientes por ahora.
+                                            {t('proveedor.dashboard.noActivity')}
                                         </Text>
                                     </View>
                                 )}
@@ -995,6 +1043,77 @@ const styles = StyleSheet.create({
         textAlign: 'center',
         lineHeight: 20,
         maxWidth: 260,
+    },
+    // EPI Expiration Warning Styles
+    warningBanner: {
+        flexDirection: 'row',
+        backgroundColor: '#FEF2F2',
+        borderRadius: 16,
+        padding: 16,
+        marginBottom: 20,
+        borderWidth: 1,
+        borderColor: '#FECACA',
+        shadowColor: '#DC2626',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.1,
+        shadowRadius: 4,
+        elevation: 3,
+    },
+    warningIconContainer: {
+        width: 44,
+        height: 44,
+        borderRadius: 22,
+        backgroundColor: '#FEE2E2',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 14,
+    },
+    warningContentBox: {
+        flex: 1,
+    },
+    warningTitle: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#991B1B',
+        marginBottom: 4,
+    },
+    warningText: {
+        fontSize: 14,
+        color: '#B91C1C',
+        lineHeight: 20,
+        marginBottom: 12,
+    },
+    renewButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#DC2626',
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 10,
+        alignSelf: 'flex-start',
+        gap: 8,
+    },
+    renewButtonText: {
+        color: '#FFF',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    alertBanner: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#FFFBEB',
+        borderRadius: 12,
+        padding: 14,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#FDE68A',
+        gap: 12,
+    },
+    alertText: {
+        flex: 1,
+        fontSize: 13,
+        color: '#92400E',
+        lineHeight: 18,
     },
 });
 

@@ -18,6 +18,7 @@ import { SupplierResponseService } from '../../services/supplierResponseService'
 
 import { useWindowDimensions } from 'react-native';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { useTranslation } from 'react-i18next';
 
 const { width: screenWidth } = Dimensions.get('window');
 
@@ -69,12 +70,13 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
   // Responsive
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
+  const { t, i18n } = useTranslation();
 
   // Nav items for shell
   const navItems = [
-    { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: onNavigateToDashboard || (() => { }) },
-    { key: 'EPIStatus', label: 'Mi EPI', iconName: 'clipboard-outline' as any, onPress: () => { } },
-    { key: 'Logout', label: 'Salir', iconName: 'log-out-outline' as any, onPress: onSignOut || (() => { }) },
+    { key: 'Dashboard', label: t('navigation.home'), iconName: 'home' as any, onPress: onNavigateToDashboard || (() => { }) },
+    { key: 'EPIStatus', label: t('proveedor.epi.myEpi'), iconName: 'clipboard-outline' as any, onPress: () => { } },
+    { key: 'Logout', label: t('auth.logout'), iconName: 'log-out-outline' as any, onPress: onSignOut || (() => { }) },
   ];
 
   const [tasks, setTasks] = React.useState<Task[]>([
@@ -149,32 +151,39 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
           totalSupplyQuestions = evaluation.progress?.abastecimientoQuestions || 18;
         }
 
+        const pendingText = t('common.pending');
+        const completedText = t('common.completed');
+        const inProgressText = t('common.inProgress');
+        const ofText = t('common.of');
+
         const updatedTasks: Task[] = [
           {
             id: '1',
-            title: 'Creación de Proveedor',
+            title: t('proveedor.epi.tasks.creation'),
             status: hasProfileData ? 'completed' : 'pending',
-            progress: hasProfileData ? 'Completado (1 de 1)' : 'Pendiente (0 de 1)'
+            progress: hasProfileData
+              ? `${completedText} (1 ${ofText} 1)`
+              : `${pendingText} (0 ${ofText} 1)`
           },
           {
             id: '2',
-            title: 'Cuestionario de Calidad',
+            title: t('proveedor.epi.tasks.quality'),
             status: qualityAnswered === 0 ? 'pending' : (qualityAnswered >= totalQualityQuestions ? 'completed' : 'in-progress'),
-            progress: `${qualityAnswered === 0 ? 'Pendiente' : (qualityAnswered >= totalQualityQuestions ? 'Completado' : 'En Progreso')} (${qualityAnswered} de ${totalQualityQuestions})`
+            progress: `${qualityAnswered === 0 ? pendingText : (qualityAnswered >= totalQualityQuestions ? completedText : inProgressText)} (${qualityAnswered} ${ofText} ${totalQualityQuestions})`
           },
           {
             id: '3',
-            title: 'Cuestionario de Abastecimiento',
+            title: t('proveedor.epi.tasks.supply'),
             status: supplyAnswered === 0 ? 'pending' : (supplyAnswered >= totalSupplyQuestions ? 'completed' : 'in-progress'),
-            progress: `${supplyAnswered === 0 ? 'Pendiente' : (supplyAnswered >= totalSupplyQuestions ? 'Completado' : 'En Progreso')} (${supplyAnswered} de ${totalSupplyQuestions})`
+            progress: `${supplyAnswered === 0 ? pendingText : (supplyAnswered >= totalSupplyQuestions ? completedText : inProgressText)} (${supplyAnswered} ${ofText} ${totalSupplyQuestions})`
           },
           {
             id: '4',
-            title: 'Evidencias Fotográficas',
+            title: t('proveedor.epi.tasks.evidence'),
             status: (evaluation?.photoEvidence?.length || 0) > 0 ? 'completed' : 'pending',
             progress: (evaluation?.photoEvidence?.length || 0) > 0
-              ? `Completado (${evaluation?.photoEvidence?.length} de 3)`
-              : 'Pendiente (0 de 3)'
+              ? `${completedText} (${evaluation?.photoEvidence?.length} ${ofText} 3)`
+              : `${pendingText} (0 ${ofText} 3)`
           }
         ];
 
@@ -201,8 +210,8 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
 
     loadProgress();
 
-    // Also reload when taskCompletedFromCreation changes
-  }, [user?.id, taskCompletedFromCreation]);
+    // Also reload when taskCompletedFromCreation changes or language changes
+  }, [user?.id, taskCompletedFromCreation, t]);
 
   const handleGoBack = () => {
     if (onNavigateBack) {
@@ -370,10 +379,19 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
       <View style={[styles.header, !isMobile && styles.headerWeb]}>
         <View style={styles.headerContent}>
           <View>
-            <Text style={styles.headerGreeting}>Mi Evaluación</Text>
+            <Text style={styles.headerGreeting}>{t('proveedor.epi.myEvaluation')}</Text>
             <Text style={styles.headerTitle}>EPI INDURAMA</Text>
           </View>
           <View style={styles.headerRight}>
+            <TouchableOpacity
+              style={styles.langToggle}
+              onPress={() => i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')}
+            >
+              <View style={styles.langCircle}>
+                <Text style={styles.langText}>{i18n.language.toUpperCase()}</Text>
+              </View>
+            </TouchableOpacity>
+
             <TouchableOpacity
               style={styles.profileButton}
               onPress={toggleMenu}
@@ -400,7 +418,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
 
           {/* Subtitle */}
           <Text style={styles.subtitle}>
-            Complete todos los pasos para enviar su evaluación
+            {t('proveedor.epi.completeSteps')}
           </Text>
 
           {/* Two Column Layout for Web */}
@@ -424,8 +442,8 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                     </View>
                   </View>
                   <View style={styles.progressInfo}>
-                    <Text style={styles.progressLabel}>Progreso General</Text>
-                    <Text style={styles.progressDetails}>{completedTasks} de 4 tareas completadas</Text>
+                    <Text style={styles.progressLabel}>{t('proveedor.epi.overallProgress')}</Text>
+                    <Text style={styles.progressDetails}>{completedTasks} {t('common.of')} 4 {t('proveedor.epi.tasksCompleted')}</Text>
                   </View>
                 </View>
 
@@ -442,8 +460,8 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
 
                 <Text style={styles.progressMessage}>
                   {globalProgress === 100
-                    ? '¡Listo para enviar tu evaluación!'
-                    : 'Completa todas las secciones al 100%'}
+                    ? t('proveedor.epi.readyToSubmit')
+                    : t('proveedor.epi.completeAllSections')}
                 </Text>
               </View>
 
@@ -454,7 +472,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                     <View style={styles.warningBanner}>
                       <Ionicons name="alert-circle" size={24} color="#F57C00" />
                       <Text style={styles.warningText}>
-                        Completa todas las tareas para enviar
+                        {t('proveedor.epi.completeTasks')}
                       </Text>
                     </View>
                   )}
@@ -475,7 +493,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                       styles.submitButtonText,
                       !canSubmit && styles.submitButtonTextDisabled
                     ]}>
-                      {submitLoading ? 'Enviando...' : 'Enviar Evaluación'}
+                      {submitLoading ? t('common.sending') : t('proveedor.epi.submitEvaluation')}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -488,15 +506,15 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                     <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
                   </View>
                   <View style={styles.submittedContent}>
-                    <Text style={styles.submittedTitle}>Evaluación Enviada</Text>
+                    <Text style={styles.submittedTitle}>{t('proveedor.epi.evaluationSubmitted')}</Text>
                     <Text style={styles.submittedText}>
-                      Enviado el {epiSubmission.submittedAt?.toDate?.().toLocaleDateString('es-ES') || 'Recientemente'}
+                      {t('proveedor.epi.submittedOn')} {epiSubmission.submittedAt?.toDate?.().toLocaleDateString('es-ES') || t('proveedor.epi.recently')}
                     </Text>
                     <TouchableOpacity
                       style={styles.dashboardButton}
                       onPress={onNavigateToDashboard}
                     >
-                      <Text style={styles.dashboardButtonText}>Ir al Dashboard</Text>
+                      <Text style={styles.dashboardButtonText}>{t('proveedor.epi.goToDashboard')}</Text>
                       <Ionicons name="arrow-forward" size={18} color="#FFF" />
                     </TouchableOpacity>
                   </View>
@@ -506,7 +524,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
 
             {/* Right Column - Tasks */}
             <View style={[styles.tasksColumn, !isMobile && styles.tasksColumnWeb]}>
-              <Text style={styles.sectionTitle}>Tareas pendientes</Text>
+              <Text style={styles.sectionTitle}>{t('proveedor.epi.pendingTasks')}</Text>
 
               <View style={[styles.tasksList, !isMobile && styles.tasksListWeb]}>
                 {tasks.map((task) => (
@@ -550,7 +568,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                 <View style={styles.warningBanner}>
                   <Ionicons name="alert-circle" size={24} color="#F57C00" />
                   <Text style={styles.warningText}>
-                    Completa todas las tareas para enviar tu evaluación
+                    {t('proveedor.epi.completeTasks')}
                   </Text>
                 </View>
               )}
@@ -571,7 +589,7 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                   styles.submitButtonText,
                   !canSubmit && styles.submitButtonTextDisabled
                 ]}>
-                  {submitLoading ? 'Enviando...' : 'Enviar Evaluación EPI'}
+                  {submitLoading ? t('common.sending') : t('proveedor.epi.submitEvaluationEPI')}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -584,18 +602,18 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
                 <Ionicons name="checkmark-circle" size={40} color="#4CAF50" />
               </View>
               <View style={styles.submittedContent}>
-                <Text style={styles.submittedTitle}>Evaluación Enviada</Text>
+                <Text style={styles.submittedTitle}>{t('proveedor.epi.evaluationSubmitted')}</Text>
                 <Text style={styles.submittedText}>
-                  Enviado el {epiSubmission.submittedAt?.toDate?.().toLocaleDateString('es-ES') || 'Recientemente'}
+                  {t('proveedor.epi.submittedOn')} {epiSubmission.submittedAt?.toDate?.().toLocaleDateString('es-ES') || t('proveedor.epi.recently')}
                 </Text>
                 <Text style={styles.submittedSubtext}>
-                  Tu evaluación está siendo revisada por el gestor
+                  {t('proveedor.epi.beingReviewed')}
                 </Text>
                 <TouchableOpacity
                   style={styles.dashboardButton}
                   onPress={onNavigateToDashboard}
                 >
-                  <Text style={styles.dashboardButtonText}>Ir al Dashboard</Text>
+                  <Text style={styles.dashboardButtonText}>{t('proveedor.epi.goToDashboard')}</Text>
                   <Ionicons name="arrow-forward" size={18} color="#FFF" />
                 </TouchableOpacity>
               </View>
@@ -618,44 +636,46 @@ export const SupplierEvaluationScreen: React.FC<SupplierEvaluationScreenProps> =
             <Ionicons name="checkmark-circle" size={60} color="#4CAF50" style={{ marginBottom: 16 }} />
             <Text style={styles.modalTitle}>EPI Enviada</Text>
             <Text style={styles.modalMessage}>
-              Se le notificará una vez finalizada la evaluación
+              {t('proveedor.epi.willBeNotified')}
             </Text>
             <TouchableOpacity
               style={styles.modalButton}
               onPress={handleEpiModalClose}
             >
-              <Text style={styles.modalButtonText}>Listo</Text>
+              <Text style={styles.modalButtonText}>{t('common.done')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
 
       {/* User Menu Dropdown */}
-      {showMenu && (
-        <>
-          <TouchableOpacity
-            style={styles.menuOverlay}
-            activeOpacity={1}
-            onPress={handleCloseMenu}
-          />
-          <View style={styles.menuContainer}>
-            <Text style={styles.menuLabel}>
-              {user ? `${user.firstName} ${user.lastName}` : 'Proveedor'}
-            </Text>
+      {
+        showMenu && (
+          <>
             <TouchableOpacity
-              style={[styles.menuItem, loggingOut && styles.menuItemDisabled]}
-              onPress={handleSignOut}
-              disabled={loggingOut}
-            >
-              <Ionicons name="log-out-outline" size={20} color="#003E85" />
-              <Text style={styles.menuText}>
-                {loggingOut ? 'Cerrando sesión...' : 'Cerrar sesión'}
+              style={styles.menuOverlay}
+              activeOpacity={1}
+              onPress={handleCloseMenu}
+            />
+            <View style={styles.menuContainer}>
+              <Text style={styles.menuLabel}>
+                {user ? `${user.firstName} ${user.lastName}` : t('proveedor.dashboard.supplier')}
               </Text>
-            </TouchableOpacity>
-          </View>
-        </>
-      )}
-    </View>
+              <TouchableOpacity
+                style={[styles.menuItem, loggingOut && styles.menuItemDisabled]}
+                onPress={handleSignOut}
+                disabled={loggingOut}
+              >
+                <Ionicons name="log-out-outline" size={20} color="#003E85" />
+                <Text style={styles.menuText}>
+                  {loggingOut ? t('auth.loggingOut') : t('auth.logout')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )
+      }
+    </View >
   );
 };
 
@@ -1184,5 +1204,24 @@ const styles = StyleSheet.create({
   taskProgressBarFill: {
     height: '100%',
     borderRadius: 2,
+  },
+  langToggle: {
+    marginRight: 10,
+    padding: 2,
+  },
+  langCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  langText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
 });

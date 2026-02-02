@@ -12,6 +12,7 @@ import {
     INDUSTRIES,
     getTagsForCategory
 } from '../../constants/supplierCategories';
+import { useTranslation } from 'react-i18next';
 
 interface SupplierProfileSetupScreenProps {
     onNavigateBack?: () => void;
@@ -23,6 +24,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
     onComplete
 }) => {
     const { user } = useAuth();
+    const { t } = useTranslation();
     const [saving, setSaving] = useState(false);
     const [currentStep, setCurrentStep] = useState(1);
 
@@ -99,18 +101,18 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
 
         // Validaciones
         if (!businessType) {
-            Alert.alert('Error', 'Por favor selecciona el tipo de negocio');
+            Alert.alert(t('common.error'), t('proveedor.profileSetup.selectBusinessType'));
             return;
         }
 
         if (selectedCategories.length === 0) {
-            Alert.alert('Error', 'Por favor selecciona al menos una categoría');
+            Alert.alert(t('common.error'), t('proveedor.profileSetup.selectAtLeastOneCategory'));
             return;
         }
 
         if (selectedProductTags.length === 0 && selectedServiceTags.length === 0 &&
             customProductTags.length === 0 && customServiceTags.length === 0) {
-            Alert.alert('Error', 'Por favor selecciona o agrega al menos un producto o servicio');
+            Alert.alert(t('common.error'), t('proveedor.profileSetup.selectOrAddProduct'));
             return;
         }
 
@@ -129,13 +131,13 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
             });
 
             Alert.alert(
-                'Perfil Actualizado',
-                'Tu perfil de productos y servicios ha sido guardado exitosamente',
-                [{ text: 'OK', onPress: onComplete || onNavigateBack }]
+                t('proveedor.profileSetup.profileUpdated'),
+                t('proveedor.profileSetup.profileSavedSuccess'),
+                [{ text: t('common.ok'), onPress: onComplete || onNavigateBack }]
             );
         } catch (error) {
             console.error('Error saving profile:', error);
-            Alert.alert('Error', 'No se pudo guardar el perfil');
+            Alert.alert(t('common.error'), t('proveedor.profileSetup.saveError'));
         } finally {
             setSaving(false);
         }
@@ -167,8 +169,8 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
 
     const renderStep1 = () => (
         <View>
-            <Text style={styles.stepTitle}>Paso 1: Tipo de Negocio</Text>
-            <Text style={styles.stepSubtitle}>¿Qué tipo de proveedor eres?</Text>
+            <Text style={styles.stepTitle}>{t('proveedor.profileSetup.step1Title')}</Text>
+            <Text style={styles.stepSubtitle}>{t('proveedor.profileSetup.step1Subtitle')}</Text>
 
             {BUSINESS_TYPES.map(type => (
                 <TouchableOpacity
@@ -194,7 +196,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                 onPress={() => businessType && setCurrentStep(2)}
                 disabled={!businessType}
             >
-                <Text style={styles.nextButtonText}>Siguiente</Text>
+                <Text style={styles.nextButtonText}>{t('common.next')}</Text>
                 <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
             </TouchableOpacity>
         </View>
@@ -202,8 +204,8 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
 
     const renderStep2 = () => (
         <View>
-            <Text style={styles.stepTitle}>Paso 2: Categorías y Productos/Servicios</Text>
-            <Text style={styles.stepSubtitle}>Selecciona las categorías que manejas</Text>
+            <Text style={styles.stepTitle}>{t('proveedor.profileSetup.step2Title')}</Text>
+            <Text style={styles.stepSubtitle}>{t('proveedor.profileSetup.step2Subtitle')}</Text>
 
             {PRODUCT_CATEGORIES.map(category => (
                 <TouchableOpacity
@@ -228,7 +230,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
             {selectedCategories.length > 0 && (
                 <>
                     <Text style={[styles.stepSubtitle, { marginTop: 24 }]}>
-                        Selecciona productos/servicios específicos
+                        {t('proveedor.profileSetup.selectSpecificProducts')}
                     </Text>
                     <View style={styles.tagsContainer}>
                         {getAvailableTags().map(tag => {
@@ -254,15 +256,15 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                     </View>
 
                     <Text style={[styles.stepSubtitle, { marginTop: 16 }]}>
-                        ¿Ofreces algo que no está en la lista?
+                        {t('proveedor.profileSetup.notInList')}
                     </Text>
 
                     <View style={styles.customTagSection}>
-                        <Text style={styles.customTagLabel}>Productos personalizados:</Text>
+                        <Text style={styles.customTagLabel}>{t('proveedor.profileSetup.customProducts')}:</Text>
                         <View style={styles.customTagInput}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Ej: Remaches especiales titanio"
+                                placeholder={t('proveedor.profileSetup.customProductPlaceholder')}
                                 value={customProductInput}
                                 onChangeText={setCustomProductInput}
                                 onSubmitEditing={addCustomProductTag}
@@ -284,11 +286,11 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                     </View>
 
                     <View style={styles.customTagSection}>
-                        <Text style={styles.customTagLabel}>Servicios personalizados:</Text>
+                        <Text style={styles.customTagLabel}>{t('proveedor.profileSetup.customServices')}:</Text>
                         <View style={styles.customTagInput}>
                             <TextInput
                                 style={styles.input}
-                                placeholder="Ej: Estampado en frío"
+                                placeholder={t('proveedor.profileSetup.customServicePlaceholder')}
                                 value={customServiceInput}
                                 onChangeText={setCustomServiceInput}
                                 onSubmitEditing={addCustomServiceTag}
@@ -317,7 +319,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                     onPress={() => setCurrentStep(1)}
                 >
                     <MaterialCommunityIcons name="arrow-left" size={20} color="#374151" />
-                    <Text style={styles.backButtonText}>Atrás</Text>
+                    <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -328,7 +330,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                     onPress={() => selectedCategories.length > 0 && setCurrentStep(3)}
                     disabled={selectedCategories.length === 0}
                 >
-                    <Text style={styles.nextButtonText}>Siguiente</Text>
+                    <Text style={styles.nextButtonText}>{t('common.next')}</Text>
                     <MaterialCommunityIcons name="arrow-right" size={20} color="#fff" />
                 </TouchableOpacity>
             </View>
@@ -337,8 +339,8 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
 
     const renderStep3 = () => (
         <View>
-            <Text style={styles.stepTitle}>Paso 3: Industrias y Capacidades</Text>
-            <Text style={styles.stepSubtitle}>¿A qué industrias atiendes?</Text>
+            <Text style={styles.stepTitle}>{t('proveedor.profileSetup.step3Title')}</Text>
+            <Text style={styles.stepSubtitle}>{t('proveedor.profileSetup.step3Subtitle')}</Text>
 
             <View style={styles.industryGrid}>
                 {INDUSTRIES.map(industry => (
@@ -361,11 +363,11 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
             </View>
 
             <Text style={[styles.stepSubtitle, { marginTop: 24 }]}>
-                Descripción adicional de capacidades (opcional)
+                {t('proveedor.profileSetup.additionalCapabilities')}
             </Text>
             <TextInput
                 style={styles.textArea}
-                placeholder="Describe cualquier capacidad adicional, certificaciones especiales, o información relevante..."
+                placeholder={t('proveedor.profileSetup.capabilitiesPlaceholder')}
                 value={capabilities}
                 onChangeText={setCapabilities}
                 multiline
@@ -379,7 +381,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                     onPress={() => setCurrentStep(2)}
                 >
                     <MaterialCommunityIcons name="arrow-left" size={20} color="#374151" />
-                    <Text style={styles.backButtonText}>Atrás</Text>
+                    <Text style={styles.backButtonText}>{t('common.back')}</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -389,7 +391,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                 >
                     <MaterialCommunityIcons name="content-save" size={20} color="#fff" />
                     <Text style={styles.saveButtonText}>
-                        {saving ? 'Guardando...' : 'Guardar Perfil'}
+                        {saving ? t('common.saving') : t('proveedor.profileSetup.saveProfile')}
                     </Text>
                 </TouchableOpacity>
             </View>
@@ -405,7 +407,7 @@ export const SupplierProfileSetupScreen: React.FC<SupplierProfileSetupScreenProp
                 <TouchableOpacity onPress={onNavigateBack} style={styles.backIcon}>
                     <MaterialCommunityIcons name="arrow-left" size={28} color="#fff" />
                 </TouchableOpacity>
-                <Text style={styles.headerTitle}>Configurar Perfil de Proveedor</Text>
+                <Text style={styles.headerTitle}>{t('proveedor.profileSetup.title')}</Text>
             </View>
 
             {renderStepIndicator()}

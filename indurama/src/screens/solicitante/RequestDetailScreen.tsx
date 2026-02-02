@@ -8,6 +8,7 @@ import { Request, RequestStatus } from '../../types';
 
 import { getRelativeTime, confirmReceipt } from '../../services/requestService';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { theme } from '../../styles/theme';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 
@@ -29,6 +30,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
   onReceiptConfirmed
 }) => {
   const { user } = useAuth();
+  const { t } = useLanguage();
   const currentUserId = userId || user?.id;
   const [request, setRequest] = useState<Request | null>(null);
   const [loading, setLoading] = useState(true);
@@ -61,11 +63,11 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
       if (supported) {
         await Linking.openURL(url);
       } else {
-        Alert.alert('Error', 'No se puede abrir este archivo');
+        Alert.alert(t('common.error'), t('requests.details.openError'));
       }
     } catch (error) {
       console.error('Error opening document:', error);
-      Alert.alert('Error', 'No se pudo abrir el archivo');
+      Alert.alert(t('common.error'), t('requests.details.openError'));
     }
   };
 
@@ -84,17 +86,17 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
         });
 
         if (Platform.OS === 'web') {
-          alert('¡Recepción confirmada! La solicitud se ha marcado como completada.');
+          alert(t('requests.details.confirmReceiptSuccess'));
         } else {
-          Alert.alert('Éxito', '¡Recepción confirmada! La solicitud se ha marcado como completada.');
+          Alert.alert(t('common.success'), t('requests.details.confirmReceiptSuccess'));
         }
         onReceiptConfirmed?.();
       } catch (error) {
         console.error('Error confirming receipt:', error);
         if (Platform.OS === 'web') {
-          alert('Error al confirmar la recepción.');
+          alert(t('requests.details.confirmReceiptError'));
         } else {
-          Alert.alert('Error', 'No se pudo confirmar la recepción.');
+          Alert.alert(t('common.error'), t('requests.details.confirmReceiptError'));
         }
       } finally {
         setConfirming(false);
@@ -102,16 +104,16 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
     };
 
     if (Platform.OS === 'web') {
-      if (confirm('¿Confirmas que recibiste el producto/servicio conforme?')) {
+      if (confirm(t('requests.details.confirmReceiptQuestion'))) {
         await doConfirm();
       }
     } else {
       Alert.alert(
-        'Confirmar Recepción',
-        '¿Confirmas que recibiste el producto/servicio conforme?',
+        t('solicitante.alerts.confirmReceiptTitle'),
+        t('requests.details.confirmReceiptQuestion'),
         [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Sí, Recibí Conforme', onPress: doConfirm, style: 'default' }
+          { text: t('common.cancel'), style: 'cancel' },
+          { text: t('requests.details.yesReceived'), onPress: doConfirm, style: 'default' }
         ]
       );
     }
@@ -128,8 +130,8 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
   if (!request) {
     return (
       <View style={styles.container}>
-        <Text>No se encontró la solicitud</Text>
-        <TouchableOpacity onPress={onBack}><Text>Volver</Text></TouchableOpacity>
+        <Text>{t('requests.details.notFound')}</Text>
+        <TouchableOpacity onPress={onBack}><Text>{t('requests.details.back')}</Text></TouchableOpacity>
       </View>
     );
   }
@@ -137,9 +139,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
   // --- TIMELINE LOGIC ---
   const timelineEvents = [
     {
-      title: 'Solicitud Creada',
-      user: request.userName || 'Usuario',
-      role: 'Solicitante',
+      title: t('timeline.steps.created'),
+      user: request.userName || t('common.user'),
+      role: t('solicitante.title'),
       date: request.createdAt,
       icon: 'document-text-outline',
       active: true
@@ -148,18 +150,18 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
 
   if (request.status === RequestStatus.PENDING) {
     timelineEvents.push({
-      title: 'Esperando Revisión',
-      user: 'Gestor',
-      role: 'Pendiente',
+      title: t('timeline.steps.waitingApproval'),
+      user: t('roles.gestor'),
+      role: t('solicitante.status.pending'),
       date: null,
       icon: 'time-outline',
       active: false
     });
   } else {
     timelineEvents.push({
-      title: 'En Revisión',
-      user: 'Gestor de Compras',
-      role: 'Gestor',
+      title: t('timeline.steps.inReview'),
+      user: t('roles.gestor'),
+      role: t('roles.gestor'),
       date: request.updatedAt,
       icon: 'search-outline',
       active: true
@@ -168,36 +170,36 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
 
   if (request.status === RequestStatus.COMPLETED) {
     timelineEvents.push({
-      title: 'Solicitud Aprobada',
-      user: 'Gestor de Compras',
-      role: 'Gestor',
+      title: t('timeline.steps.approved'),
+      user: t('roles.gestor'),
+      role: t('roles.gestor'),
       date: (request as any).completedAt || request.updatedAt,
       icon: 'checkmark-circle-outline',
       active: true
     });
   } else if (request.status === RequestStatus.REJECTED) {
     timelineEvents.push({
-      title: 'Solicitud Rechazada',
-      user: 'Gestor de Compras',
-      role: 'Gestor',
+      title: t('timeline.steps.rejected'),
+      user: t('roles.gestor'),
+      role: t('roles.gestor'),
       date: (request as any).reviewedAt || request.updatedAt,
       icon: 'close-circle-outline',
       active: true
     });
   } else if (request.status === RequestStatus.QUOTING || (request.status as string) === 'cotizacion') {
     timelineEvents.push({
-      title: 'En Cotización',
-      user: 'Proveedores Invitados',
-      role: 'Proceso',
+      title: t('timeline.steps.quoting'),
+      user: t('timeline.invitedProviders'),
+      role: t('timeline.process'),
       date: (request as any).quotationStartedAt || request.updatedAt,
       icon: 'pricetags-outline',
       active: true
     });
   } else if (request.status === RequestStatus.AWARDED || (request.status as string) === 'adjudicado') {
     timelineEvents.push({
-      title: 'Adjudicada',
-      user: 'Gestor de Compras',
-      role: 'Gestor',
+      title: t('timeline.steps.awarded'),
+      user: t('roles.gestor'),
+      role: t('roles.gestor'),
       date: (request as any).adjudicatedAt || request.updatedAt,
       icon: 'ribbon-outline',
       active: true
@@ -205,9 +207,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
     // If not yet received
     if (!request.receivedAt) {
       timelineEvents.push({
-        title: 'Pendiente de Recepción',
-        user: 'Solicitante',
-        role: 'Acción Requerida',
+        title: t('timeline.steps.pendingReceipt'),
+        user: t('solicitante.title'),
+        role: t('solicitante.requireAction'),
         date: null,
         icon: 'cube-outline',
         active: false
@@ -215,9 +217,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
     }
   } else if (request.status === RequestStatus.RECTIFICATION_REQUIRED) {
     timelineEvents.push({
-      title: 'Corrección Requerida',
-      user: 'Gestor de Compras',
-      role: 'Gestor',
+      title: t('timeline.steps.correctionRequired'),
+      user: t('roles.gestor'),
+      role: t('roles.gestor'),
       date: (request as any).reviewedAt || request.updatedAt,
       icon: 'alert-circle-outline',
       active: true
@@ -227,9 +229,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
   // Receipt confirmation step
   if (request.status === RequestStatus.COMPLETED && request.receivedAt) {
     timelineEvents.push({
-      title: 'Recepción Confirmada',
-      user: request.receivedConfirmedBy === currentUserId ? 'Tú' : 'Solicitante',
-      role: 'Completado',
+      title: t('timeline.steps.receiptConfirmed'),
+      user: request.receivedConfirmedBy === currentUserId ? t('common.you') : t('solicitante.title'),
+      role: t('solicitante.status.completed'),
       date: request.receivedAt,
       icon: 'cube',
       active: true
@@ -280,13 +282,14 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                 style={{ marginRight: 6 }}
               />
               <Text style={styles.statusBadgeText}>
-                {request.status === 'awarded' || (request.status as string) === 'adjudicado' ? 'ADJUDICADA' :
-                  request.status === 'completed' ? 'COMPLETADA' :
-                    request.status === 'pending' ? 'PENDIENTE' :
-                      (request.status === 'quoting' || (request.status as string) === 'cotizacion') ? 'EN COTIZACIÓN' :
-                        request.status === 'in_progress' ? 'EN GESTIÓN' :
-                          request.status === 'rejected' ? 'RECHAZADA' :
-                            request.status.toUpperCase()}
+                {request.status === 'awarded' || (request.status as string) === 'adjudicado' ? t('solicitante.status.awarded').toUpperCase() :
+                  request.status === 'completed' ? t('solicitante.status.completed').toUpperCase() :
+                    request.status === 'pending' ? t('solicitante.status.pending').toUpperCase() :
+                      (request.status === 'quoting' || (request.status as string) === 'cotizacion') ? t('solicitante.status.quoting').toUpperCase() :
+                        request.status === 'in_progress' ? t('solicitante.status.inProgress').toUpperCase() :
+                          request.status === 'rejected' ? t('solicitante.status.rejected').toUpperCase() :
+                            request.status === 'rectification_required' ? t('solicitante.status.rectificationRequired').toUpperCase() :
+                              request.status.toUpperCase()}
               </Text>
             </View>
           </View>
@@ -310,9 +313,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                   <Ionicons name="alert-circle-outline" size={28} color="#F57C00" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={[styles.actionCardTitle, { color: '#E65100' }]}>Se Requiere Corrección</Text>
+                  <Text style={[styles.actionCardTitle, { color: '#E65100' }]}>{t('requests.details.rectificationRequired')}</Text>
                   <Text style={styles.actionCardSubtitle}>
-                    El gestor ha solicitado cambios en esta solicitud.
+                    {t('requests.details.rectificationSubtitle')}
                   </Text>
                 </View>
               </View>
@@ -320,7 +323,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
               {/* @ts-ignore */}
               {request.rectificationComment && (
                 <View style={{ backgroundColor: '#FFF8E1', padding: 15, borderRadius: 8, marginBottom: 20, borderWidth: 1, borderColor: '#FFE0B2' }}>
-                  <Text style={{ fontWeight: 'bold', color: '#E65100', marginBottom: 5 }}>Comentario del Gestor:</Text>
+                  <Text style={{ fontWeight: 'bold', color: '#E65100', marginBottom: 5 }}>{t('requests.details.managerComment')}</Text>
                   {/* @ts-ignore */}
                   <Text style={{ fontStyle: 'italic', color: '#5D4037' }}>"{request.rectificationComment}"</Text>
                 </View>
@@ -332,7 +335,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                   onPress={() => onNavigateToEdit?.(request)}
                 >
                   <Ionicons name="create-outline" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                  <Text style={styles.btnPrimaryText}>Editar y Corregir</Text>
+                  <Text style={styles.btnPrimaryText}>{t('requests.details.editAndFix')}</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -344,9 +347,9 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                   <Ionicons name="cube-outline" size={28} color="#4CAF50" />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={styles.actionCardTitle}>Actualización de Estado</Text>
+                  <Text style={styles.actionCardTitle}>{t('requests.details.statusUpdate')}</Text>
                   <Text style={styles.actionCardSubtitle}>
-                    La solicitud ha sido adjudicada. Por favor, confirma cuando hayas recibido el bien o servicio.
+                    {t('requests.details.awardedSubtitle')}
                   </Text>
                 </View>
               </View>
@@ -358,7 +361,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                     onPress={() => onNavigateToPurchaseOrder(request.id, request.winnerQuotationId!)}
                   >
                     <Ionicons name="document-text-outline" size={18} color="#1565C0" style={{ marginRight: 8 }} />
-                    <Text style={styles.btnOutlineText}>Ver Orden</Text>
+                    <Text style={styles.btnOutlineText}>{t('requests.details.viewOrder')}</Text>
                   </TouchableOpacity>
                 )}
 
@@ -373,7 +376,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                     <Ionicons name="checkmark-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
                   )}
                   <Text style={styles.btnPrimaryText}>
-                    {confirming ? 'Confirmando...' : 'Confirmar Recepción'}
+                    {confirming ? t('requests.details.confirming') : t('requests.details.confirmReceipt')}
                   </Text>
                 </TouchableOpacity>
               </View>
@@ -387,7 +390,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                 <Ionicons name="person" size={20} color="#1565C0" />
               </View>
               <View>
-                <Text style={styles.gridLabel}>Solicitante</Text>
+                <Text style={styles.gridLabel}>{t('requests.details.requestor')}</Text>
                 <Text style={styles.gridValue}>{request.userName || 'Usuario'}</Text>
               </View>
             </View>
@@ -397,7 +400,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                 <Ionicons name="business" size={20} color="#EF6C00" />
               </View>
               <View>
-                <Text style={styles.gridLabel}>Departamento</Text>
+                <Text style={styles.gridLabel}>{t('requests.details.department')}</Text>
                 <Text style={styles.gridValue}>{request.department || 'N/A'}</Text>
               </View>
             </View>
@@ -407,7 +410,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                 <Ionicons name="calendar" size={20} color="#2E7D32" />
               </View>
               <View>
-                <Text style={styles.gridLabel}>Creado</Text>
+                <Text style={styles.gridLabel}>{t('requests.details.created')}</Text>
                 <Text style={styles.gridValue}>{getRelativeTime(request.createdAt)}</Text>
               </View>
             </View>
@@ -417,7 +420,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                 <Ionicons name="alarm" size={20} color="#C2185B" />
               </View>
               <View>
-                <Text style={styles.gridLabel}>Límite</Text>
+                <Text style={styles.gridLabel}>{t('requests.details.dueDate')}</Text>
                 <Text style={styles.gridValue}>{request.dueDate ? String(request.dueDate) : 'N/A'}</Text>
               </View>
             </View>
@@ -427,29 +430,29 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="briefcase-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
-              <Text style={styles.cardTitle}>Detalles del Proyecto</Text>
+              <Text style={styles.cardTitle}>{t('requests.details.projectDetails')}</Text>
             </View>
 
             <View style={[styles.infoRow, !isDesktopView && { flexDirection: 'column' }]}>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Tipo de Proyecto</Text>
+                <Text style={styles.label}>{t('requests.details.projectType')}</Text>
                 <Text style={styles.value}>{request.tipoProyecto}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={styles.label}>Clase de Búsqueda</Text>
+                <Text style={styles.label}>{t('requests.details.searchClass')}</Text>
                 <Text style={styles.value}>{request.claseBusqueda}</Text>
               </View>
             </View>
 
             <View style={styles.divider} />
 
-            <Text style={styles.label}>Descripción de la Necesidad</Text>
+            <Text style={styles.label}>{t('requests.details.needDescription')}</Text>
             <Text style={styles.descriptionText}>{request.description}</Text>
 
             {/* Criteria Tags */}
             {(request.requiredBusinessType || request.requiredCategories?.length || request.requiredTags?.length) && (
               <View style={styles.criteriaContainer}>
-                <Text style={[styles.label, { marginBottom: 8 }]}>Criterios de Proveedor</Text>
+                <Text style={[styles.label, { marginBottom: 8 }]}>{t('requests.details.providerCriteria')}</Text>
                 <View style={styles.chipContainer}>
                   {request.requiredBusinessType && (
                     <View style={styles.chip}><Text style={styles.chipText}>{request.requiredBusinessType}</Text></View>
@@ -467,7 +470,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="folder-open-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>Documentos Adjuntos</Text>
+                <Text style={styles.cardTitle}>{t('requests.details.attachments')}</Text>
               </View>
               {request.documents.map((doc: any, index: number) => (
                 <View key={index} style={styles.docItem}>
@@ -476,7 +479,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                   </View>
                   <View style={{ flex: 1, marginHorizontal: 12 }}>
                     <Text style={styles.docName}>{doc.name || `Documento ${index + 1}`}</Text>
-                    <Text style={styles.docSize}>Adjunto</Text>
+                    <Text style={styles.docSize}>{t('requests.details.attached')}</Text>
                   </View>
                   <TouchableOpacity onPress={() => handleOpenDocument(doc.url)} style={styles.downloadBtn}>
                     <Ionicons name="cloud-download-outline" size={20} color="#555" />
@@ -490,7 +493,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           <View style={styles.card}>
             <View style={styles.cardHeader}>
               <Ionicons name="git-network-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
-              <Text style={styles.cardTitle}>Historial de Estado</Text>
+              <Text style={styles.cardTitle}>{t('requests.details.statusHistory')}</Text>
             </View>
 
             <View style={styles.timelineContainer}>

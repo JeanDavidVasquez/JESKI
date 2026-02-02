@@ -1,17 +1,19 @@
 export interface EpiQuestion {
     id: string;
-    text: string;
-    weight: number; // Re-added: UI allows manual weight configuration
+    text: string;           // Texto en español (principal)
+    text_en?: string;       // Texto en inglés (traducción)
+    weight: number;
     evidence?: string;
-    evidenceRequired?: boolean; // Si requiere adjuntar evidencia
-    evidenceDescription?: string; // Descripción de evidencia esperada
-    isNew?: boolean; // UI State
+    evidenceRequired?: boolean;
+    evidenceDescription?: string;
+    isNew?: boolean;
 }
 
 export interface EpiSection {
     id: string;
-    title: string;
-    weight: number; // Porcentaje (0-100)
+    title: string;          // Título en español (principal)
+    title_en?: string;      // Título en inglés (traducción)
+    weight: number;
     questions: EpiQuestion[];
 }
 

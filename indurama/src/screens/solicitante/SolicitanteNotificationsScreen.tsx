@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { NotificationService } from '../../services/notificationService';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { AppNotification } from '../../types';
+import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 
 interface SolicitanteNotificationsScreenProps {
     onNavigateToDashboard: () => void;
@@ -22,6 +24,7 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
     onNavigateToNotifications,
 }) => {
     const { user } = useAuth();
+    const { t, currentLanguage } = useLanguage();
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
@@ -72,9 +75,8 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
 
     const getNotificationIcon = (type: string) => {
         switch (type) {
-            case 'quotation_awarded':
-            case 'award':
-            case 'supplier_selected': // Added
+            case 'quotation_winner':
+            case 'supplier_selected':
                 return { name: 'trophy' as const, color: '#FFD700' };
             case 'quotation_invitation':
             case 'invitation':
@@ -92,12 +94,12 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
         }
     };
 
-    const navItems = [
-        { key: 'Dashboard', label: 'Dashboard', iconName: 'home' as const, onPress: onNavigateToDashboard },
-        { key: 'NewRequest', label: 'Nueva Solicitud', iconName: 'add-circle' as const, onPress: onNavigateToNewRequest },
-        { key: 'History', label: 'Historial', iconName: 'document-text' as const, onPress: onNavigateToHistory },
-        { key: 'Profile', label: 'Perfil', iconName: 'person' as const, onPress: onNavigateToProfile },
-    ];
+    const navItems = getSolicitanteNavItems(t, {
+        onNavigateToDashboard: onNavigateToDashboard,
+        onNavigateToNewRequest: onNavigateToNewRequest,
+        onNavigateToHistory: onNavigateToHistory,
+        onNavigateToProfile: onNavigateToProfile,
+    });
 
     const formatNotificationDate = (dateVal: any) => {
         if (!dateVal) return '';
@@ -118,15 +120,61 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
         // Check if date is valid
         if (isNaN(date.getTime())) return '';
 
-        return date.toLocaleDateString('es-ES', {
+        return date.toLocaleDateString(currentLanguage === 'es' ? 'es-ES' : 'en-US', {
             day: '2-digit',
             month: '2-digit',
             year: 'numeric'
         });
     };
 
+    const getLocalizedContent = (item: AppNotification) => {
+        // Try to translate based on type and content matching (Legacy DB support)
+
+        // 1. Supplier Selected / Award
+        if (item.type === 'supplier_selected' || item.type === 'quotation_winner') {
+            const match = item.message.match(/Se seleccionó a (.+) para tu solicitud #(.+)/) ||
+                item.message.match(/Selected (.+) for request #(.+)/); // Support potential English legacy
+            if (match) {
+                return {
+                    title: t('appNotifications.providerSelectedTitle'),
+                    message: t('appNotifications.providerSelectedMessage', { supplier: match[1], code: match[2] })
+                };
+            }
+        }
+
+        // 2. Request Created
+        if (item.type === 'request_created') {
+            const match = item.message.match(/Has creado exitosamente la solicitud ([^.]+)/);
+            if (match) {
+                return {
+                    title: t('appNotifications.requestCreatedTitle'),
+                    message: t('appNotifications.requestCreatedMessage', { code: match[1] })
+                };
+            }
+        }
+
+        // 3. Request Validated / Approved
+        if (item.type === 'request_approved') {
+            const match = item.message.match(/Tu solicitud (.+) ha sido validada/);
+            if (match) {
+                return {
+                    title: t('appNotifications.requestValidatedTitle'),
+                    message: t('appNotifications.requestValidatedMessage', { code: match[1] })
+                };
+            }
+        }
+
+        // Fallback: return original content
+        return {
+            title: item.title,
+            message: item.message
+        };
+    };
+
     const renderNotification = ({ item }: { item: AppNotification }) => {
         const icon = getNotificationIcon(item.type);
+        const { title, message } = getLocalizedContent(item);
+
         return (
             <TouchableOpacity
                 style={[styles.notificationItem, !item.read && styles.unreadItem]}
@@ -137,10 +185,10 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
                 </View>
                 <View style={styles.contentContainer}>
                     <Text style={[styles.title, !item.read && styles.unreadTitle]}>
-                        {item.title}
+                        {title}
                     </Text>
                     <Text style={styles.message} numberOfLines={2}>
-                        {item.message}
+                        {message}
                     </Text>
                     <Text style={styles.timestamp}>
                         {formatNotificationDate(item.createdAt)}
@@ -163,10 +211,10 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
                 {/* Header */}
                 <View style={styles.header}>
                     <View>
-                        <Text style={styles.headerTitle}>Notificaciones</Text>
+                        <Text style={styles.headerTitle}>{t('appNotifications.title')}</Text>
                         {unreadCount > 0 && (
                             <Text style={styles.unreadCount}>
-                                {unreadCount} sin leer
+                                {t('appNotifications.unread', { count: unreadCount })}
                             </Text>
                         )}
                     </View>
@@ -175,7 +223,7 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
                             onPress={handleMarkAllAsRead}
                             style={styles.markAllButton}
                         >
-                            <Text style={styles.markAllText}>Marcar todas</Text>
+                            <Text style={styles.markAllText}>{t('appNotifications.markAllRead')}</Text>
                         </TouchableOpacity>
                     )}
                 </View>
@@ -186,7 +234,7 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
                 ) : notifications.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Ionicons name="notifications-off-outline" size={64} color="#BDBDBD" />
-                        <Text style={styles.emptyText}>No tienes notificaciones</Text>
+                        <Text style={styles.emptyText}>{t('appNotifications.emptyList')}</Text>
                     </View>
                 ) : (
                     <FlatList

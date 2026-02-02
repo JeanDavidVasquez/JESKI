@@ -23,6 +23,7 @@ import { db } from '../../services/firebaseConfig';
 import { doc, getDoc } from 'firebase/firestore';
 import { theme } from '../../styles/theme';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { useTranslation } from 'react-i18next';
 
 interface ProviderQuotationsScreenProps {
     supplierId: string;
@@ -53,6 +54,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
 
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
+    const { t } = useTranslation();
 
     useEffect(() => {
         loadData();
@@ -114,16 +116,17 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
     );
     const historyQuotations = quotations.filter(q =>
         q.status === 'rejected' ||
+        q.status === 'revoked' ||
         (q.status === 'selected' && !q.isWinner) ||
         (q.isWinner === true && (q._paymentStatus === 'paid' || q._paymentStatus === 'verified'))
     );
 
     // Navigation Items for Shell
     const navItems = [
-        { key: 'Dashboard', label: 'Inicio', iconName: 'home' as any, onPress: onNavigateToDashboard || onNavigateBack },
-        { key: 'Quotations', label: 'Cotizaciones', iconName: 'pricetags-outline' as any, onPress: () => { } },
-        { key: 'Profile', label: 'Perfil', iconName: 'person-outline' as any, onPress: onNavigateToProfile || (() => { }) },
-        { key: 'Logout', label: 'Salir', iconName: 'log-out-outline' as any, onPress: onLogout || (() => { }) },
+        { key: 'Dashboard', label: t('navigation.home'), iconName: 'home' as any, onPress: onNavigateToDashboard || onNavigateBack },
+        { key: 'Quotations', label: t('navigation.quotations'), iconName: 'pricetags-outline' as any, onPress: () => { } },
+        { key: 'Profile', label: t('navigation.profile'), iconName: 'person-outline' as any, onPress: onNavigateToProfile || (() => { }) },
+        { key: 'Logout', label: t('auth.logout'), iconName: 'log-out-outline' as any, onPress: onLogout || (() => { }) },
     ];
 
     const getStatusBadge = (status: string, isWinner?: boolean, paymentStatus?: string) => {
@@ -147,6 +150,8 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                 break;
             case 'rejected':
                 label = 'NO SELECCIONADA'; color = '#B91C1C'; backgroundColor = '#FEE2E2'; break;
+            case 'revoked':
+                label = '⛔ REVOCADA'; color = '#B91C1C'; backgroundColor = '#FEE2E2'; break;
             default:
                 label = status.toUpperCase();
         }
@@ -210,7 +215,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
 
                 {/* Header */}
                 <View style={[styles.header, !isMobile && styles.headerWeb]}>
-                    <Text style={styles.headerTitle}>Cotizaciones</Text>
+                    <Text style={styles.headerTitle}>{t('proveedor.quotations.title')}</Text>
                     {isMobile && <View style={{ width: 40 }} />}
                 </View>
 
@@ -227,7 +232,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                                 onPress={() => setActiveTab('invitations')}
                             >
                                 <Ionicons name="mail-outline" size={16} color={activeTab === 'invitations' ? theme.colors.primary : '#6B7280'} style={{ marginRight: 4 }} />
-                                <Text style={[styles.tabText, activeTab === 'invitations' && styles.tabTextActive]}>Invitaciones</Text>
+                                <Text style={[styles.tabText, activeTab === 'invitations' && styles.tabTextActive]}>{t('proveedor.quotations.invitations')}</Text>
                                 {pendingInvitations.length > 0 && !loading && (
                                     <View style={styles.badge}><Text style={styles.badgeText}>{pendingInvitations.length}</Text></View>
                                 )}
@@ -237,7 +242,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                                 onPress={() => setActiveTab('sent')}
                             >
                                 <Ionicons name="paper-plane-outline" size={16} color={activeTab === 'sent' ? theme.colors.primary : '#6B7280'} style={{ marginRight: 4 }} />
-                                <Text style={[styles.tabText, activeTab === 'sent' && styles.tabTextActive]}>Enviadas</Text>
+                                <Text style={[styles.tabText, activeTab === 'sent' && styles.tabTextActive]}>{t('proveedor.quotations.submitted')}</Text>
                                 {sentQuotations.length > 0 && !loading && (
                                     <View style={[styles.badge, { backgroundColor: '#3B82F6' }]}><Text style={styles.badgeText}>{sentQuotations.length}</Text></View>
                                 )}
@@ -247,7 +252,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                                 onPress={() => setActiveTab('won')}
                             >
                                 <Ionicons name="trophy-outline" size={16} color={activeTab === 'won' ? '#10B981' : '#6B7280'} style={{ marginRight: 4 }} />
-                                <Text style={[styles.tabText, activeTab === 'won' && styles.tabTextActive, activeTab === 'won' && { color: '#10B981' }]}>Ganadas</Text>
+                                <Text style={[styles.tabText, activeTab === 'won' && styles.tabTextActive, activeTab === 'won' && { color: '#10B981' }]}>{t('proveedor.quotations.awarded')}</Text>
                                 {wonQuotations.length > 0 && !loading && (
                                     <View style={[styles.badge, { backgroundColor: '#10B981' }]}><Text style={styles.badgeText}>{wonQuotations.length}</Text></View>
                                 )}
@@ -257,7 +262,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                                 onPress={() => setActiveTab('history')}
                             >
                                 <Ionicons name="time-outline" size={16} color={activeTab === 'history' ? theme.colors.primary : '#6B7280'} style={{ marginRight: 4 }} />
-                                <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>Historial</Text>
+                                <Text style={[styles.tabText, activeTab === 'history' && styles.tabTextActive]}>{t('common.history')}</Text>
                             </TouchableOpacity>
                         </View>
                     </ScrollView>
@@ -274,7 +279,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                         {loading ? (
                             <View style={styles.loadingContainer}>
                                 <ActivityIndicator size="large" color={theme.colors.primary} />
-                                <Text style={styles.loadingText}>Cargando cotizaciones...</Text>
+                                <Text style={styles.loadingText}>{t('common.loading')}</Text>
                             </View>
                         ) : (
                             <>
@@ -284,8 +289,8 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
                                         {pendingInvitations.length === 0 ? (
                                             <View style={styles.emptyState}>
                                                 <Ionicons name="mail-open-outline" size={64} color="#E5E7EB" />
-                                                <Text style={styles.emptyText}>No tienes invitaciones pendientes</Text>
-                                                <Text style={styles.emptySubtext}>Cuando un gestor te invite a cotizar, aparecerá aquí</Text>
+                                                <Text style={styles.emptyText}>{t('proveedor.quotations.noInvitations')}</Text>
+                                                <Text style={styles.emptySubtext}>{t('proveedor.dashboard.noActivity')}</Text>
                                             </View>
                                         ) : (
                                             pendingInvitations.map(invitation => (

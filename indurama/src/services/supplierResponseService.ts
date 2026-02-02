@@ -555,17 +555,29 @@ export const SupplierResponseService = {
     },
 
     /**
-     * Approve EPI submission
-     */
+ * Approve EPI submission
+ * @param submissionId - ID of the EPI submission
+ * @param supplierId - ID of the supplier
+ * @param gestorId - ID of the gestor approving
+ * @param comments - Optional review comments
+ * @param expiresAt - Optional expiration date for next EPI control (set by Gestor)
+ */
     async approveEPI(
         submissionId: string,
         supplierId: string,
         gestorId: string,
-        comments?: string
+        comments?: string,
+        expiresAt?: Date,
+        score?: number,
+        classification?: string
     ): Promise<void> {
         try {
             const submissionRef = doc(db, 'epi_submissions', submissionId);
             const userRef = doc(db, 'users', supplierId);
+
+            // Prepare expiration timestamp if provided
+            const { Timestamp } = require('firebase/firestore');
+            const expirationTimestamp = expiresAt ? Timestamp.fromDate(expiresAt) : null;
 
             // Update submission
             await updateDoc(submissionRef, {
@@ -574,6 +586,7 @@ export const SupplierResponseService = {
                 reviewedBy: gestorId,
                 reviewComments: comments || '',
                 canEdit: false,
+                ...(expirationTimestamp && { expiresAt: expirationTimestamp }),
             });
 
             // Update user
@@ -583,10 +596,14 @@ export const SupplierResponseService = {
                 epiApprovedAt: serverTimestamp(),
                 epiApprovedBy: gestorId,
                 approved: true,
-                isValidated: true
+                isValidated: true,
+                epiExpired: false,
+                ...(score !== undefined && { epiScore: score }),
+                ...(classification !== undefined && { epiClassification: classification }),
+                ...(expirationTimestamp && { epiExpiresAt: expirationTimestamp }),
             });
 
-            console.log('EPI approved successfully');
+            console.log('EPI approved successfully', expiresAt ? `(expires: ${expiresAt.toISOString()})` : '');
         } catch (error) {
             console.error('Error approving EPI:', error);
             throw error;
@@ -654,6 +671,47 @@ export const SupplierResponseService = {
         } catch (error) {
             console.error('Error requesting revision:', error);
             throw error;
+        }
+    },
+
+    /**
+     * Check EPI expiration status for a supplier
+     * @param supplierId - ID of the supplier
+     * @returns Object with expiration status, date, and days until expiry
+     */
+    async checkEPIExpiration(supplierId: string): Promise<{
+        isExpired: boolean;
+        expiresAt: Date | null;
+        daysUntilExpiry: number;
+    }> {
+        try {
+            const userRef = doc(db, 'users', supplierId);
+            const userSnap = await getDoc(userRef);
+
+            if (!userSnap.exists()) {
+                return { isExpired: true, expiresAt: null, daysUntilExpiry: 0 };
+            }
+
+            const userData = userSnap.data();
+            const expiresAt = userData.epiExpiresAt?.toDate?.() || null;
+
+            // If no expiration date set, EPI doesn't expire
+            if (!expiresAt) {
+                return { isExpired: false, expiresAt: null, daysUntilExpiry: -1 };
+            }
+
+            const now = new Date();
+            const diffMs = expiresAt.getTime() - now.getTime();
+            const daysUntilExpiry = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+            return {
+                isExpired: diffMs < 0,
+                expiresAt,
+                daysUntilExpiry
+            };
+        } catch (error) {
+            console.error('Error checking EPI expiration:', error);
+            return { isExpired: false, expiresAt: null, daysUntilExpiry: -1 };
         }
     }
 };

@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image, Platform, Animated, LayoutAnimation } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useResponsive } from '../styles/responsive';
 import { NotificationBell } from './';
+import { useLanguage } from '../hooks/useLanguage';
 
 /**
  * Generic navigation item for sidebar/bottom nav
@@ -40,8 +42,10 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
     onNavigateToNotifications,
     userId,
 }) => {
+    const { t } = useLanguage();
     const { isDesktopView, width } = useResponsive();
     const [collapsed, setCollapsed] = useState(false);
+    const insets = useSafeAreaInsets();
 
     // Determine if we should show sidebar (web/tablet) or bottom nav (mobile)
     // Force sidebar if width >= 768px regardless of platform for better responsive web experience
@@ -149,7 +153,7 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
                                         />
                                     </View>
                                     {!collapsed && (
-                                        <Text style={[styles.sidebarLabel, isNotificationsActive && styles.sidebarLabelActive]}>Notificaciones</Text>
+                                        <Text style={[styles.sidebarLabel, isNotificationsActive && styles.sidebarLabelActive]}>{t('appNotifications.title')}</Text>
                                     )}
                                 </TouchableOpacity>
                             );
@@ -214,7 +218,7 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
             </View>
 
             {/* Bottom Navigation */}
-            <View style={styles.bottomNavigation}>
+            <View style={[styles.bottomNavigation, { paddingBottom: insets.bottom }]}>
                 {/* First half of nav items */}
                 {navItems.slice(0, Math.ceil(navItems.length / 2)).map((item) => {
                     const isActive = currentScreen === item.key;
@@ -260,7 +264,7 @@ export const ResponsiveNavShell: React.FC<ResponsiveNavShellProps> = ({
                                 size={24}
                                 userId={userId} // Pass userId here as well
                             />
-                            <Text style={[styles.bottomNavLabel, isNotificationsActive && styles.bottomNavLabelActive]}>Notificaciones</Text>
+                            <Text style={[styles.bottomNavLabel, isNotificationsActive && styles.bottomNavLabelActive]}>{t('appNotifications.title')}</Text>
                         </TouchableOpacity>
                     );
                 })()}
@@ -438,8 +442,8 @@ const styles = StyleSheet.create({
         backgroundColor: '#FFFFFF',
         borderTopWidth: 1,
         borderTopColor: '#E5E7EB',
-        height: 60, // Standard height
-        paddingBottom: Platform.OS === 'ios' ? 20 : 0, // Safe area for iOS
+        minHeight: 60, // Minimum height, will expand with safe area
+        paddingTop: 8, // Add some top padding for content
         ...Platform.select({
             ios: {
                 shadowColor: '#000',

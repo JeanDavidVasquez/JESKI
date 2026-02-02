@@ -15,7 +15,10 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
+import { LanguageSelector } from '../../components/LanguageSelector';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { getUserRequestStats, getUserRequests } from '../../services/requestService';
 
 interface SolicitanteProfileScreenProps {
@@ -34,6 +37,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
     onNavigateToNotifications,
 }) => {
     const { user, updateProfile } = useAuth();
+    const { t } = useLanguage();
     const [stats, setStats] = useState({ total: 0, thisMonth: 0, approvedPercentage: 0 });
     const [isEditing, setIsEditing] = useState(false);
     const [saving, setSaving] = useState(false);
@@ -82,17 +86,17 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
 
     const handleLogout = () => {
         if (Platform.OS === 'web') {
-            if (confirm('¿Estás seguro que deseas cerrar sesión?')) {
+            if (confirm(t('auth.logoutConfirm'))) {
                 onLogout();
             }
             return;
         }
         Alert.alert(
-            'Cerrar Sesión',
-            '¿Estás seguro que deseas cerrar sesión?',
+            t('auth.logout'),
+            t('auth.logoutConfirm'),
             [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Sí, cerrar sesión', onPress: onLogout, style: 'destructive' }
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('common.yes'), onPress: onLogout, style: 'destructive' }
             ]
         );
     };
@@ -103,25 +107,25 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
         try {
             const result = await updateProfile(form);
             if (result.success) {
-                Alert.alert('Éxito', 'Perfil actualizado');
+                Alert.alert(t('common.success'), t('profile.profileUpdated'));
                 setIsEditing(false);
             } else {
-                Alert.alert('Error', result.error || 'Falló la actualización');
+                Alert.alert(t('common.error'), result.error || t('profile.updateFailed'));
             }
         } catch (e) {
-            Alert.alert('Error', 'Ocurrió un error inesperado');
+            Alert.alert(t('common.error'), t('errors.generic'));
         } finally {
             setSaving(false);
         }
     };
 
     // Navigation items for ResponsiveNavShell (using Ionicons names)
-    const navItems = [
-        { key: 'Dashboard', label: 'Dashboard', iconName: 'home' as const, onPress: onNavigateToDashboard },
-        { key: 'NewRequest', label: 'Nueva Solicitud', iconName: 'add-circle' as const, onPress: onNavigateToNewRequest },
-        { key: 'History', label: 'Historial', iconName: 'document-text' as const, onPress: onNavigateToHistory },
-        { key: 'Profile', label: 'Perfil', iconName: 'person' as const, onPress: () => { } },
-    ];
+    const navItems = getSolicitanteNavItems(t, {
+        onNavigateToDashboard: onNavigateToDashboard,
+        onNavigateToNewRequest: onNavigateToNewRequest,
+        onNavigateToHistory: onNavigateToHistory,
+        onNavigateToProfile: () => { },
+    });
 
     return (
         <ResponsiveNavShell
@@ -136,7 +140,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
                 {/* Blue Header */}
                 <View style={styles.headerContainer}>
                     <View style={styles.headerTop}>
-                        <Text style={styles.headerTitle}>{isEditing ? 'Editando Perfil' : 'Mi Perfil'}</Text>
+                        <Text style={styles.headerTitle}>{isEditing ? t('common.edit') + ' ' + t('navigation.profile') : t('profile.title')}</Text>
                         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 15 }}>
                             {isEditing ? (
                                 <>
@@ -170,25 +174,25 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
                                 style={styles.input}
                                 value={form.firstName}
                                 onChangeText={t => setForm({ ...form, firstName: t })}
-                                placeholder="Nombre"
+                                placeholder={t('profile.firstName')}
                             />
                             <TextInput
                                 style={styles.input}
                                 value={form.lastName}
                                 onChangeText={t => setForm({ ...form, lastName: t })}
-                                placeholder="Apellido"
+                                placeholder={t('profile.lastName')}
                             />
                             <TextInput
                                 style={[styles.input, { fontSize: 12 }]}
                                 value={form.position}
                                 onChangeText={t => setForm({ ...form, position: t })}
-                                placeholder="Cargo / Puesto"
+                                placeholder={t('profile.role')}
                             />
                         </>
                     ) : (
                         <>
                             <Text style={styles.userName}>{user?.firstName} {user?.lastName}</Text>
-                            <Text style={styles.userRole}>{user?.position || 'Puesto no definido'}</Text>
+                            <Text style={styles.userRole}>{user?.position || t('solicitante.companyNotAssigned')}</Text>
                         </>
                     )}
 
@@ -196,38 +200,38 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
                     <View style={styles.statsCard}>
                         <View style={styles.statItem}>
                             <Text style={styles.statValue}>{stats.total}</Text>
-                            <Text style={styles.statLabel}>TOTALES</Text>
+                            <Text style={styles.statLabel}>{t('dashboard.totalRequests').toUpperCase()}</Text>
                         </View>
                         <View style={styles.statItem}>
                             <Text style={[styles.statValue, { color: '#1565C0' }]}>{stats.thisMonth}</Text>
-                            <Text style={styles.statLabel}>ESTE MES</Text>
+                            <Text style={styles.statLabel}>{t('time.today').toUpperCase()}</Text>
                         </View>
                         <View style={styles.statItem}>
                             <Text style={[styles.statValue, { color: '#4CAF50' }]}>{stats.approvedPercentage}%</Text>
-                            <Text style={styles.statLabel}>APROBADAS</Text>
+                            <Text style={styles.statLabel}>{t('suppliers.approved').toUpperCase()}</Text>
                         </View>
                     </View>
                 </View>
 
                 {/* Datos Laborales */}
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionHeader}>DATOS LABORALES</Text>
+                    <Text style={styles.sectionHeader}>{t('profile.personalInfo').toUpperCase()}</Text>
                     <View style={styles.laboralCard}>
                         <View style={styles.laboralItem}>
                             <View style={styles.laboralIcon}>
                                 <Text style={{ fontWeight: 'bold', color: '#333' }}>DP</Text>
                             </View>
                             <View style={{ flex: 1 }}>
-                                <Text style={styles.laboralLabel}>Departamento</Text>
+                                <Text style={styles.laboralLabel}>{t('profile.department')}</Text>
                                 {isEditing ? (
                                     <TextInput
                                         style={styles.inputLeft}
                                         value={form.department}
                                         onChangeText={t => setForm({ ...form, department: t })}
-                                        placeholder="Ingrese departamento"
+                                        placeholder={t('profile.department')}
                                     />
                                 ) : (
-                                    <Text style={styles.laboralValue}>{user?.department || 'No asignado'}</Text>
+                                    <Text style={styles.laboralValue}>{user?.department || t('solicitante.departmentNotAssigned')}</Text>
                                 )}
                             </View>
                         </View>
@@ -236,7 +240,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
 
                 {/* Contactos */}
                 <View style={styles.sectionContainer}>
-                    <Text style={styles.sectionHeader}>CONTACTOS</Text>
+                    <Text style={styles.sectionHeader}>{t('profile.phone').toUpperCase()}</Text>
                     <View style={styles.contactCard}>
                         <View style={styles.contactItem}>
                             <View style={styles.contactIconCircle}>
@@ -254,7 +258,7 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
                                     style={[styles.inputLeft, { marginTop: 0, marginBottom: 0 }]}
                                     value={form.phone}
                                     onChangeText={t => setForm({ ...form, phone: t })}
-                                    placeholder="Teléfono"
+                                    placeholder={t('profile.phone')}
                                     keyboardType="phone-pad"
                                 />
                             ) : (
@@ -266,20 +270,14 @@ export const SolicitanteProfileScreen: React.FC<SolicitanteProfileScreenProps> =
 
                 {/* Configuration / Logout */}
                 <View style={[styles.sectionContainer, { marginTop: 10 }]}>
+                    <LanguageSelector style={{ marginBottom: 20 }} />
+
                     <View style={styles.contactCard}>
-                        <View style={styles.contactItem}>
-                            <View style={[styles.contactIconCircle, { backgroundColor: '#E3F2FD' }]}>
-                                <Ionicons name="globe-outline" size={20} color="#1565C0" />
-                            </View>
-                            <Text style={[styles.contactValue, { fontWeight: '600' }]}>Idioma / Language</Text>
-                            <Text style={{ marginLeft: 'auto', color: '#1565C0', fontWeight: 'bold' }}>ESP</Text>
-                        </View>
-                        <View style={styles.contactDivider} />
                         <TouchableOpacity style={styles.contactItem} onPress={handleLogout}>
                             <View style={[styles.contactIconCircle, { backgroundColor: '#FFEBEE' }]}>
                                 <Ionicons name="log-out-outline" size={20} color="#F44336" />
                             </View>
-                            <Text style={[styles.contactValue, { color: '#F44336', textDecorationLine: 'underline' }]}>Cerrar Sesión</Text>
+                            <Text style={[styles.contactValue, { color: '#F44336', textDecorationLine: 'underline' }]}>{t('auth.logout')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>

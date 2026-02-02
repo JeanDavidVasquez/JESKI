@@ -27,6 +27,7 @@ import {
     pickDocument,
     uploadSupplierEvidence,
 } from '../../services/imagePickerService';
+import { useTranslation } from 'react-i18next';
 
 const { width } = Dimensions.get('window');
 
@@ -64,6 +65,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
     onNavigateToPhotoEvidence
 }) => {
     const { user } = useAuth();
+    const { t, i18n } = useTranslation();
 
     // Use prop or fallback to current user's ID
     const supplierId = supplierIdProp || user?.id;
@@ -85,7 +87,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
 
     useEffect(() => {
         if (!supplierId) {
-            Alert.alert('Error', 'No se pudo identificar al proveedor. Por favor, intenta de nuevo.');
+            Alert.alert(t('common.error'), t('proveedor.questionnaire.supplierNotFound'));
             onNavigateBack?.();
             return;
         }
@@ -159,7 +161,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
             setSections(loadedSections);
         } catch (error) {
             console.error(error);
-            Alert.alert('Error', 'No se pudieron cargar las preguntas');
+            Alert.alert(t('common.error'), t('proveedor.questionnaire.loadError'));
         } finally {
             setLoading(false);
         }
@@ -307,11 +309,11 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                 }
             }
 
-            Alert.alert('Éxito', 'Evidencia subida correctamente');
+            Alert.alert(t('common.success'), t('proveedor.questionnaire.evidenceUploaded'));
 
         } catch (error) {
             console.error('Error uploading:', error);
-            Alert.alert('Error', 'No se pudo subir el archivo');
+            Alert.alert(t('common.error'), t('proveedor.questionnaire.uploadError'));
         } finally {
             setUploading(false);
             setActiveUploadQuestionId(null);
@@ -320,7 +322,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
 
     const handleSaveAndExit = async () => {
         if (!supplierId) {
-            Alert.alert('Error', 'No se ha identificado al proveedor');
+            Alert.alert(t('common.error'), t('proveedor.questionnaire.supplierNotIdentified'));
             return;
         }
 
@@ -331,7 +333,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
             setShowSaveModal(true);
         } catch (error: any) {
             console.error(error);
-            Alert.alert('Error', error.message || 'No se pudo guardar la evaluación');
+            Alert.alert(t('common.error'), error.message || t('proveedor.questionnaire.saveError'));
         } finally {
             setSaving(false);
         }
@@ -369,13 +371,23 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                         <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
                     </TouchableOpacity>
                     <View style={styles.headerCenter}>
-                        <Text style={styles.headerTitle}>Abastecimiento</Text>
+                        <Text style={styles.headerTitle}>{t('proveedor.questionnaire.supplyTitle')}</Text>
                         <Text style={styles.headerSubtitle}>
-                            Pregunta {currentQuestionIndex + 1} de {totalQuestions}
+                            {t('proveedor.questionnaire.questionOf', { current: currentQuestionIndex + 1, total: totalQuestions })}
                         </Text>
                     </View>
-                    <View style={styles.logoContainer}>
-                        <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                        <TouchableOpacity
+                            style={styles.langToggle}
+                            onPress={() => i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')}
+                        >
+                            <View style={styles.langCircle}>
+                                <Text style={styles.langText}>{i18n.language.toUpperCase()}</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <View style={styles.logoContainer}>
+                            <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
+                        </View>
                     </View>
                 </View>
             </View>
@@ -385,10 +397,10 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                 <View style={styles.progressContentContainer}>
                     <View style={styles.progressRow}>
                         <Text style={styles.progressText}>
-                            Progreso
+                            {t('proveedor.questionnaire.progress')}
                         </Text>
                         <View style={styles.scoreDisplay}>
-                            <Text style={styles.scoreLabel}>Puntaje:</Text>
+                            <Text style={styles.scoreLabel}>{t('proveedor.questionnaire.score')}:</Text>
                             <Text style={styles.scoreValue}>{Math.round(currentScore)}/{evaluation?.maxScore || 100}</Text>
                         </View>
                     </View>
@@ -408,14 +420,14 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                     {loading ? (
                         <ActivityIndicator size="large" color="#003E85" style={{ marginTop: 40 }} />
                     ) : sections.length === 0 ? (
-                        <Text style={{ textAlign: 'center', marginTop: 20, color: '#64748B' }}>No hay preguntas disponibles.</Text>
+                        <Text style={{ textAlign: 'center', marginTop: 20, color: '#64748B' }}>{t('proveedor.questionnaire.noQuestions')}</Text>
                     ) : (
                         <View style={styles.questionContainer}>
                             {/* Locked Banner inside */}
                             {isLocked && (
                                 <View style={styles.lockedBanner}>
                                     <Ionicons name="lock-closed" size={20} color="#D97706" />
-                                    <Text style={styles.lockedText}>Evaluación enviada - Solo lectura</Text>
+                                    <Text style={styles.lockedText}>{t('proveedor.questionnaire.readOnly')}</Text>
                                 </View>
                             )}
 
@@ -443,7 +455,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
 
                             {/* Answer Buttons */}
                             <View style={styles.answersSection}>
-                                <Text style={styles.inputLabel}>Respuesta:</Text>
+                                <Text style={styles.inputLabel}>{t('proveedor.questionnaire.answer')}:</Text>
                                 <View style={styles.answerButtonsContainer}>
                                     <TouchableOpacity
                                         style={[
@@ -513,13 +525,13 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                             {/* Observation / Evidence */}
                             <View style={styles.observationContainer}>
                                 <Text style={styles.observationLabel}>
-                                    <Ionicons name="document-text-outline" size={14} color="#64748B" /> Observación / Evidencia
+                                    <Ionicons name="document-text-outline" size={14} color="#64748B" /> {t('proveedor.questionnaire.observationEvidence')}
                                 </Text>
                                 <TextInput
                                     style={[styles.observationInput, isLocked && styles.disabledInput]}
                                     value={currentQuestion?.observation || ''}
                                     onChangeText={(text) => currentQuestion && handleObservationChange(currentQuestion.sectionId, currentQuestion.id, text)}
-                                    placeholder={isLocked ? "Sin observaciones" : "Escribe tu observación aquí..."}
+                                    placeholder={isLocked ? t('proveedor.questionnaire.noObservations') : t('proveedor.questionnaire.writeObservation')}
                                     placeholderTextColor="#999"
                                     multiline
                                     numberOfLines={3}
@@ -535,7 +547,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                                     >
                                         <Ionicons name="cloud-upload-outline" size={20} color="#003E85" />
                                         <Text style={styles.uploadText}>
-                                            {currentQuestion?.evidenceUrl ? 'Cambiar Evidencia' : 'Adjuntar Evidencia'}
+                                            {currentQuestion?.evidenceUrl ? t('proveedor.questionnaire.changeEvidence') : t('proveedor.questionnaire.attachEvidence')}
                                         </Text>
                                     </TouchableOpacity>
                                 )}
@@ -544,7 +556,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                                 {currentQuestion?.evidenceUrl && (
                                     <View style={styles.evidencePreview}>
                                         <Ionicons name="checkmark-circle" size={18} color="#22C55E" />
-                                        <Text style={styles.evidenceText}>Evidencia adjuntada</Text>
+                                        <Text style={styles.evidenceText}>{t('proveedor.questionnaire.evidenceAttached')}</Text>
                                     </View>
                                 )}
                             </View>
@@ -563,19 +575,19 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                         disabled={currentQuestionIndex === 0}
                     >
                         <Ionicons name="chevron-back" size={20} color={currentQuestionIndex === 0 ? '#CBD5E1' : '#003E85'} />
-                        <Text style={[styles.navButtonText, currentQuestionIndex === 0 && styles.navButtonTextDisabled]}>Anterior</Text>
+                        <Text style={[styles.navButtonText, currentQuestionIndex === 0 && styles.navButtonTextDisabled]}>{t('common.previous')}</Text>
                     </TouchableOpacity>
 
                     <TouchableOpacity style={styles.saveButton} onPress={handleSaveAndExit} disabled={saving}>
                         {saving ? (
                             <>
                                 <ActivityIndicator color="#003E85" size="small" />
-                                <Text style={[styles.saveButtonText, { marginLeft: 6 }]}>Guardando...</Text>
+                                <Text style={[styles.saveButtonText, { marginLeft: 6 }]}>{t('common.saving')}</Text>
                             </>
                         ) : (
                             <>
                                 <Ionicons name="save-outline" size={18} color="#003E85" />
-                                <Text style={styles.saveButtonText}>Guardar</Text>
+                                <Text style={styles.saveButtonText}>{t('common.save')}</Text>
                             </>
                         )}
                     </TouchableOpacity>
@@ -585,7 +597,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                             style={[styles.navButton, styles.nextButton]}
                             onPress={handleNextQuestion}
                         >
-                            <Text style={styles.nextButtonText}>Siguiente</Text>
+                            <Text style={styles.nextButtonText}>{t('common.next')}</Text>
                             <Ionicons name="chevron-forward" size={20} color="#FFF" />
                         </TouchableOpacity>
                     ) : (
@@ -593,7 +605,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                             style={[styles.navButton, styles.finishButton]}
                             onPress={onNavigateToPhotoEvidence || handleSaveAndExit}
                         >
-                            <Text style={styles.nextButtonText}>Finalizar</Text>
+                            <Text style={styles.nextButtonText}>{t('proveedor.questionnaire.finish')}</Text>
                             <Ionicons name="checkmark" size={20} color="#FFF" />
                         </TouchableOpacity>
                     )}
@@ -614,30 +626,30 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                 >
                     <TouchableOpacity activeOpacity={1} style={{ alignItems: 'center' }}>
                         <View style={styles.uploadModalContainer}>
-                            <Text style={styles.uploadModalTitle}>Subir Evidencia</Text>
+                            <Text style={styles.uploadModalTitle}>{t('proveedor.questionnaire.uploadEvidence')}</Text>
                             <TouchableOpacity
                                 style={styles.uploadOptionButton}
                                 onPress={() => { setShowUploadModal(false); performUpload('camera'); }}
                             >
-                                <Text style={styles.uploadOptionText}>📷 Tomar Foto</Text>
+                                <Text style={styles.uploadOptionText}>📷 {t('proveedor.questionnaire.takePhoto')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.uploadOptionButton}
                                 onPress={() => { setShowUploadModal(false); performUpload('gallery'); }}
                             >
-                                <Text style={styles.uploadOptionText}>🖼️ Desde Galería</Text>
+                                <Text style={styles.uploadOptionText}>🖼️ {t('proveedor.questionnaire.fromGallery')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.uploadOptionButton}
                                 onPress={() => { setShowUploadModal(false); performUpload('document'); }}
                             >
-                                <Text style={styles.uploadOptionText}>📄 Seleccionar Archivo</Text>
+                                <Text style={styles.uploadOptionText}>📄 {t('proveedor.questionnaire.selectFile')}</Text>
                             </TouchableOpacity>
                             <TouchableOpacity
                                 style={styles.uploadCancelButton}
                                 onPress={() => setShowUploadModal(false)}
                             >
-                                <Text style={styles.uploadCancelText}>Cancelar</Text>
+                                <Text style={styles.uploadCancelText}>{t('common.cancel')}</Text>
                             </TouchableOpacity>
                         </View>
                     </TouchableOpacity>
@@ -652,9 +664,9 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
             >
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContainer}>
-                        <Text style={styles.modalTitle}>Evaluación Guardada</Text>
+                        <Text style={styles.modalTitle}>{t('proveedor.questionnaire.evaluationSaved')}</Text>
                         <Text style={styles.modalMessage}>
-                            Se ha registrado la evaluación de CALIDAD correctamente.
+                            {t('proveedor.questionnaire.supplySaved')}
                         </Text>
                         <TouchableOpacity
                             style={styles.modalButton}
@@ -663,7 +675,7 @@ export const SupplyQuestionnaireScreen: React.FC<SupplyQuestionnaireScreenProps>
                                 if (onComplete) onComplete();
                             }}
                         >
-                            <Text style={styles.modalButtonText}>Continuar</Text>
+                            <Text style={styles.modalButtonText}>{t('proveedor.questionnaire.continue')}</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -1110,6 +1122,24 @@ const styles = StyleSheet.create({
         backgroundColor: '#003E85',
         gap: 8,
         minWidth: 120,
+    },
+    langToggle: {
+        padding: 2,
+    },
+    langCircle: {
+        width: 32,
+        height: 32,
+        borderRadius: 16,
+        backgroundColor: 'rgba(255,255,255,0.2)',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.5)',
+    },
+    langText: {
+        color: '#FFF',
+        fontSize: 12,
+        fontWeight: '700',
     },
     finishButton: {
         flexDirection: 'row',

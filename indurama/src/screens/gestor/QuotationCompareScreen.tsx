@@ -20,7 +20,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { db } from '../../services/firebaseConfig';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import { QuotationService } from '../../services/quotationService';
-import { Request, Quotation, QuotationInvitation, User } from '../../types';
+import { Request, Quotation, QuotationInvitation, User, RequestStatus } from '../../types';
 import { theme } from '../../styles/theme';
 import { QuotationComments } from '../../components/QuotationComments';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
@@ -138,16 +138,26 @@ export const QuotationCompareScreen: React.FC<QuotationCompareScreenProps> = ({
 
         try {
             setProcessing(true);
-            await QuotationService.selectWinner(
-                selectedQuotation.id,
-                requestId,
-                request.userId // Notificar al solicitante
-            );
+
+            // Use reselectWinner for non-compliance scenarios
+            if (isReselectionMode) {
+                await QuotationService.reselectWinner(
+                    selectedQuotation.id,
+                    requestId,
+                    currentUser?.id || ''
+                );
+            } else {
+                await QuotationService.selectWinner(
+                    selectedQuotation.id,
+                    requestId,
+                    request.userId // Notificar al solicitante
+                );
+            }
 
             setShowConfirmModal(false);
             Alert.alert(
-                '🏆 Ganador Seleccionado',
-                `Se ha seleccionado a ${selectedQuotation.supplierName} como ganador. Se notificó a todos los proveedores.`,
+                isReselectionMode ? '✅ Re-adjudicación Completada' : '🏆 Ganador Seleccionado',
+                `Se ha seleccionado a ${selectedQuotation.supplierName} como ${isReselectionMode ? 'nuevo ' : ''}ganador. Se notificó a todos los proveedores.`,
                 [{ text: 'OK', onPress: () => onSuccess?.() }]
             );
         } catch (error) {
@@ -174,7 +184,8 @@ export const QuotationCompareScreen: React.FC<QuotationCompareScreenProps> = ({
             const suppliersQuery = query(
                 collection(db, 'users'),
                 where('role', '==', 'proveedor'),
-                where('status', '==', 'approved')
+                where('status', '==', 'active'),
+                where('approved', '==', true)
             );
             const suppliersSnap = await getDocs(suppliersQuery);
             const allSuppliers = suppliersSnap.docs.map(d => ({ id: d.id, ...d.data() } as User));
@@ -264,6 +275,15 @@ export const QuotationCompareScreen: React.FC<QuotationCompareScreenProps> = ({
     const pendingCount = invitations.filter(i => i.status === 'pending' || i.status === 'viewed').length;
     const quotedCount = quotations.length;
     const totalInvited = invitations.length;
+
+    // Determine if this is a reselection scenario (non-compliance)
+    const isReselectionMode = (request?.status as string) === RequestStatus.REOPENED_NONCOMPLIANCE || (request?.status as string) === 'reopened_noncompliance';
+    const previousWinnerId = request?.previousWinnerId;
+
+    // Filter quotations for reselection (exclude penalized supplier)
+    const eligibleQuotations = isReselectionMode
+        ? quotations.filter(q => q.supplierId !== previousWinnerId && (q.status as string) !== 'revoked')
+        : quotations;
 
     const formatCurrency = (amount: number, currency: string) => {
         return `$${amount.toLocaleString()} ${currency}`;
@@ -393,18 +413,31 @@ export const QuotationCompareScreen: React.FC<QuotationCompareScreenProps> = ({
                             </View>
                         ) : (
                             <>
+                                {/* Non-Compliance Alert Banner */}
+                                {isReselectionMode && (
+                                    <View style={styles.nonComplianceBanner}>
+                                        <Ionicons name="warning" size={20} color="#B91C1C" />
+                                        <View style={{ flex: 1, marginLeft: 12 }}>
+                                            <Text style={styles.nonComplianceTitle}>Modo Re-adjudicación</Text>
+                                            <Text style={styles.nonComplianceText}>
+                                                El proveedor anterior no cumplió con la entrega. Selecciona un nuevo ganador de las cotizaciones elegibles.
+                                            </Text>
+                                        </View>
+                                    </View>
+                                )}
+
                                 {/* Best Offer Banner */}
-                                {quotations.length > 0 && (
+                                {eligibleQuotations.length > 0 && (
                                     <View style={styles.bestOfferBanner}>
                                         <Ionicons name="star" size={20} color="#FFF" />
                                         <Text style={styles.bestOfferText}>
-                                            Mejor oferta: {quotations[0].supplierName} - {formatCurrency(quotations[0].totalAmount, quotations[0].currency)}
+                                            Mejor oferta: {eligibleQuotations[0].supplierName} - {formatCurrency(eligibleQuotations[0].totalAmount, eligibleQuotations[0].currency)}
                                         </Text>
                                     </View>
                                 )}
 
                                 <View style={styles.gridContainer}>
-                                    {quotations.map((quotation, index) => (
+                                    {eligibleQuotations.map((quotation, index) => (
                                         <View
                                             key={quotation.id}
                                             style={[
@@ -1695,6 +1728,28 @@ const styles = StyleSheet.create({
         paddingTop: 8,
         borderTopWidth: 1,
         borderTopColor: '#F3F4F6',
+    },
+    // Non-compliance reselection banner
+    nonComplianceBanner: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: '#FEF2F2',
+        borderWidth: 1,
+        borderColor: '#FECACA',
+        borderRadius: 12,
+        padding: 16,
+        marginBottom: 16,
+    },
+    nonComplianceTitle: {
+        fontSize: 15,
+        fontWeight: '700',
+        color: '#B91C1C',
+        marginBottom: 4,
+    },
+    nonComplianceText: {
+        fontSize: 13,
+        color: '#991B1B',
+        lineHeight: 18,
     },
 });
 

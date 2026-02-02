@@ -63,11 +63,50 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
     const [validityDays, setValidityDays] = useState('30');
     const [notes, setNotes] = useState('');
 
+    // --- NUEVO ESTADO PARA LA FECHA ESTIMADA ---
+    const [estimatedDate, setEstimatedDate] = useState<string | null>(null);
+
     const isReadOnly = existingQuotation?.status === 'selected' || existingQuotation?.isWinner || request?.status === 'awarded' || (request?.status as string) === 'adjudicado';
 
     useEffect(() => {
         loadData();
     }, [invitationId, requestId]);
+
+    // --- LÓGICA DE CÁLCULO DE DÍAS HÁBILES ---
+    useEffect(() => {
+        const days = parseInt(deliveryDays, 10);
+        if (!isNaN(days) && days > 0) {
+            const date = calculateBusinessDate(days);
+            // Formatear: "Lunes, 12 de febrero de 2026"
+            const dateStr = date.toLocaleDateString('es-EC', { 
+                weekday: 'long', 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric' 
+            });
+            // Capitalizar primera letra
+            setEstimatedDate(dateStr.charAt(0).toUpperCase() + dateStr.slice(1));
+        } else {
+            setEstimatedDate(null);
+        }
+    }, [deliveryDays]);
+
+    const calculateBusinessDate = (daysToAdd: number) => {
+        let currentDate = new Date();
+        let addedDays = 0;
+        
+        while (addedDays < daysToAdd) {
+            currentDate.setDate(currentDate.getDate() + 1);
+            const day = currentDate.getDay(); // 0 = Domingo, 6 = Sábado
+            
+            // Si NO es fin de semana, contamos el día
+            if (day !== 0 && day !== 6) {
+                addedDays++;
+            }
+        }
+        return currentDate;
+    };
+    // ------------------------------------------
 
     const loadData = async () => {
         try {
@@ -98,10 +137,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                             setCurrency(quotData.currency);
                             setDeliveryDays(quotData.deliveryDays.toString());
                             setPaymentTerms(quotData.paymentTerms);
-                            // Calculate validity days remaining or default? 
-                            // Better to show original validity date or re-calculate days?
-                            // Simple: just keep default '30' or try to reverse calc. 
-                            // For now, let user re-enter or leave default.
                             if (quotData.notes) setNotes(quotData.notes);
                         }
                     }
@@ -146,7 +181,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                 deliveryDays: parseInt(deliveryDays),
                 paymentTerms: paymentTerms.trim(),
                 validUntil,
-                notes: notes.trim() || '', // Use empty string instead of undefined
+                notes: notes.trim() || '',
             };
 
             if (existingQuotation && existingQuotation.status !== 'cancelled') {
@@ -163,20 +198,14 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                 );
             }
 
-            // Success handling
             const successMessage = existingQuotation ? 'Oferta actualizada correctamente' : 'Cotización enviada correctamente';
-            const successTitle = 'Éxito';
-
+            
             if (Platform.OS === 'web') {
-                // Web specific handling to ensure redirect happens
-                window.alert(`${successTitle}: ${successMessage}`);
-
-                // Fallback cleanup
+                window.alert(`Éxito: ${successMessage}`);
                 if (onSuccess) onSuccess();
                 onNavigateBack();
             } else {
-                // Native Alert
-                Alert.alert(successTitle, successMessage, [
+                Alert.alert('Éxito', successMessage, [
                     {
                         text: 'OK',
                         onPress: () => {
@@ -198,7 +227,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
     const handleCancelQuote = () => {
         Alert.alert(
             'Cancelar Offer',
-            '¿Estás seguro de que deseas retirar esta oferta? Podrás enviar una nueva si el plazo no ha vencido.',
+            '¿Estás seguro de que deseas retirar esta oferta?',
             [
                 { text: 'No', style: 'cancel' },
                 {
@@ -325,7 +354,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                         </View>
                                     )}
 
-                                    {/* Documentos Adjuntos */}
                                     {((request?.documents && request.documents.length > 0) || (request?.attachments && request.attachments.length > 0)) && (
                                         <View style={styles.documentsContainer}>
                                             <Text style={styles.documentsTitle}>Documentos Adjuntos</Text>
@@ -366,7 +394,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                 </View>
                             )}
 
-                            {/* Q&A Section (Moved to left col on web) */}
                             {invitation && user && (
                                 <View style={[styles.card, { marginTop: 16 }]}>
                                     <View style={styles.cardHeader}>
@@ -389,10 +416,8 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                         {/* Right Column: Quotation Form & Banners */}
                         <View style={[styles.column, !isMobile && styles.rightColumn]}>
 
-                            {/* Banners Section */}
                             {existingQuotation && (
                                 <View style={{ marginBottom: 16 }}>
-                                    {/* Winner Banner */}
                                     {(existingQuotation.status === 'selected' || existingQuotation.isWinner) && (
                                         <View style={styles.winnerBanner}>
                                             <View style={styles.bannerHeader}>
@@ -412,7 +437,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                         </View>
                                     )}
 
-                                    {/* Payment Banner */}
                                     {request?.paymentStatus === 'paid' && (
                                         <View style={styles.paymentBanner}>
                                             <View style={styles.bannerHeader}>
@@ -436,7 +460,6 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                         </View>
                                     )}
 
-                                    {/* Status Info (if not winner/paid) */}
                                     {existingQuotation.status === 'submitted' && !existingQuotation.isWinner && (
                                         <View style={styles.infoBanner}>
                                             <Ionicons name="information-circle" size={20} color="#2563EB" />
@@ -503,6 +526,15 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                             />
                                             <Text style={styles.inputSuffix}>días hábiles</Text>
                                         </View>
+                                        {/* AQUI SE MUESTRA LA FECHA ESTIMADA CALCULADA */}
+                                        {estimatedDate && !isReadOnly && (
+                                            <View style={styles.estimateContainer}>
+                                                <Ionicons name="calendar-outline" size={12} color="#059669" />
+                                                <Text style={styles.estimateText}>
+                                                    Entrega aprox: <Text style={styles.estimateDate}>{estimatedDate}</Text>
+                                                </Text>
+                                            </View>
+                                        )}
                                     </View>
 
                                     <View style={[styles.inputGroup, { flex: 1 }]}>
@@ -549,7 +581,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
                                 </View>
                             </View>
 
-                            {/* Actions Footer - Inside right column on web */}
+                            {/* Actions Footer */}
                             {!isReadOnly && (
                                 <View style={styles.actionButtonsContainer}>
                                     {existingQuotation && existingQuotation.status !== 'cancelled' && (
@@ -659,7 +691,6 @@ const styles = StyleSheet.create({
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,
-        // Shadow
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.05,
@@ -740,7 +771,6 @@ const styles = StyleSheet.create({
         marginBottom: 16,
         lineHeight: 20,
     },
-    // Banner Styles
     winnerBanner: {
         backgroundColor: '#F0FDF4',
         borderRadius: 16,
@@ -824,7 +854,6 @@ const styles = StyleSheet.create({
         fontWeight: '600',
         fontSize: 14,
     },
-    // Form Inputs
     inputGroup: {
         marginBottom: 20,
     },
@@ -918,7 +947,6 @@ const styles = StyleSheet.create({
         backgroundColor: '#F3F4F6',
         borderColor: 'transparent',
     },
-    // Footer Actions
     actionButtonsContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -934,7 +962,6 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         gap: 8,
-        // Shadow
         shadowColor: theme.colors.primary,
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.3,
@@ -958,7 +985,6 @@ const styles = StyleSheet.create({
         fontSize: 15,
         fontWeight: '500',
     },
-    // Documents Styles
     documentsContainer: {
         marginTop: 24,
         paddingTop: 24,
@@ -997,6 +1023,26 @@ const styles = StyleSheet.create({
         fontSize: 12,
         color: '#6B7280',
     },
+    // --- ESTILOS PARA FECHA ESTIMADA ---
+    estimateContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: 6,
+        backgroundColor: '#ECFDF5',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#A7F3D0',
+        gap: 6
+    },
+    estimateText: {
+        fontSize: 12,
+        color: '#047857',
+    },
+    estimateDate: {
+        fontWeight: '700',
+    }
 });
 
 export default QuotationFormScreen;

@@ -21,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { collection, addDoc, serverTimestamp, doc, updateDoc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '../../services/firebaseConfig';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { NotificationService } from '../../services/notificationService';
 import { uploadRequestFile, formatFileSize, validateFileSize, UploadedFile } from '../../services/fileUploadService';
 import { generateRequestCode } from '../../services/requestService';
@@ -28,6 +29,8 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Request } from '../../types';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
+import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 
 
 
@@ -38,15 +41,21 @@ interface NewRequestScreenProps {
   onNavigateToHistory?: () => void;
   onNavigateToProfile?: () => void;
   onNavigateToNewRequest?: () => void;
+  onNavigateToNotifications?: () => void;
 }
 
 export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
   initialRequest,
   onNavigateBack,
-  onNavigateToDashboard
+  onNavigateToDashboard,
+  onNavigateToHistory,
+  onNavigateToProfile,
+  onNavigateToNewRequest,
+  onNavigateToNotifications
 }) => {
   const { isDesktopView } = useResponsive();
   const { user } = useAuth();
+  const { t } = useLanguage();
   const [loading, setLoading] = useState(false);
   const [documents, setDocuments] = useState<UploadedFile[]>([]);
   const [uploadingFile, setUploadingFile] = useState(false);
@@ -95,16 +104,16 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const projectTypeOptions = [
-    'Proyecto de Investigacion',
-    'Proyecto con Presupuesto Aprobado',
-    'Proyecto para solicitar muestras'
+    { label: t('requests.form.projectTypes.investigation'), value: 'Proyecto de Investigacion' },
+    { label: t('requests.form.projectTypes.approvedBudget'), value: 'Proyecto con Presupuesto Aprobado' },
+    { label: t('requests.form.projectTypes.samples'), value: 'Proyecto para solicitar muestras' }
   ];
 
   const searchClassOptions = [
-    'Producto terminado',
-    'Materia Prima',
-    'Maquinaria',
-    'Servicios'
+    { label: t('requests.form.searchClasses.finishedProduct'), value: 'Producto terminado' },
+    { label: t('requests.form.searchClasses.rawMaterial'), value: 'Materia Prima' },
+    { label: t('requests.form.searchClasses.machinery'), value: 'Maquinaria' },
+    { label: t('requests.form.searchClasses.services'), value: 'Servicios' }
   ];
 
   const handleGoBack = () => {
@@ -117,16 +126,16 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
 
   const handleSubmit = async () => {
     if (!user?.id) {
-      Alert.alert('Error', 'Debes iniciar sesión para enviar una solicitud');
+      Alert.alert(t('common.error'), t('auth.loginError'));
       return;
     }
 
     if (!formData.description || !formData.projectType || !formData.searchClass) {
-      Alert.alert('Campos requeridos', 'Por favor completa todos los campos obligatorios');
+      Alert.alert(t('common.actions'), t('errors.required'));
       return;
     }
 
-    const department = user.department || 'No asignado';
+    const department = user.department || t('solicitante.departmentNotAssigned');
 
     try {
       setLoading(true);
@@ -152,8 +161,9 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           console.error('Error uploading file:', error);
           setLoading(false); // Stop loading
           Alert.alert(
-            'Error en Documento',
-            `El archivo "${doc.name}" tiene un enlace caducado o inválido. Por favor elimínelo y vuélvalo a subir para continuar.`
+            t('common.error'),
+            t('requests.form.uploadErrorMessage', { fileName: doc.name })
+            // TODO: Translate specific upload errors if needed
           );
           return; // STOP execution
         }
@@ -207,8 +217,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             await NotificationService.create({
               userId: managerDoc.id,
               type: 'new_request',
-              title: 'Nueva Solicitud',
-              message: `${user.companyName || user.email} ha creado una nueva solicitud.`,
+              title: t('appNotifications.newRequestTitle'),
+              message: t('appNotifications.newRequestMessage', { userName: user.companyName || user.email }),
               relatedId: docRef.id,
               relatedType: 'request'
             });
@@ -223,8 +233,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           await NotificationService.create({
             userId: user.id, // Current user
             type: 'request_created',
-            title: 'Solicitud Creada',
-            message: `Has creado exitosamente la solicitud ${requestData.code}.`,
+            title: t('appNotifications.requestCreatedTitle'),
+            message: t('appNotifications.requestCreatedMessage', { code: requestData.code }),
             relatedId: docRef.id,
             relatedType: 'request'
           });
@@ -236,7 +246,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       setShowSuccessModal(true);
     } catch (error: any) {
       console.error('Error creating request:', error);
-      Alert.alert('Error', `No se pudo enviar la solicitud: ${error.message}`);
+      Alert.alert(t('common.error'), `${t('requests.form.submitError')}: ${error.message}`);
     } finally {
       setLoading(false);
     }
@@ -245,7 +255,14 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
   const handleSelectFiles = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: '*/*',
+        // 1. RESTRICCIÓN EN EL SELECTOR NATIVO
+        type: [
+          "application/pdf",                                                           // PDF
+          "application/msword",                                                        // .doc
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   // .docx
+          "application/vnd.ms-excel",                                                  // .xls
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"          // .xlsx
+        ],
         multiple: true,
         copyToCacheDirectory: true,
       });
@@ -253,8 +270,22 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       if (result.canceled) return;
 
       for (const file of result.assets) {
+
+        // 2. VALIDACIÓN DOBLE DE EXTENSIÓN (Seguridad adicional)
+        const extension = file.name.split('.').pop()?.toLowerCase();
+        const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
+
+        if (!extension || !allowedExtensions.includes(extension)) {
+          Alert.alert(
+            t('requests.form.fileFormatError'),
+            t('requests.form.fileFormatErrorMessage', { fileName: file.name })
+          );
+          continue;
+        }
+
+        // Validación de tamaño existente
         if (!validateFileSize(file.size || 0)) {
-          Alert.alert('Archivo demasiado grande', `${file.name} excede el tamaño máximo de 10MB`);
+          Alert.alert(t('requests.form.fileSizeError'), t('requests.form.fileSizeErrorMessage', { fileName: file.name }));
           continue;
         }
 
@@ -263,10 +294,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           try {
             const uploadedFile = await uploadRequestFile(initialRequest.id, file.uri, file.name);
             setDocuments(prev => [...prev, uploadedFile]);
-            Alert.alert('Éxito', `${file.name} subido correctamente`);
+            Alert.alert(t('requests.form.uploadSuccess'), t('requests.form.uploadSuccessMessage', { fileName: file.name }));
           } catch (error) {
             console.error('Error uploading file:', error);
-            Alert.alert('Error', `No se pudo subir ${file.name}`);
+            Alert.alert(t('common.error'), `${t('requests.form.uploadError')} ${file.name}`);
           } finally {
             setUploadingFile(false);
           }
@@ -282,18 +313,18 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       }
     } catch (error) {
       console.error('Error selecting files:', error);
-      Alert.alert('Error', 'No se pudieron seleccionar los archivos');
+      Alert.alert(t('common.error'), t('requests.form.selectFileError'));
     }
   };
 
   const removeDocument = (index: number) => {
     Alert.alert(
-      'Eliminar archivo',
-      '¿Estás seguro de que deseas eliminar este archivo?',
+      t('requests.form.deleteFileTitle'),
+      t('requests.form.deleteFileMessage'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => setDocuments(prev => prev.filter((_, i) => i !== index)),
         },
@@ -414,6 +445,13 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     );
   };
 
+  const navItems = getSolicitanteNavItems(t, {
+    onNavigateToDashboard: onNavigateToDashboard || (() => { }),
+    onNavigateToNewRequest: onNavigateToNewRequest || (() => { }),
+    onNavigateToHistory: onNavigateToHistory || (() => { }),
+    onNavigateToProfile: onNavigateToProfile || (() => { }),
+  });
+
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
@@ -431,10 +469,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         </View>
         <View style={styles.heroContent}>
           <Text style={styles.heroTitle}>
-            {initialRequest ? 'Editar Solicitud' : 'Nueva Solicitud'}
+            {initialRequest ? t('requests.form.editTitle') : t('requests.form.title')}
           </Text>
           <Text style={styles.heroSubtitle}>
-            Complete la información para iniciar un proceso de compra
+            {t('requests.form.subtitle')}
           </Text>
         </View>
       </View>
@@ -461,12 +499,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             ]}>
               <View style={styles.cardHeader}>
                 <Ionicons name="information-circle-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>Información Básica</Text>
+                <Text style={styles.cardTitle}>{t('requests.form.basicInfo')}</Text>
               </View>
 
               <View style={[styles.formRow, !isDesktopView && { flexDirection: 'column' }, { zIndex: showProjectTypeDropdown ? 2000 : 1 }]}>
                 <View style={styles.formGroupHalf}>
-                  <Text style={styles.label}>Fecha Límite <Text style={styles.required}>*</Text></Text>
+                  <Text style={styles.label}>{t('requests.form.dueDate')} <Text style={styles.required}>*</Text></Text>
 
                   {Platform.OS === 'web' ? (
                     <input
@@ -524,10 +562,13 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
 
                 <View style={[styles.formGroupHalf, { zIndex: showProjectTypeDropdown ? 1000 : 200 }]}>
                   <Selector
-                    label="Tipo de Proyecto"
-                    placeholder="Seleccione Tipo"
-                    value={formData.projectType}
-                    options={projectTypeOptions.map(opt => ({ label: opt, value: opt }))}
+                    label={t('requests.form.projectType')}
+                    placeholder={t('requests.form.selectType')}
+                    value={
+                      // Find label corresponding to value for display
+                      projectTypeOptions.find(opt => opt.value === formData.projectType)?.label || formData.projectType
+                    }
+                    options={projectTypeOptions}
                     visible={showProjectTypeDropdown}
                     onToggle={() => {
                       setShowProjectTypeDropdown(!showProjectTypeDropdown);
@@ -543,10 +584,13 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
 
               <View style={[styles.formGroup, { zIndex: showSearchClassDropdown ? 1000 : 100 }]}>
                 <Selector
-                  label="Clase de Búsqueda"
-                  placeholder="Seleccione Clase"
-                  value={formData.searchClass}
-                  options={searchClassOptions.map(opt => ({ label: opt, value: opt }))}
+                  label={t('requests.form.searchClass')}
+                  placeholder={t('requests.form.selectClass')}
+                  value={
+                    // Find label corresponding to value for display
+                    searchClassOptions.find(opt => opt.value === formData.searchClass)?.label || formData.searchClass
+                  }
+                  options={searchClassOptions}
                   visible={showSearchClassDropdown}
                   onToggle={() => {
                     setShowSearchClassDropdown(!showSearchClassDropdown);
@@ -564,14 +608,14 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="document-text-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>Detalle de la Necesidad</Text>
+                <Text style={styles.cardTitle}>{t('requests.form.needsDetail')}</Text>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Descripción Detallada <Text style={styles.required}>*</Text></Text>
+                <Text style={styles.label}>{t('requests.form.detailedDescription')} <Text style={styles.required}>*</Text></Text>
                 <TextInput
                   style={styles.textArea}
-                  placeholder="Describa detalladamente qué necesita, especificaciones técnicas, cantidades, etc..."
+                  placeholder={t('requests.form.descriptionPlaceholder')}
                   placeholderTextColor="#999"
                   multiline={true}
                   numberOfLines={4}
@@ -581,10 +625,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Tags / Palabras Clave</Text>
+                <Text style={styles.label}>{t('requests.form.tags')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Ej: Tornillos, Acero Inox, Maquinaria (separados por coma)"
+                  placeholder={t('requests.form.tagsPlaceholder')}
                   placeholderTextColor="#999"
                   value={formData.requiredTags.join(', ')}
                   onChangeText={(text) => {
@@ -592,7 +636,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                     setFormData({ ...formData, requiredTags: tags });
                   }}
                 />
-                <Text style={styles.helperText}>Ayuda a clasificar mejor su solicitud</Text>
+                <Text style={styles.helperText}>{t('requests.form.tagsHelper')}</Text>
               </View>
             </View>
 
@@ -600,14 +644,14 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="people-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>Preferencias de Proveedor</Text>
+                <Text style={styles.cardTitle}>{t('requests.form.providerPreferences')}</Text>
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Sugerencia de Proveedor (Opcional)</Text>
+                <Text style={styles.label}>{t('requests.form.supplierSuggestion')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Nombre de empresa o contacto sugerido"
+                  placeholder={t('requests.form.supplierPlaceholder')}
                   placeholderTextColor="#999"
                   value={formData.supplierSuggestion}
                   onChangeText={(text) => setFormData({ ...formData, supplierSuggestion: text })}
@@ -615,13 +659,13 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Tipo de Negocio Preferido</Text>
+                <Text style={styles.label}>{t('requests.form.preferredBusiness')}</Text>
                 <View style={styles.chipContainer}>
                   {[
-                    { value: 'cualquiera', label: 'Indiferente' },
-                    { value: 'fabricante', label: 'Fabricante' },
-                    { value: 'distribuidor', label: 'Distribuidor' },
-                    { value: 'servicio', label: 'Servicios' }
+                    { value: 'cualquiera', label: t('requests.form.businessTypes.any') },
+                    { value: 'fabricante', label: t('requests.form.businessTypes.manufacturer') },
+                    { value: 'distribuidor', label: t('requests.form.businessTypes.distributor') },
+                    { value: 'servicio', label: t('requests.form.businessTypes.service') }
                   ].map((type) => (
                     <TouchableOpacity
                       key={type.value}
@@ -643,10 +687,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               </View>
 
               <View style={styles.formGroup}>
-                <Text style={styles.label}>Ubicación de Entrega</Text>
+                <Text style={styles.label}>{t('requests.form.deliveryLocation')}</Text>
                 <TextInput
                   style={styles.textInput}
-                  placeholder="Ej: Planta 2, Bodega Central..."
+                  placeholder={t('requests.form.locationPlaceholder')}
                   placeholderTextColor="#999"
                   value={formData.deliveryLocationSuggestion}
                   onChangeText={(text) => setFormData({ ...formData, deliveryLocationSuggestion: text })}
@@ -658,13 +702,13 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             <View style={styles.card}>
               <View style={styles.cardHeader}>
                 <Ionicons name="attach-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>Documentos Adjuntos</Text>
+                <Text style={styles.cardTitle}>{t('requests.form.documents')}</Text>
               </View>
 
               <View style={styles.uploadArea}>
                 <Ionicons name="cloud-upload-outline" size={48} color="#1565C0" style={{ marginBottom: 10 }} />
-                <Text style={styles.uploadTitle}>Subir Documentos</Text>
-                <Text style={styles.uploadSubtitle}>Pliego Técnico, Ficha Técnica, Planos (Máx 10MB)</Text>
+                <Text style={styles.uploadTitle}>{t('requests.form.uploadTitle')}</Text>
+                <Text style={styles.uploadSubtitle}>{t('requests.form.uploadSubtitle')}</Text>
 
                 <TouchableOpacity
                   style={[styles.selectFilesButton, uploadingFile && styles.disabledButton]}
@@ -676,7 +720,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                   ) : (
                     <>
                       <Ionicons name="add-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.selectFilesText}>Seleccionar Archivos</Text>
+                      <Text style={styles.selectFilesText}>{t('requests.form.selectFiles')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
@@ -705,7 +749,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             {/* ACTIONS */}
             <View style={styles.actionButtons}>
               <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
+                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.submitButton, loading && styles.disabledButton]}
@@ -717,7 +761,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                 ) : (
                   <>
                     <Ionicons name="paper-plane-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.submitButtonText}>Enviar Solicitud</Text>
+                    <Text style={styles.submitButtonText}>{t('requests.form.submitRequest')}</Text>
                   </>
                 )}
               </TouchableOpacity>
@@ -733,17 +777,18 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
             <View style={styles.successIconContainer}>
               <Ionicons name="checkmark" size={40} color="#4CAF50" />
             </View>
-            <Text style={styles.successTitle}>¡Solicitud Enviada!</Text>
+            <Text style={styles.successTitle}>{t('requests.form.successTitle')}</Text>
             <Text style={styles.successMessage}>
-              Su solicitud ha sido creada exitosamente y notificada al departamento de compras.
+              {t('requests.form.successMessage')}
             </Text>
             <TouchableOpacity style={styles.successButton} onPress={() => { setShowSuccessModal(false); if (onNavigateBack) onNavigateBack(); }}>
-              <Text style={styles.successButtonText}>Entendido</Text>
+              <Text style={styles.successButtonText}>{t('requests.form.understood')}</Text>
             </TouchableOpacity>
           </View>
         </View>
       </Modal>
     </View>
+
   );
 };
 

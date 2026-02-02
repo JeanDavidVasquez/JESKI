@@ -14,6 +14,7 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { theme } from '../../styles/theme';
+import { useTranslation } from 'react-i18next';
 
 const { width, height } = Dimensions.get('window');
 const isMobile = width < 768;
@@ -46,6 +47,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
   const [modalTitle, setModalTitle] = useState('');
   const [modalMessage, setModalMessage] = useState('');
   const [modalType, setModalType] = useState<'success' | 'error' | 'info'>('info');
+  const { t } = useTranslation();
 
   const updateFormData = (field: string, value: string) => {
     if (field === 'fullName') {
@@ -78,9 +80,9 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 
   const handleContinue = () => {
     const newErrors: Record<string, string> = {};
-    if (!formData.fullName.trim()) newErrors.fullName = 'El nombre es obligatorio';
-    if (!formData.email.trim()) newErrors.email = 'El correo es obligatorio';
-    if (!formData.position.trim()) newErrors.position = 'El cargo es obligatorio';
+    if (!formData.fullName.trim()) newErrors.fullName = t('proveedor.welcome.nameRequired');
+    if (!formData.email.trim()) newErrors.email = t('proveedor.welcome.emailRequired');
+    if (!formData.position.trim()) newErrors.position = t('proveedor.welcome.positionRequired');
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -89,8 +91,8 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(formData.email)) {
-      setErrors({ email: 'Ingrese un correo válido' });
-      showCustomModal('error', 'Correo Inválido', 'El formato del correo electrónico no es correcto.');
+      setErrors({ email: t('proveedor.welcome.invalidEmail') });
+      showCustomModal('error', t('proveedor.welcome.invalidEmailTitle'), t('proveedor.welcome.invalidEmailMessage'));
       return;
     }
 
@@ -137,7 +139,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
               style={[styles.modalButton, { backgroundColor: modalStyle.btnBg }]}
               onPress={() => setModalVisible(false)}
             >
-              <Text style={styles.modalButtonText}>Entendido</Text>
+              <Text style={styles.modalButtonText}>{t('common.understood')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -162,15 +164,15 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
             />
           </View>
           <Text style={styles.welcomeMessage}>
-            Bienvenido, proveedor. Indurama te invita a ser un proveedor evaluado.
+            {t('proveedor.welcome.message')}
           </Text>
-          <Text style={styles.roleTitle}>Responsable de la EPI</Text>
+          <Text style={styles.roleTitle}>{t('proveedor.welcome.epiResponsible')}</Text>
         </View>
 
         <View style={[styles.formSection, !isMobile && styles.formSectionWeb]}>
           {/* Nombre y Apellidos */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Nombre y Apellidos</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.welcome.fullName')}</Text>
             <View style={[
               styles.inputContainer,
               focusedField === 'fullName' && styles.inputContainerFocused,
@@ -203,7 +205,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 
           {/* Correo */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Correo Electrónico</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.welcome.email')}</Text>
             <View style={[
               styles.inputContainer,
               focusedField === 'email' && styles.inputContainerFocused,
@@ -237,7 +239,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 
           {/* Cargo */}
           <View style={styles.inputGroup}>
-            <Text style={styles.inputLabel}>Cargo</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.welcome.position')}</Text>
             <View style={[
               styles.inputContainer,
               focusedField === 'position' && styles.inputContainerFocused,
@@ -271,21 +273,21 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 
         <View style={styles.buttonSection}>
           <TouchableOpacity style={styles.continueButton} onPress={handleContinue} activeOpacity={0.8}>
-            <Text style={styles.continueButtonText}>Continuar con la EPI</Text>
+            <Text style={styles.continueButtonText}>{t('proveedor.welcome.continueWithEpi')}</Text>
             <Ionicons name="arrow-forward" size={20} color="#FFF" />
           </TouchableOpacity>
 
           {onNavigateToQuotations && (
             <TouchableOpacity style={styles.quotationsButton} onPress={onNavigateToQuotations} activeOpacity={0.8}>
               <Ionicons name="pricetag-outline" size={20} color={theme.colors.primary} style={{ marginRight: 8 }} />
-              <Text style={styles.quotationsButtonText}>Mis Cotizaciones</Text>
+              <Text style={styles.quotationsButtonText}>{t('proveedor.welcome.myQuotations')}</Text>
             </TouchableOpacity>
           )}
 
           {onLogout && (
             <TouchableOpacity style={styles.logoutButton} onPress={onLogout} activeOpacity={0.7}>
               <Ionicons name="log-out-outline" size={20} color="#6B7280" style={{ marginRight: 8 }} />
-              <Text style={styles.logoutButtonText}>Cerrar Sesión</Text>
+              <Text style={styles.logoutButtonText}>{t('auth.logout')}</Text>
             </TouchableOpacity>
           )}
         </View>

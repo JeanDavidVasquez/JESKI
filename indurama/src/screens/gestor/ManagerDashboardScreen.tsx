@@ -33,7 +33,7 @@ interface RequestData {
   title: string;
   description: string;
   time: string;
-  type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada';
+  type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada' | 'incumplimiento';
   user?: string;
   department?: string;
   userAvatar?: string;
@@ -134,8 +134,9 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
 
       const recent = await getRecentRequests(5);
       const mappedRecent = recent.map(r => {
-        let type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada' = 'nueva';
-        if (r.priority === RequestPriority.HIGH || r.priority === RequestPriority.URGENT) type = 'urgente';
+        let type: 'nueva' | 'urgente' | 'cotizacion' | 'busqueda' | 'adjudicada' | 'finalizada' | 'incumplimiento' = 'nueva';
+        if (r.status === RequestStatus.REOPENED_NONCOMPLIANCE) type = 'incumplimiento';
+        else if (r.priority === RequestPriority.HIGH || r.priority === RequestPriority.URGENT) type = 'urgente';
         else if (r.status === RequestStatus.QUOTING) type = 'cotizacion';
         else if (r.status === RequestStatus.AWARDED) type = 'adjudicada';
         else if (r.status === RequestStatus.COMPLETED) type = 'finalizada';
@@ -262,6 +263,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
       case 'busqueda': return '#10B981';
       case 'adjudicada': return '#8B5CF6';
       case 'finalizada': return '#6B7280';
+      case 'incumplimiento': return '#EF4444';
       default: return '#999999';
     }
   };
@@ -274,6 +276,7 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
       case 'busqueda': return 'FASE 2: BÚSQUEDA';
       case 'adjudicada': return 'FASE 4: ADJUDICADA';
       case 'finalizada': return 'FASE 4: FINALIZADA';
+      case 'incumplimiento': return '⚠️ INCUMPLIMIENTO';
       default: return '';
     }
   };
@@ -423,6 +426,31 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
                   {request.type === 'adjudicada' ? 'Fase 4: Adjudicada' : 'Fase 4: Finalizada'}
                 </Text>
               </View>
+            </View>
+          </>
+        )}
+
+        {request.type === 'incumplimiento' && (
+          <>
+            <View style={styles.userInfoRow}>
+              <View style={styles.userAvatar}>
+                <Text style={styles.userAvatarText}>{request.userAvatar}</Text>
+              </View>
+              <View>
+                <Text style={styles.requestUser} numberOfLines={1}>{request.user}</Text>
+                <Text style={styles.requestDepartment} numberOfLines={1}>• {request.department}</Text>
+              </View>
+            </View>
+            <View style={[styles.urgentActionBox, { backgroundColor: '#FEF2F2', borderColor: '#FECACA' }]}>
+              <Text style={[styles.urgentActionText, { color: '#B91C1C' }]} numberOfLines={2}>
+                Proveedor no cumplió con la entrega. Requiere re-adjudicación.
+              </Text>
+              <TouchableOpacity
+                style={[styles.validateButton, { backgroundColor: '#EF4444' }]}
+                onPress={() => onNavigateToQuotationCompare && onNavigateToQuotationCompare(request.id)}
+              >
+                <Text style={styles.validateButtonText}>Re-adjudicar</Text>
+              </TouchableOpacity>
             </View>
           </>
         )}

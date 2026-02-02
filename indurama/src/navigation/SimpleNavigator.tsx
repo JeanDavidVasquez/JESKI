@@ -468,6 +468,7 @@ export const SimpleNavigator: React.FC = () => {
               setEditingRequest(null);
               setCurrentScreen('SolicitanteProfile');
             }}
+            onNavigateToNotifications={navigateToNotifications}
           />
         );
       case 'History':

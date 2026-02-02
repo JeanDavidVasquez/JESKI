@@ -1,6 +1,3 @@
-/**
- * SupplierProfileScreen - Pantalla de perfil para proveedores
- */
 import React, { useState, useEffect } from 'react';
 import {
     View,
@@ -16,6 +13,13 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../hooks/useAuth';
 import { theme } from '../../styles/theme';
+import { SupplierResponseService } from '../../services/supplierResponseService';
+import { LanguageSelector } from '../../components/LanguageSelector';
+import { useLanguage } from '../../hooks/useLanguage';
+import { db } from '../../services/firebaseConfig';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { useWindowDimensions } from 'react-native';
 
 interface SupplierProfileScreenProps {
     onNavigateBack: () => void;
@@ -26,9 +30,6 @@ interface SupplierProfileScreenProps {
     onNavigateToNotifications?: () => void;
 }
 
-import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
-import { useWindowDimensions } from 'react-native';
-
 export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
     onNavigateBack,
     onNavigateToEPIStatus,
@@ -38,22 +39,63 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
     onNavigateToNotifications,
 }) => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const { width } = useWindowDimensions();
     const isMobile = width < 768;
 
+    const [realEpiScore, setRealEpiScore] = useState(0);
+    const [realStatus, setRealStatus] = useState(user?.supplierStatus);
+
+    useEffect(() => {
+        if (!user?.id) return;
+
+        // 1. Listen to User Profile changes (Status & Score from User Doc)
+        const userRef = doc(db, 'users', user.id);
+        const unsubscribeUser = onSnapshot(userRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // If user doc has a score, use it.
+                if (data.epiScore && data.epiScore > 0) {
+                    setRealEpiScore(data.epiScore);
+                }
+                setRealStatus(data.supplierStatus);
+            }
+        });
+
+        // 2. Fetch from EPI Submissions (Source of Truth for Dashboard)
+        const fetchSubmissionScore = async () => {
+            try {
+                // Using the same service as Dashboard
+                const submission = await SupplierResponseService.getEPISubmission(user.id);
+                if (submission) {
+                    const score = submission.calculatedScore || submission.globalScore || 0;
+                    // Only override if we have a valid score and current state is 0
+                    setRealEpiScore(prev => prev > 0 ? prev : score);
+                }
+            } catch (e) {
+                console.error('Error loading EPI submission score', e);
+            }
+        };
+        fetchSubmissionScore();
+
+        return () => unsubscribeUser();
+    }, [user?.id]);
+
     const handleLogout = () => {
         Alert.alert(
-            'Cerrar Sesión',
-            '¿Estás seguro que deseas cerrar sesión?',
+            t('auth.logout'),
+            t('common.confirm') + '?',
             [
-                { text: 'Cancelar', style: 'cancel' },
-                { text: 'Cerrar Sesión', onPress: onLogout, style: 'destructive' },
+                { text: t('common.cancel'), style: 'cancel' },
+                { text: t('auth.logout'), onPress: onLogout, style: 'destructive' },
             ]
         );
     };
 
-    const displayName = user?.companyName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || 'Proveedor';
-    const epiScore = user?.epiScore || 0;
+    const displayName = user?.companyName || `${user?.firstName || ''} ${user?.lastName || ''}`.trim() || t('proveedor.dashboard.supplier');
+
+    // Use fetched score instead of user prop
+    const displayScore = realEpiScore || user?.epiScore || 0;
 
     const getStatusColor = (status?: string) => {
         switch (status) {
@@ -70,13 +112,13 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
     const getStatusLabel = (status?: string) => {
         switch (status) {
             case 'epi_approved':
-                return 'EPI Aprobado';
+                return t('proveedor.epi.approved');
             case 'active':
-                return 'Activo';
+                return t('proveedor.status.active');
             case 'pending':
-                return 'Pendiente';
+                return t('proveedor.status.pending');
             default:
-                return 'Sin evaluar';
+                return t('proveedor.epi.pendingApproval');
         }
     };
 
@@ -84,25 +126,25 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
     const navItems = [
         {
             key: 'Dashboard',
-            label: 'Inicio',
+            label: t('navigation.home'),
             iconName: 'home' as any,
             onPress: onNavigateToDashboard || onNavigateBack,
         },
         {
             key: 'Quotations',
-            label: 'Cotizaciones',
+            label: t('navigation.quotations'),
             iconName: 'pricetags-outline' as any,
             onPress: onNavigateToQuotations || (() => { }),
         },
         {
             key: 'Profile',
-            label: 'Perfil',
+            label: t('navigation.profile'),
             iconName: 'person-outline' as any,
             onPress: () => { }, // Current screen
         },
         {
             key: 'Logout',
-            label: 'Salir',
+            label: t('auth.logout'),
             iconName: 'log-out-outline' as any,
             onPress: handleLogout,
         },
@@ -121,7 +163,7 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
 
                 {/* Header - Simplified */}
                 <View style={[styles.header, !isMobile && styles.headerWeb]}>
-                    <Text style={styles.headerTitle}>Mi Perfil</Text>
+                    <Text style={styles.headerTitle}>{t('proveedor.profile.title')}</Text>
                     {isMobile && (
                         <View style={{ width: 40 }} />
                     )}
@@ -137,8 +179,8 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
                         </View>
                         <Text style={styles.companyName}>{displayName}</Text>
                         <Text style={styles.email}>{user?.email}</Text>
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(user?.supplierStatus) }]}>
-                            <Text style={styles.statusText}>{getStatusLabel(user?.supplierStatus)}</Text>
+                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(realStatus) }]}>
+                            <Text style={styles.statusText}>{getStatusLabel(realStatus)}</Text>
                         </View>
                     </View>
 
@@ -146,11 +188,11 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
                     <TouchableOpacity style={styles.epiCard} onPress={onNavigateToEPIStatus}>
                         <View style={styles.epiCardContent}>
                             <View>
-                                <Text style={styles.epiLabel}>Score EPI</Text>
-                                <Text style={styles.epiDescription}>Ver detalle de evaluación</Text>
+                                <Text style={styles.epiLabel}>{t('proveedor.dashboard.myEpiScore')}</Text>
+                                <Text style={styles.epiDescription}>{t('common.viewMore')}</Text>
                             </View>
                             <View style={styles.scoreCircle}>
-                                <Text style={styles.scoreValue}>{Math.round(epiScore)}</Text>
+                                <Text style={styles.scoreValue}>{Math.round(displayScore)}</Text>
                             </View>
                         </View>
                         <Ionicons name="chevron-forward" size={24} color="#666" />
@@ -158,13 +200,13 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
 
                     {/* Menu Options */}
                     <View style={styles.menuSection}>
-                        <Text style={styles.menuTitle}>Cuenta</Text>
+                        <Text style={styles.menuTitle}>{t('proveedor.profile.companyInfo')}</Text>
 
                         <TouchableOpacity style={styles.menuItem}>
                             <View style={styles.menuIcon}>
                                 <Ionicons name="business-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>Datos de la Empresa</Text>
+                            <Text style={styles.menuItemText}>{t('proveedor.profile.companyInfo')}</Text>
                             <Ionicons name="chevron-forward" size={20} color="#CCC" />
                         </TouchableOpacity>
 
@@ -172,7 +214,7 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
                             <View style={styles.menuIcon}>
                                 <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>Documentos</Text>
+                            <Text style={styles.menuItemText}>{t('requests.attachments')}</Text>
                             <Ionicons name="chevron-forward" size={20} color="#CCC" />
                         </TouchableOpacity>
 
@@ -180,15 +222,21 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
                             <View style={styles.menuIcon}>
                                 <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>Notificaciones</Text>
+                            <Text style={styles.menuItemText}>{t('navigation.notifications')}</Text>
                             <Ionicons name="chevron-forward" size={20} color="#CCC" />
                         </TouchableOpacity>
+                    </View>
+
+                    {/* Language Selector */}
+                    <View style={[styles.menuSection, { marginTop: 16, paddingVertical: 16 }]}>
+                        <Text style={[styles.menuTitle, { marginBottom: 12 }]}>{t('profile.language')}</Text>
+                        <LanguageSelector />
                     </View>
 
                     {/* Logout Button */}
                     <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
                         <Ionicons name="log-out-outline" size={22} color="#F44336" />
-                        <Text style={styles.logoutText}>Cerrar Sesión</Text>
+                        <Text style={styles.logoutText}>{t('auth.logout')}</Text>
                     </TouchableOpacity>
 
                     <View style={{ height: 40 }} />

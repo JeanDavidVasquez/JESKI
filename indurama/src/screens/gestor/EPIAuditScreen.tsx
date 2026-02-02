@@ -24,12 +24,13 @@ import {
     takePhoto,
     pickFromGallery,
     pickDocument,
-    showUploadOptions,
     uploadSupplierEvidence,
-    PickedMedia
 } from '../../services/imagePickerService';
-import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
+import { useResponsive } from '../../styles/responsive';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+
+// --- INTERFACES ---
 
 interface EPIAuditScreenProps {
     submissionId: string;
@@ -39,6 +40,13 @@ interface EPIAuditScreenProps {
     onApproved?: () => void;
 }
 
+// Nuevo estado para controlar cada ítem
+interface AuditItemState {
+    status: 'pending' | 'valid' | 'invalid';
+    finding: string;
+    evidenceUrl?: string;
+}
+
 export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
     submissionId,
     supplierId,
@@ -46,19 +54,27 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
     onNavigateBack,
     onApproved
 }) => {
-    const { isDesktopView, width } = useResponsive();
+    const { isDesktopView } = useResponsive();
     const [loading, setLoading] = useState(true);
     const [submission, setSubmission] = useState<any>(null);
     const [supplierData, setSupplierData] = useState<any>(null);
     const [activeTab, setActiveTab] = useState<'calidad' | 'abastecimiento'>('calidad');
     const [processing, setProcessing] = useState(false);
     const [epiConfig, setEpiConfig] = useState<any>(null);
+
+    // Upload State
     const [uploadingQuestion, setUploadingQuestion] = useState<string | null>(null);
     const [showUploadModal, setShowUploadModal] = useState(false);
     const [currentQuestionId, setCurrentQuestionId] = useState<string | null>(null);
 
-    // Audit State: Map questionId -> { isValid: boolean, finding: string, evidenceUrl?: string }
-    const [auditState, setAuditState] = useState<Record<string, { isValid: boolean, finding: string, evidenceUrl?: string }>>({});
+    // EPI Expiration Control State
+    const [expirationDate, setExpirationDate] = useState<Date | null>(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+    const [canRecalibrate, setCanRecalibrate] = useState(true);
+    const [currentExpiresAt, setCurrentExpiresAt] = useState<Date | null>(null);
+
+    // Audit State: Map questionId -> AuditItemState
+    const [auditState, setAuditState] = useState<Record<string, AuditItemState>>({});
 
     useEffect(() => {
         loadData();
@@ -69,25 +85,21 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             setLoading(true);
 
             // 1. Config
-            // const { EpiService } = await import('../services/epiService'); // REMOVE
             const config = await EpiService.getEpiConfig();
             setEpiConfig(config);
 
-            // 2. Submission - try epi_submissions first, then supplier_evaluations
+            // 2. Submission
             let subData: any = null;
 
-            // Try epi_submissions first
             if (submissionId) {
                 const subDoc = await getDoc(doc(db, 'epi_submissions', submissionId));
                 if (subDoc.exists()) {
                     subData = { id: subDoc.id, ...subDoc.data() };
-                    console.log('Loaded from epi_submissions:', subData);
                 }
             }
 
             // Fallback to supplier_evaluations
             if (!subData) {
-                console.log('No epi_submission found, trying supplier_evaluations...');
                 const evalDoc = await getDoc(doc(db, 'supplier_evaluations', supplierId));
                 if (evalDoc.exists()) {
                     const evalData = evalDoc.data();
@@ -102,23 +114,42 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                         supplyResponses: evalData.responses?.filter((r: any) => r.category === 'abastecimiento') || [],
                         photoEvidence: evalData.photoEvidence || [],
                     };
-                    console.log('Loaded from supplier_evaluations:', subData);
                 }
             }
 
             if (subData) {
                 setSubmission(subData);
 
-                // Initialize audit state
-                const initialAudit: any = {};
-                [...(subData.qualityResponses || []), ...(subData.supplyResponses || [])].forEach((r: any) => {
-                    const isYes = r.answer === 'SI' || r.answer === 'CUMPLE';
-                    initialAudit[r.questionId] = { isValid: isYes, finding: '' };
-                });
-                setAuditState(initialAudit);
+                // --- INICIALIZACIÓN DEL ESTADO DE AUDITORÍA ---
+                // Si ya existe una auditoría guardada (auditValidations), la cargamos.
+                // Si NO, inicializamos todo en 'pending'.
+                if (subData.auditValidations && Object.keys(subData.auditValidations).length > 0) {
+                    setAuditState(subData.auditValidations);
+                } else {
+                    const initialAudit: Record<string, AuditItemState> = {};
+                    [...(subData.qualityResponses || []), ...(subData.supplyResponses || [])].forEach((r: any) => {
+                        // Inicializamos PENDIENTE, sin importar lo que dijo el proveedor
+                        initialAudit[r.questionId] = {
+                            status: 'pending',
+                            finding: '',
+                            evidenceUrl: null
+                        };
+                    });
+                    setAuditState(initialAudit);
+                }
+
+                // Check Expiration Logic
+                const expiresAt = subData.expiresAt?.toDate?.() || null;
+                setCurrentExpiresAt(expiresAt);
+                if (expiresAt && subData.status === 'approved') {
+                    const now = new Date();
+                    setCanRecalibrate(expiresAt < now);
+                } else {
+                    setCanRecalibrate(true);
+                }
             }
 
-            // 3. Supplier
+            // 3. Supplier Data
             const userDoc = await getDoc(doc(db, 'users', supplierId));
             if (userDoc.exists()) {
                 setSupplierData(userDoc.data());
@@ -132,34 +163,31 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         }
     };
 
-    // Calculate Scores in Real-time
+    // --- CÁLCULO DE PUNTAJES EN TIEMPO REAL ---
     const scores = useMemo(() => {
         if (!submission || !epiConfig) return { originalScore: 0, auditScore: 0, delta: 0 };
 
-        // First calculate original score from responses if not available
+        // 1. Score Original (Autoevaluación)
         let originalScore = submission.calculatedScore || 0;
-
         if (originalScore === 0) {
-            // Calculate from responses
             const qualityResponses = submission.qualityResponses || [];
             const supplyResponses = submission.supplyResponses || [];
-
-            const qualityYesCount = qualityResponses.filter((r: any) =>
-                r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
-            ).length;
-            const supplyYesCount = supplyResponses.filter((r: any) =>
-                r.answer?.toUpperCase() === 'SI' || r.answer?.toUpperCase() === 'CUMPLE'
-            ).length;
-
             const qualityTotal = Math.max(qualityResponses.length, 1);
             const supplyTotal = Math.max(supplyResponses.length, 1);
+
+            const qualityYesCount = qualityResponses.filter((r: any) =>
+                ['SI', 'CUMPLE', 'TRUE'].includes((r.answer || '').toUpperCase())
+            ).length;
+            const supplyYesCount = supplyResponses.filter((r: any) =>
+                ['SI', 'CUMPLE', 'TRUE'].includes((r.answer || '').toUpperCase())
+            ).length;
 
             const calidadScore = (qualityYesCount / qualityTotal) * 100;
             const abastecimientoScore = (supplyYesCount / supplyTotal) * 100;
             originalScore = (calidadScore + abastecimientoScore) / 2;
         }
 
-        // Helper to calc section audit score (returns percentage 0-100)
+        // 2. Score Auditoría (Solo cuenta los 'valid')
         const calcSectionAuditScore = (category: 'calidad' | 'abastecimiento'): number => {
             if (!epiConfig[category]) return 0;
             const sections = epiConfig[category].sections;
@@ -169,19 +197,9 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             sections.forEach((section: any) => {
                 section.questions.forEach((q: any) => {
                     totalQuestions++;
-
-                    // Apply Audit Validation
                     const audit = auditState[q.id];
-                    // Default: if no audit state, use supplier's original answer
-                    const responses = category === 'calidad' ? submission.qualityResponses : submission.supplyResponses;
-                    const response = responses?.find((r: any) => r.questionId === q.id);
-                    const supplierSaidYes = response?.answer?.toUpperCase() === 'SI' || response?.answer?.toUpperCase() === 'CUMPLE';
-
-                    // If auditor hasn't touched this question, use supplier's answer
-                    // If auditor marked it, use auditor's validation
-                    const isValid = audit ? audit.isValid : supplierSaidYes;
-
-                    if (isValid) {
+                    // IMPORTANTE: Pending e Invalid valen 0. Solo Valid suma.
+                    if (audit && audit.status === 'valid') {
                         validCount++;
                     }
                 });
@@ -201,11 +219,12 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         };
     }, [submission, epiConfig, auditState]);
 
+    // --- HANDLERS ---
 
-    const handleToggleValidation = (questionId: string, value: boolean) => {
+    const handleSetStatus = (questionId: string, status: 'valid' | 'invalid') => {
         setAuditState(prev => ({
             ...prev,
-            [questionId]: { ...prev[questionId], isValid: value }
+            [questionId]: { ...prev[questionId], status: status }
         }));
     };
 
@@ -216,84 +235,25 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         }));
     };
 
-    // Handle evidence upload for a specific question - opens modal
+    // --- UPLOAD HANDLERS ---
     const handleEvidenceUpload = (questionId: string) => {
         setCurrentQuestionId(questionId);
         setShowUploadModal(true);
     };
 
-    // Upload from camera
-    const handleUploadFromCamera = async () => {
+    const performUpload = async (sourceFn: () => Promise<any>) => {
         if (!currentQuestionId) return;
         const questionId = currentQuestionId;
         setShowUploadModal(false);
 
         try {
             setUploadingQuestion(questionId);
-            const photo = await takePhoto();
-            if (photo) {
-                const url = await uploadSupplierEvidence(
-                    supplierId,
-                    'evidence',
-                    `audit_${questionId}`,
-                    photo.uri,
-                    photo.name
-                );
-                setAuditState(prev => ({
-                    ...prev,
-                    [questionId]: { ...prev[questionId], evidenceUrl: url }
-                }));
-            }
-        } catch (error) {
-            console.error('Error uploading photo:', error);
-        } finally {
-            setUploadingQuestion(null);
-        }
-    };
-
-    // Upload from gallery
-    const handleUploadFromGallery = async () => {
-        if (!currentQuestionId) return;
-        const questionId = currentQuestionId;
-        setShowUploadModal(false);
-
-        try {
-            setUploadingQuestion(questionId);
-            const image = await pickFromGallery();
-            if (image) {
-                const url = await uploadSupplierEvidence(
-                    supplierId,
-                    'evidence',
-                    `audit_${questionId}`,
-                    image.uri,
-                    image.name
-                );
-                setAuditState(prev => ({
-                    ...prev,
-                    [questionId]: { ...prev[questionId], evidenceUrl: url }
-                }));
-            }
-        } catch (error) {
-            console.error('Error uploading image:', error);
-        } finally {
-            setUploadingQuestion(null);
-        }
-    };
-
-    // Upload document
-    const handleUploadDocument = async () => {
-        if (!currentQuestionId) return;
-        const questionId = currentQuestionId;
-        setShowUploadModal(false);
-
-        try {
-            setUploadingQuestion(questionId);
-            const file = await pickDocument();
+            const file = await sourceFn();
             if (file) {
                 const url = await uploadSupplierEvidence(
                     supplierId,
                     'evidence',
-                    `audit_${questionId}`,
+                    `audit_${questionId}_${Date.now()}`,
                     file.uri,
                     file.name
                 );
@@ -303,48 +263,68 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                 }));
             }
         } catch (error) {
-            console.error('Error uploading document:', error);
+            console.error('Error uploading:', error);
         } finally {
             setUploadingQuestion(null);
         }
     };
 
+    // --- GUARDAR AUDITORÍA ---
     const handleSaveAudit = async () => {
         try {
             setProcessing(true);
 
-            // Validate that all "No Cumple" have findings
-            const invalidItems = Object.entries(auditState).filter(([_, state]) => !state.isValid && !state.finding.trim());
-            if (invalidItems.length > 0) {
-                Alert.alert('Faltan Evidencias', 'Debe ingresar la evidencia del hallazgo para todos los ítems marcados como "No Cumple".');
+            // 1. Validar Pendientes
+            const pendingItems = Object.entries(auditState).filter(([_, state]) => state.status === 'pending');
+            if (pendingItems.length > 0) {
+                Alert.alert('Auditoría Incompleta', `Quedan ${pendingItems.length} preguntas sin validar. Por favor revise todos los ítems.`);
                 setProcessing(false);
                 return;
             }
 
-            // Calculate new category scores
-            const calidadScore = calculateCategoryScore('calidad');
-            const abastecimientoScore = calculateCategoryScore('abastecimiento');
-            const newCalculatedScore = Math.round((calidadScore + abastecimientoScore) / 2);
+            // 2. Validar Hallazgos
+            const invalidItems = Object.entries(auditState).filter(([_, state]) => state.status === 'invalid' && !state.finding.trim());
+            if (invalidItems.length > 0) {
+                Alert.alert('Faltan Observaciones', 'Debe ingresar el motivo del rechazo para todos los ítems marcados como "No Cumple".');
+                setProcessing(false);
+                return;
+            }
 
-            // Determine new classification
+            // 3. Calcular Score Final
+            const calculateFinalCatScore = (category: 'calidad' | 'abastecimiento') => {
+                if (!epiConfig) return 0;
+                const sections = epiConfig[category].sections;
+                let totalScore = 0;
+                let maxPossible = 0;
+                sections.forEach((section: any) => {
+                    section.questions.forEach((q: any) => {
+                        const points = category === 'calidad' ? 5 : 5.5;
+                        const audit = auditState[q.id];
+                        if (audit && audit.status === 'valid') totalScore += points;
+                        maxPossible += points;
+                    });
+                });
+                return maxPossible > 0 ? (totalScore / maxPossible) * 100 : 0;
+            };
+
+            const calidadScore = calculateFinalCatScore('calidad');
+            const abastecimientoScore = calculateFinalCatScore('abastecimiento');
+            const newCalculatedScore = Math.round((calidadScore + abastecimientoScore) / 2);
             const newClassification = ScoringService.getClassification(newCalculatedScore);
 
-            // Update submission document with new scores
+            // 4. Guardar en Firebase
             const submissionRef = doc(db, 'epi_submissions', submissionId);
-
             await updateDoc(submissionRef, {
                 calculatedScore: newCalculatedScore,
                 calidadScore: Math.round(calidadScore),
                 abastecimientoScore: Math.round(abastecimientoScore),
                 classification: newClassification,
-                auditValidations: auditState, // Save audit state for reference
+                auditValidations: auditState,
                 auditedAt: new Date().toISOString(),
                 auditedBy: gestorId,
             });
 
-            // Status Logic based on Classification
-            // SALIR -> Rejected
-            // MEJORAR/CRECER -> Approved
+            // 5. Notificar / Aprobar / Rechazar
             if (newClassification === 'SALIR') {
                 await SupplierResponseService.rejectEPI(
                     submissionId,
@@ -352,15 +332,18 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                     gestorId,
                     `Auditoría Completada: Clasificación SALIR. Score: ${newCalculatedScore}`
                 );
-                Alert.alert('Auditoría Completada', 'El proveedor ha sido calificado como SALIR (Rechazado).');
+                Alert.alert('Rechazado', 'El proveedor ha sido calificado como SALIR.');
             } else {
                 await SupplierResponseService.approveEPI(
                     submissionId,
                     supplierId,
                     gestorId,
-                    `Auditoría Completada: Clasificación ${newClassification}. Score: ${newCalculatedScore}`
+                    `Auditoría Completada: Clasificación ${newClassification}. Score: ${newCalculatedScore}`,
+                    expirationDate || undefined,
+                    newCalculatedScore,
+                    newClassification
                 );
-                Alert.alert('Auditoría Completada', `El proveedor ha sido calificado como ${newClassification} (Aprobado).`);
+                Alert.alert('Aprobado', `El proveedor ha sido calificado como ${newClassification}.`);
             }
 
             onApproved?.();
@@ -373,35 +356,7 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         }
     };
 
-    // Helper function to calculate category score
-    const calculateCategoryScore = (category: 'calidad' | 'abastecimiento'): number => {
-        if (!epiConfig) return 0;
-
-        const sections = epiConfig[category].sections;
-        let totalScore = 0;
-        let totalQuestions = 0;
-
-        sections.forEach((section: any) => {
-            section.questions.forEach((q: any) => {
-                const responses = category === 'calidad' ? submission.qualityResponses : submission.supplyResponses;
-                const response = responses?.find((r: any) => r.questionId === q.id);
-                const points = category === 'calidad' ? 5 : 5.5;
-
-                const audit = auditState[q.id];
-                const isValid = audit ? audit.isValid : true;
-
-                if (isValid) {
-                    totalScore += points;
-                }
-                totalQuestions++;
-            });
-        });
-
-        // Normalize to 0-100 scale
-        const maxPossible = totalQuestions * (category === 'calidad' ? 5 : 5.5);
-        return maxPossible > 0 ? (totalScore / maxPossible) * 100 : 0;
-    };
-
+    // --- RENDER ---
     const renderQuestionList = (category: 'calidad' | 'abastecimiento') => {
         if (!epiConfig || !epiConfig[category]) return <ActivityIndicator />;
 
@@ -412,15 +367,16 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             <View style={isDesktopView ? { width: '100%', alignItems: 'center' } : undefined}>
                 {sections.map((section: any, i: number) => (
                     <View key={i} style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center' }]}>
-                        {/* Section Header if needed, but usually redundant with category tab */}
-
                         <View style={isDesktopView ? { flexDirection: 'row', flexWrap: 'wrap', gap: 16 } : undefined}>
                             {section.questions.map((q: any, j: number) => {
                                 const answerObj = responses?.find((r: any) => r.questionId === q.id);
                                 const answerText = (answerObj?.answer || '').toUpperCase();
-                                const isYes = answerText === 'SI' || answerText === 'CUMPLE' || answerText === 'TRUE';
-                                const points = isYes ? (category === 'calidad' ? 5 : 5.5) : 0;
-                                const audit = auditState[q.id] || { isValid: true, finding: '' };
+                                const isYes = ['SI', 'CUMPLE', 'TRUE'].includes(answerText);
+
+                                // Estado Actual
+                                const audit = auditState[q.id] || { status: 'pending', finding: '' };
+                                const isPending = audit.status === 'pending';
+                                const isValid = audit.status === 'valid';
 
                                 return (
                                     <View key={j} style={[styles.questionCard, isDesktopView && { width: '48%', marginBottom: 0 }]}>
@@ -431,9 +387,9 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                                             </View>
                                         </View>
 
-                                        {/* Row: Supplier Declaration vs Validation */}
+                                        {/* Comparación */}
                                         <View style={styles.comparisonContainer}>
-                                            {/* Left: Supplier */}
+                                            {/* Lado Proveedor */}
                                             <View style={styles.comparisonBox}>
                                                 <Text style={styles.comparisonLabel}>PROVEEDOR</Text>
                                                 <View style={[styles.statusBadge, isYes ? styles.bgGreenLight : styles.bgRedLight]}>
@@ -443,38 +399,61 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                                                     </Text>
                                                 </View>
                                                 {answerObj?.observation && (
-                                                    <Text style={styles.obsText} numberOfLines={2}>
-                                                        "{answerObj.observation}"
-                                                    </Text>
+                                                    <Text style={styles.obsText} numberOfLines={2}>"{answerObj.observation}"</Text>
                                                 )}
                                             </View>
 
-                                            {/* Divider Arrow */}
                                             <View style={{ justifyContent: 'center', paddingHorizontal: 8 }}>
                                                 <Ionicons name="arrow-forward" size={20} color="#CBD5E1" />
                                             </View>
 
-                                            {/* Right: Audit Validation */}
+                                            {/* Lado Auditoría (ACTUALIZADO) */}
                                             <View style={styles.comparisonBox}>
                                                 <Text style={styles.comparisonLabel}>AUDITORÍA</Text>
-                                                <View style={styles.toggleWrapper}>
-                                                    <Text style={[styles.validationLabelSmall, !audit.isValid ? styles.textRed : { color: '#64748B' }]}>
-                                                        {audit.isValid ? 'Validado' : 'Rechazado'}
-                                                    </Text>
-                                                    <Switch
-                                                        trackColor={{ false: "#FECACA", true: "#BBF7D0" }}
-                                                        thumbColor={audit.isValid ? "#16A34A" : "#DC2626"}
-                                                        ios_backgroundColor="#FECACA"
-                                                        onValueChange={(val) => handleToggleValidation(q.id, val)}
-                                                        value={audit.isValid}
-                                                        style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
-                                                    />
-                                                </View>
+
+                                                {isPending ? (
+                                                    <View style={styles.pendingActions}>
+                                                        <View style={styles.pendingBadge}>
+                                                            <Text style={styles.pendingText}>Pendiente</Text>
+                                                        </View>
+                                                        <View style={{ flexDirection: 'row', gap: 8, marginTop: 8 }}>
+                                                            <TouchableOpacity
+                                                                style={[styles.actionBtn, styles.btnValid]}
+                                                                onPress={() => handleSetStatus(q.id, 'valid')}
+                                                            >
+                                                                <Ionicons name="checkmark" size={16} color="#FFF" />
+                                                                <Text style={styles.btnText}>Validar</Text>
+                                                            </TouchableOpacity>
+
+                                                            <TouchableOpacity
+                                                                style={[styles.actionBtn, styles.btnInvalid]}
+                                                                onPress={() => handleSetStatus(q.id, 'invalid')}
+                                                            >
+                                                                <Ionicons name="alert-circle" size={16} color="#FFF" />
+                                                                <Text style={styles.btnText}>Obs.</Text>
+                                                            </TouchableOpacity>
+                                                        </View>
+                                                    </View>
+                                                ) : (
+                                                    <View style={styles.toggleWrapper}>
+                                                        <Text style={[styles.validationLabelSmall, !isValid ? styles.textRed : { color: '#64748B' }]}>
+                                                            {isValid ? 'Validado' : 'Rechazado'}
+                                                        </Text>
+                                                        <Switch
+                                                            trackColor={{ false: "#FECACA", true: "#BBF7D0" }}
+                                                            thumbColor={isValid ? "#16A34A" : "#DC2626"}
+                                                            ios_backgroundColor="#FECACA"
+                                                            onValueChange={(val) => handleSetStatus(q.id, val ? 'valid' : 'invalid')}
+                                                            value={isValid}
+                                                            style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }] }}
+                                                        />
+                                                    </View>
+                                                )}
                                             </View>
                                         </View>
 
-                                        {/* Recalibration / Finding Section - Only if Invalid */}
-                                        {!audit.isValid && (
+                                        {/* Hallazgo input (Solo si es inválido) */}
+                                        {audit.status === 'invalid' && (
                                             <View style={styles.findingContainer}>
                                                 <View style={styles.findingHeader}>
                                                     <Ionicons name="alert-circle" size={20} color="#DC2626" style={{ marginRight: 6 }} />
@@ -483,7 +462,7 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
 
                                                 <TextInput
                                                     style={styles.findingInput}
-                                                    placeholder="Describa el motivo del rechazo o hallazgo..."
+                                                    placeholder="Describa el motivo del rechazo..."
                                                     multiline
                                                     value={audit.finding}
                                                     onChangeText={(text) => handleFindingChange(q.id, text)}
@@ -511,7 +490,7 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
                                                             style={styles.removeEvidenceBtn}
                                                             onPress={() => setAuditState(prev => ({
                                                                 ...prev,
-                                                                [q.id]: { ...prev[q.id], evidenceUrl: undefined }
+                                                                [q.id]: { ...prev[q.id], evidenceUrl: null }
                                                             }))}
                                                         >
                                                             <Ionicons name="close" size={14} color="#FFF" />
@@ -542,7 +521,6 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
         <View style={styles.container}>
             <StatusBar style="light" />
 
-            {/* Header */}
             <View style={styles.header}>
                 <View style={[styles.headerContent, isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center', paddingHorizontal: 0 }]}>
                     <TouchableOpacity onPress={onNavigateBack} style={styles.backButton}>
@@ -559,13 +537,7 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
             </View>
 
             {/* Score Card */}
-            <View style={[styles.scoreContainer, isDesktopView && {
-                width: '100%',
-                maxWidth: 1200,
-                alignSelf: 'center',
-                borderRadius: 16,
-                marginBottom: 20
-            }]}>
+            <View style={[styles.scoreContainer, isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center', borderRadius: 16, marginBottom: 20 }]}>
                 <View style={styles.scoreItem}>
                     <Text style={styles.scoreLabel}>AUTOEVALUACIÓN</Text>
                     <Text style={styles.scoreValueAuto}>{scores.originalScore}</Text>
@@ -613,49 +585,93 @@ export const EPIAuditScreen: React.FC<EPIAuditScreenProps> = ({
 
             {/* Footer */}
             <View style={styles.footer}>
-                <View style={[isDesktopView && { width: '100%', maxWidth: 1200, alignSelf: 'center' }]}>
-                    <TouchableOpacity style={styles.saveButton} onPress={handleSaveAudit} disabled={processing}>
+                <View style={[styles.footerInner, isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }]}>
+                    <TouchableOpacity
+                        style={styles.datePickerCompact}
+                        onPress={() => setShowDatePicker(true)}
+                    >
+                        <Ionicons name="calendar-outline" size={18} color="#003E85" />
+                        <Text style={[styles.datePickerCompactText, !expirationDate && { color: '#9CA3AF' }]} numberOfLines={1}>
+                            {expirationDate
+                                ? expirationDate.toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })
+                                : 'Fecha control...'}
+                        </Text>
+                        <Ionicons name="chevron-down" size={16} color="#64748B" />
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={[styles.saveButton, !canRecalibrate && styles.saveButtonDisabled]}
+                        onPress={handleSaveAudit}
+                        disabled={processing || !canRecalibrate}
+                    >
                         {processing ? <ActivityIndicator color="#FFF" /> : (
                             <>
                                 <Image source={require('../../../assets/icons/check.png')} style={styles.saveIcon} />
-                                <Text style={styles.saveText}>Guardar Auditoría</Text>
+                                <Text style={styles.saveText}>
+                                    {canRecalibrate ? 'Terminar Auditoría' : 'Vigente'}
+                                </Text>
                             </>
                         )}
                     </TouchableOpacity>
                 </View>
             </View>
 
+            {/* Date Picker Modal */}
+            {showDatePicker && (
+                Platform.OS === 'web' ? (
+                    <Modal visible={showDatePicker} transparent animationType="fade" onRequestClose={() => setShowDatePicker(false)}>
+                        <View style={styles.uploadModalOverlay}>
+                            <View style={styles.uploadModalContent}>
+                                <Text style={styles.uploadModalTitle}>Fecha de Próximo Control</Text>
+                                <input
+                                    type="date"
+                                    min={new Date().toISOString().split('T')[0]}
+                                    style={{
+                                        padding: 12, fontSize: 16, borderRadius: 8, border: '1px solid #CBD5E1', width: '100%', marginTop: 16,    // Corregido: Usar marginTop
+                                        marginBottom: 16
+                                    }}
+                                    onChange={(e: any) => {
+                                        if (e.target.value) setExpirationDate(new Date(e.target.value));
+                                    }}
+                                />
+                                <TouchableOpacity style={[styles.uploadCancelButton, { backgroundColor: '#003E85' }]} onPress={() => setShowDatePicker(false)}>
+                                    <Text style={[styles.uploadCancelText, { color: '#FFF' }]}>Confirmar</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </Modal>
+                ) : (
+                    <DateTimePicker
+                        value={expirationDate || new Date()}
+                        mode="date"
+                        display="default"
+                        minimumDate={new Date()}
+                        onChange={(event: any, selectedDate?: Date) => {
+                            setShowDatePicker(false);
+                            if (selectedDate) setExpirationDate(selectedDate);
+                        }}
+                    />
+                )
+            )}
+
             {/* Upload Options Modal */}
-            <Modal
-                visible={showUploadModal}
-                transparent
-                animationType="fade"
-                onRequestClose={() => setShowUploadModal(false)}
-            >
+            <Modal visible={showUploadModal} transparent animationType="fade" onRequestClose={() => setShowUploadModal(false)}>
                 <View style={styles.uploadModalOverlay}>
                     <View style={styles.uploadModalContent}>
                         <Text style={styles.uploadModalTitle}>Subir Evidencia</Text>
-                        <Text style={styles.uploadModalSubtitle}>Selecciona una opción</Text>
-
-                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadFromCamera}>
+                        <TouchableOpacity style={styles.uploadOption} onPress={() => performUpload(takePhoto)}>
                             <Text style={styles.uploadOptionIcon}>📷</Text>
                             <Text style={styles.uploadOptionText}>Tomar Foto</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadFromGallery}>
+                        <TouchableOpacity style={styles.uploadOption} onPress={() => performUpload(pickFromGallery)}>
                             <Text style={styles.uploadOptionIcon}>🖼️</Text>
                             <Text style={styles.uploadOptionText}>Desde Galería</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity style={styles.uploadOption} onPress={handleUploadDocument}>
+                        <TouchableOpacity style={styles.uploadOption} onPress={() => performUpload(pickDocument)}>
                             <Text style={styles.uploadOptionIcon}>📄</Text>
                             <Text style={styles.uploadOptionText}>Seleccionar Archivo</Text>
                         </TouchableOpacity>
-
-                        <TouchableOpacity
-                            style={styles.uploadCancelButton}
-                            onPress={() => setShowUploadModal(false)}
-                        >
+                        <TouchableOpacity style={styles.uploadCancelButton} onPress={() => setShowUploadModal(false)}>
                             <Text style={styles.uploadCancelText}>Cancelar</Text>
                         </TouchableOpacity>
                     </View>
@@ -677,7 +693,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     header: {
-        backgroundColor: '#003E85', // Darker Blue
+        backgroundColor: '#003E85',
         paddingTop: 50,
         paddingBottom: 20,
         paddingHorizontal: 16,
@@ -713,7 +729,7 @@ const styles = StyleSheet.create({
         height: 35,
     },
     scoreContainer: {
-        backgroundColor: '#1565C0', // Medium Blue
+        backgroundColor: '#1565C0',
         margin: 16,
         borderRadius: 16,
         padding: 20,
@@ -790,7 +806,7 @@ const styles = StyleSheet.create({
         borderBottomColor: 'transparent',
     },
     tabActive: {
-        borderBottomColor: '#29B6F6', // Light Blue Highlight
+        borderBottomColor: '#29B6F6',
     },
     tabText: {
         color: '#FFF',
@@ -804,7 +820,6 @@ const styles = StyleSheet.create({
     questionCard: {
         backgroundColor: '#FFF',
         borderRadius: 12,
-        padding: 0, // Reset padding for inner structure
         marginBottom: 16,
         shadowColor: "#000",
         shadowOffset: { width: 0, height: 1 },
@@ -881,6 +896,47 @@ const styles = StyleSheet.create({
         fontStyle: 'italic',
         marginTop: 4
     },
+    // Nuevos estilos para estado pendiente
+    pendingActions: {
+        alignItems: 'flex-start',
+    },
+    pendingBadge: {
+        backgroundColor: '#F3F4F6',
+        paddingHorizontal: 8,
+        paddingVertical: 2,
+        borderRadius: 4,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    pendingText: {
+        fontSize: 10,
+        color: '#6B7280',
+        fontWeight: '600',
+    },
+    actionBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 6,
+        paddingHorizontal: 10,
+        borderRadius: 6,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 1,
+        elevation: 1,
+    },
+    btnValid: {
+        backgroundColor: '#10B981',
+    },
+    btnInvalid: {
+        backgroundColor: '#EF4444',
+    },
+    btnText: {
+        color: '#FFF',
+        fontSize: 11,
+        fontWeight: 'bold',
+        marginLeft: 4,
+    },
     toggleWrapper: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -953,36 +1009,57 @@ const styles = StyleSheet.create({
         width: 40,
         height: 40,
         borderRadius: 4,
-        marginRight: 10,
-        backgroundColor: '#F3F4F6'
+        marginRight: 8
     },
     removeEvidenceBtn: {
-        width: 24,
-        height: 24,
-        borderRadius: 12,
-        backgroundColor: '#9CA3AF',
-        justifyContent: 'center',
+        backgroundColor: '#EF4444',
+        width: 20,
+        height: 20,
+        borderRadius: 10,
         alignItems: 'center',
-        marginLeft: 'auto'
+        justifyContent: 'center'
     },
-
     footer: {
-        position: 'absolute',
-        bottom: 0,
-        left: 0,
-        right: 0,
         backgroundColor: '#FFF',
         padding: 16,
         borderTopWidth: 1,
         borderTopColor: '#E5E7EB',
     },
-    saveButton: {
-        backgroundColor: '#000',
-        borderRadius: 12,
-        paddingVertical: 16,
+    footerInner: {
         flexDirection: 'row',
-        justifyContent: 'center',
+        justifyContent: 'space-between',
         alignItems: 'center',
+        gap: 12,
+    },
+    datePickerCompact: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: 12,
+        backgroundColor: '#F1F5F9',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#CBD5E1',
+    },
+    datePickerCompactText: {
+        fontSize: 13,
+        color: '#0F172A',
+        flex: 1,
+        marginLeft: 8,
+        marginRight: 8,
+    },
+    saveButton: {
+        flex: 1.2,
+        backgroundColor: '#003E85',
+        borderRadius: 8,
+        padding: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    saveButtonDisabled: {
+        backgroundColor: '#94A3B8',
     },
     saveIcon: {
         width: 20,
@@ -993,41 +1070,42 @@ const styles = StyleSheet.create({
     saveText: {
         color: '#FFF',
         fontWeight: 'bold',
-        fontSize: 16,
+        fontSize: 14,
     },
-
     uploadModalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
+        backgroundColor: 'rgba(0,0,0,0.5)',
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 20,
     },
     uploadModalContent: {
         backgroundColor: '#FFF',
         borderRadius: 16,
         padding: 24,
-        width: '85%',
-        maxWidth: 350,
+        width: '100%',
+        maxWidth: 320,
     },
     uploadModalTitle: {
         fontSize: 18,
         fontWeight: 'bold',
         color: '#1F2937',
-        textAlign: 'center',
         marginBottom: 4,
+        textAlign: 'center',
     },
     uploadModalSubtitle: {
         fontSize: 14,
         color: '#6B7280',
-        textAlign: 'center',
         marginBottom: 20,
+        textAlign: 'center',
     },
     uploadOption: {
         flexDirection: 'row',
         alignItems: 'center',
         padding: 16,
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
         borderRadius: 12,
-        backgroundColor: '#F3F4F6',
         marginBottom: 12,
     },
     uploadOptionIcon: {
@@ -1036,17 +1114,19 @@ const styles = StyleSheet.create({
     },
     uploadOptionText: {
         fontSize: 16,
-        fontWeight: '600',
         color: '#374151',
+        fontWeight: '500',
     },
     uploadCancelButton: {
         marginTop: 8,
-        padding: 16,
+        padding: 12,
         alignItems: 'center',
     },
     uploadCancelText: {
-        fontSize: 16,
-        color: '#EF4444',
+        color: '#6B7280',
+        fontSize: 14,
         fontWeight: '600',
     },
 });
+
+export default EPIAuditScreen;

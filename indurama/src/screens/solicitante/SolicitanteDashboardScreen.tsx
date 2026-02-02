@@ -16,9 +16,11 @@ import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { useAuth } from '../../hooks/useAuth';
-import { getUserRequests, getUserRequestStats, getRelativeTime, confirmReceipt } from '../../services/requestService';
+import { useLanguage } from '../../hooks/useLanguage';
+import { getUserRequests, getUserRequestStats, getRelativeTime, confirmReceipt, reportNonCompliance, getDeliveryDeadline } from '../../services/requestService';
 import { Request, RequestStatus } from '../../types';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
+import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 
 interface SolicitanteDashboardScreenProps {
     onNavigateToNewRequest: () => void;
@@ -36,6 +38,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
     onNavigateToNotifications,
 }) => {
     const { user } = useAuth();
+    const { t } = useLanguage();
     const { isDesktopView, isMobileView } = useResponsive();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
@@ -47,6 +50,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
     });
     const [recentRequests, setRecentRequests] = useState<Request[]>([]);
     const [confirmingId, setConfirmingId] = useState<string | null>(null);
+    const [reportingId, setReportingId] = useState<string | null>(null);
 
     const loadDashboardData = async () => {
         if (!user?.id) return;
@@ -86,6 +90,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
             case 'adjudicado': return 4;
             case 'completed': return 5;
             case 'rejected': return 1;
+            case 'reopened_noncompliance': return 4; // Same level as awarded
             default: return 0;
         }
     };
@@ -97,30 +102,65 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
             try {
                 await confirmReceipt(requestId, user.id);
                 loadDashboardData();
-                if (Platform.OS === 'web') alert('¡Recepción confirmada!');
-                else Alert.alert('Éxito', '¡Recepción confirmada!');
+                if (Platform.OS === 'web') alert(t('solicitante.alerts.receiptConfirmed'));
+                else Alert.alert(t('common.success'), t('solicitante.alerts.receiptConfirmed'));
             } catch (error) {
                 console.error('Error:', error);
-                if (Platform.OS === 'web') alert('Error al confirmar.');
-                else Alert.alert('Error', 'No se pudo confirmar.');
+                if (Platform.OS === 'web') alert(t('solicitante.alerts.confirmError'));
+                else Alert.alert(t('common.error'), t('solicitante.alerts.confirmError'));
             } finally {
                 setConfirmingId(null);
             }
         };
 
         if (Platform.OS === 'web') {
-            if (confirm('¿Confirmas que recibiste conforme?')) await doConfirm();
+            if (confirm(t('solicitante.alerts.confirmReceiptMessage'))) await doConfirm();
         } else {
             Alert.alert(
-                'Confirmar Recepción',
-                '¿Confirmas que recibiste el producto/servicio?',
-                [{ text: 'Cancelar', style: 'cancel' }, { text: 'Sí, Recibí', onPress: doConfirm }]
+                t('solicitante.alerts.confirmReceiptTitle'),
+                t('solicitante.alerts.confirmReceiptMessage'),
+                [{ text: t('common.cancel'), style: 'cancel' }, { text: t('solicitante.alerts.yesReceived'), onPress: doConfirm }]
+            );
+        }
+    };
+
+    const handleReportNonCompliance = async (requestId: string) => {
+        if (!user?.id) return;
+        const doReport = async () => {
+            setReportingId(requestId);
+            try {
+                await reportNonCompliance(requestId, user.id, 'Proveedor no entregó en el tiempo establecido');
+                loadDashboardData();
+                if (Platform.OS === 'web') alert(t('solicitante.alerts.nonComplianceReported'));
+                else Alert.alert(t('nonCompliance.title'), t('solicitante.alerts.nonComplianceReported'));
+            } catch (error) {
+                console.error('Error:', error);
+                if (Platform.OS === 'web') alert(t('solicitante.alerts.reportError'));
+                else Alert.alert(t('common.error'), t('solicitante.alerts.reportError'));
+            } finally {
+                setReportingId(null);
+            }
+        };
+
+        if (Platform.OS === 'web') {
+            if (confirm(t('solicitante.alerts.reportMessage'))) await doReport();
+        } else {
+            Alert.alert(
+                t('solicitante.alerts.reportTitle'),
+                t('solicitante.alerts.reportMessage'),
+                [{ text: t('common.cancel'), style: 'cancel' }, { text: t('solicitante.alerts.yesReport'), style: 'destructive', onPress: doReport }]
             );
         }
     };
 
     const renderTimeline = (status: string) => {
-        const steps = ['Solicitado', 'Aprobación', 'Gestión', 'Orden', 'Recepción'];
+        const steps = [
+            t('solicitante.timeline.requested'),
+            t('solicitante.timeline.approval'),
+            t('solicitante.timeline.management'),
+            t('solicitante.timeline.order'),
+            t('solicitante.timeline.reception')
+        ];
         const activeStep = getTimelineStatus(status);
         const isRejected = status === 'rejected';
 
@@ -141,7 +181,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                         <Text style={styles.mobileTimelineLabel}>Etapa actual:</Text>
                         <View style={[styles.mobileStatusPill, { backgroundColor: progressColor + '20' }]}>
                             <Text style={[styles.mobileStatusText, { color: progressColor }]}>
-                                {isRejected ? 'RECHAZADO' : currentStepName}
+                                {isRejected ? t('solicitante.status.rejected') : currentStepName}
                             </Text>
                         </View>
                     </View>
@@ -153,7 +193,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                         ]} />
                     </View>
 
-                    <Text style={styles.mobileStepCount}>PASO {activeStep} DE 5</Text>
+                    <Text style={styles.mobileStepCount}>{t('time.stepOf', { current: activeStep, total: 5 })}</Text>
                 </View>
             );
         }
@@ -206,15 +246,16 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
     };
 
     const getStatusBadge = (status: string) => {
-        let label = 'EN PROCESO';
+        let label = t('solicitante.status.inProcess');
         let color = '#2196F3';
-        if (status === 'pending') { label = 'ESPERANDO APROBACIÓN'; color = '#FFA726'; }
-        if (status === 'in_progress') { label = 'EN GESTIÓN'; color = '#2196F3'; }
-        if (status === 'quoting' || status === 'cotizacion') { label = 'COTIZANDO'; color = '#F59E0B'; }
-        if (status === 'awarded' || status === 'adjudicado') { label = 'ADJUDICADA'; color = '#9C27B0'; }
-        if (status === 'completed') { label = 'LISTO / COMPRA'; color = '#4CAF50'; }
-        if (status === 'rejected') { label = 'RECHAZADA'; color = '#F44336'; }
-        if (status === 'rectification_required') { label = 'CORRECCIÓN REQUERIDA'; color = '#FF9800'; }
+        if (status === 'pending') { label = t('solicitante.status.waitingApproval'); color = '#FFA726'; }
+        if (status === 'in_progress') { label = t('solicitante.status.inManagement'); color = '#2196F3'; }
+        if (status === 'quoting' || status === 'cotizacion') { label = t('solicitante.status.quoting'); color = '#F59E0B'; }
+        if (status === 'awarded' || status === 'adjudicado') { label = t('solicitante.status.awarded'); color = '#9C27B0'; }
+        if (status === 'completed') { label = t('solicitante.status.readyPurchase'); color = '#4CAF50'; }
+        if (status === 'rejected') { label = t('solicitante.status.rejected'); color = '#F44336'; }
+        if (status === 'rectification_required') { label = t('solicitante.status.correctionRequired'); color = '#FF9800'; }
+        if (status === 'reopened_noncompliance') { label = t('solicitante.status.reopened'); color = '#F59E0B'; }
 
         return (
             <View style={[styles.statusBadge, { borderColor: color }]}>
@@ -225,12 +266,12 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
 
     const displayName = user?.companyName || (user?.firstName ? `${user.firstName} ${user.lastName || ''} ` : user?.email?.split('@')[0]);
 
-    const navItems = [
-        { key: 'Dashboard', label: 'Dashboard', iconName: 'home' as const, onPress: () => { } },
-        { key: 'NewRequest', label: 'Nueva Solicitud', iconName: 'add-circle' as const, onPress: onNavigateToNewRequest },
-        { key: 'History', label: 'Historial', iconName: 'document-text' as const, onPress: onNavigateToHistory },
-        { key: 'Profile', label: 'Perfil', iconName: 'person' as const, onPress: onNavigateToProfile },
-    ];
+    const navItems = getSolicitanteNavItems(t, {
+        onNavigateToDashboard: () => { },
+        onNavigateToNewRequest: onNavigateToNewRequest,
+        onNavigateToHistory: onNavigateToHistory,
+        onNavigateToProfile: onNavigateToProfile,
+    });
 
     return (
         <ResponsiveNavShell
@@ -243,14 +284,14 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
 
             <View style={styles.header}>
                 <View>
-                    <Text style={styles.greeting}>Bienvenido,</Text>
+                    <Text style={styles.greeting}>{t('solicitante.welcome')}</Text>
                     <Text style={styles.userName}>{displayName}</Text>
                     <View style={{ marginTop: 4 }}>
                         <Text style={styles.userRole}>
-                            {user?.companyIdentifier ? user.companyIdentifier : 'Empresa no asignada'}
+                            {user?.companyIdentifier ? user.companyIdentifier : t('solicitante.companyNotAssigned')}
                         </Text>
                         <Text style={[styles.userRole, { fontSize: 12, marginTop: 1 }]}>
-                            {user?.department ? user.department : 'Departamento no asignado'}
+                            {user?.department ? user.department : t('solicitante.departmentNotAssigned')}
                         </Text>
                     </View>
                 </View>
@@ -273,50 +314,50 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                         <>
                             <View style={styles.actionBanner}>
                                 <View style={styles.actionBannerContent}>
-                                    <Text style={styles.actionTitle}>¿Qué necesitas hoy?</Text>
+                                    <Text style={styles.actionTitle}>{t('solicitante.whatDoYouNeed')}</Text>
                                     <Text style={styles.actionSubtitle}>
-                                        Gestione y realice seguimiento a sus solicitudes de necesidades
+                                        {t('solicitante.trackRequests')}
                                     </Text>
                                     <TouchableOpacity
                                         style={styles.actionButton}
                                         onPress={onNavigateToNewRequest}
                                     >
                                         <Ionicons name="add-circle" size={20} color="#1565C0" style={{ marginRight: 6 }} />
-                                        <Text style={styles.actionButtonText}>Crear Nueva Solicitud</Text>
+                                        <Text style={styles.actionButtonText}>{t('solicitante.createNewRequest')}</Text>
                                     </TouchableOpacity>
                                 </View>
                                 <View style={styles.bannerCircle} />
                             </View>
 
-                            <Text style={styles.sectionTitle}>Tu Resumen</Text>
+                            <Text style={styles.sectionTitle}>{t('solicitante.yourSummary')}</Text>
                             <View style={styles.statsRow}>
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: '#0D47A1' }]}>{stats.inProgress}</Text>
-                                    <Text style={styles.statLabel}>En Curso</Text>
-                                    <Text style={styles.statSub}>Solicitudes activas</Text>
+                                    <Text style={styles.statLabel}>{t('solicitante.inProgress')}</Text>
+                                    <Text style={styles.statSub}>{t('solicitante.activeRequests')}</Text>
                                 </View>
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: '#FFA726' }]}>{stats.pending}</Text>
-                                    <Text style={styles.statLabel}>Atención</Text>
-                                    <Text style={styles.statSub}>Requieren acción</Text>
+                                    <Text style={styles.statLabel}>{t('solicitante.attention')}</Text>
+                                    <Text style={styles.statSub}>{t('solicitante.requireAction')}</Text>
                                 </View>
                                 <View style={styles.statItem}>
                                     <Text style={[styles.statValue, { color: '#4CAF50' }]}>{stats.completed}</Text>
-                                    <Text style={styles.statLabel}>Listas</Text>
-                                    <Text style={styles.statSub}>Últimos 30 días</Text>
+                                    <Text style={styles.statLabel}>{t('solicitante.ready')}</Text>
+                                    <Text style={styles.statSub}>{t('solicitante.last30Days')}</Text>
                                 </View>
                             </View>
 
                             <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>Solicitudes Recientes</Text>
+                                <Text style={styles.sectionTitle}>{t('solicitante.recentRequests')}</Text>
                                 <TouchableOpacity onPress={onNavigateToHistory}>
-                                    <Text style={styles.seeAllText}>Ver todas</Text>
+                                    <Text style={styles.seeAllText}>{t('solicitante.viewAll')}</Text>
                                 </TouchableOpacity>
                             </View>
 
                             {recentRequests.length === 0 ? (
                                 <View style={styles.emptyState}>
-                                    <Text style={styles.emptyText}>No tienes solicitudes recientes</Text>
+                                    <Text style={styles.emptyText}>{t('solicitante.noRecentRequests')}</Text>
                                 </View>
                             ) : (
                                 <View style={isDesktopView ? styles.gridContainer : undefined}>
@@ -337,21 +378,49 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
 
                                             {renderTimeline(request.status)}
 
+                                            {/* AWARDED: Show dual action buttons */}
                                             {(request.status === 'awarded' || (request.status as string) === 'adjudicado') && (
-                                                <TouchableOpacity
-                                                    style={styles.confirmReceiptButton}
-                                                    onPress={() => handleConfirmReceipt(request.id)}
-                                                    disabled={confirmingId === request.id}
-                                                >
-                                                    {confirmingId === request.id ? (
-                                                        <ActivityIndicator color="#FFF" size="small" style={{ marginRight: 8 }} />
-                                                    ) : (
-                                                        <Ionicons name="checkmark-circle" size={18} color="#FFF" style={{ marginRight: 8 }} />
-                                                    )}
-                                                    <Text style={styles.confirmReceiptText}>
-                                                        {confirmingId === request.id ? 'Confirmando...' : 'Confirmar Recepción'}
+                                                <View style={styles.deliveryActionsContainer}>
+                                                    <TouchableOpacity
+                                                        style={styles.confirmReceiptButton}
+                                                        onPress={() => handleConfirmReceipt(request.id)}
+                                                        disabled={confirmingId === request.id}
+                                                    >
+                                                        {confirmingId === request.id ? (
+                                                            <ActivityIndicator color="#FFF" size="small" style={{ marginRight: 6 }} />
+                                                        ) : (
+                                                            <Ionicons name="checkmark-circle" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                                                        )}
+                                                        <Text style={styles.confirmReceiptText}>
+                                                            {confirmingId === request.id ? t('solicitante.confirming') : t('requests.received')}
+                                                        </Text>
+                                                    </TouchableOpacity>
+
+                                                    <TouchableOpacity
+                                                        style={styles.reportNonComplianceButton}
+                                                        onPress={() => handleReportNonCompliance(request.id)}
+                                                        disabled={reportingId === request.id}
+                                                    >
+                                                        {reportingId === request.id ? (
+                                                            <ActivityIndicator color="#FFF" size="small" style={{ marginRight: 6 }} />
+                                                        ) : (
+                                                            <Ionicons name="close-circle" size={16} color="#FFF" style={{ marginRight: 6 }} />
+                                                        )}
+                                                        <Text style={styles.reportNonComplianceText}>
+                                                            {reportingId === request.id ? t('solicitante.reporting') : t('requests.notReceived')}
+                                                        </Text>
+                                                    </TouchableOpacity>
+                                                </View>
+                                            )}
+
+                                            {/* REOPENED: Show info message */}
+                                            {request.status === 'reopened_noncompliance' && (
+                                                <View style={styles.reopenedInfoBanner}>
+                                                    <Ionicons name="refresh-circle" size={18} color="#F59E0B" style={{ marginRight: 8 }} />
+                                                    <Text style={styles.reopenedInfoText}>
+                                                        {t('solicitante.alerts.gestorReadjudicating')}
                                                     </Text>
-                                                </TouchableOpacity>
+                                                </View>
                                             )}
 
                                             <View style={styles.cardFooter}>
@@ -366,7 +435,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                                                     style={styles.detailsButton}
                                                     onPress={() => onNavigateToRequestDetail?.(request.id)}
                                                 >
-                                                    <Text style={styles.detailsButtonText}>Ver Detalles</Text>
+                                                    <Text style={styles.detailsButtonText}>{t('solicitante.viewDetails')}</Text>
                                                     <Ionicons name="arrow-forward" size={16} color="#1565C0" style={{ marginLeft: 4 }} />
                                                 </TouchableOpacity>
                                             </View>
@@ -442,7 +511,7 @@ const styles = StyleSheet.create({
     mobileTrackFill: { height: '100%', borderRadius: 3 },
     mobileStepCount: { fontSize: 10, color: '#999', textAlign: 'right' },
 
-    confirmReceiptButton: { backgroundColor: '#4CAF50', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 12, marginBottom: 20 },
+    confirmReceiptButton: { flex: 1, backgroundColor: '#4CAF50', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 12 },
     confirmReceiptText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 14 },
     cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#F5F5F5' },
     dateContainer: { flexDirection: 'row', alignItems: 'center' },
@@ -451,4 +520,13 @@ const styles = StyleSheet.create({
     detailsButtonText: { color: '#1565C0', fontWeight: '600', fontSize: 14 },
     emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFF', borderRadius: 16 },
     emptyText: { color: '#999', fontSize: 16 },
+
+    // Dual action buttons for delivery confirmation
+    deliveryActionsContainer: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+    reportNonComplianceButton: { flex: 1, backgroundColor: '#EF4444', flexDirection: 'row', justifyContent: 'center', alignItems: 'center', paddingVertical: 12, borderRadius: 12 },
+    reportNonComplianceText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+
+    // Reopened info banner
+    reopenedInfoBanner: { backgroundColor: '#FFFBEB', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FDE68A' },
+    reopenedInfoText: { flex: 1, color: '#92400E', fontSize: 13 },
 });

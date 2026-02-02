@@ -22,6 +22,7 @@ import {
   saveAllSupplierEpiData
 } from '../../services/supplierDataService';
 import { pickDocument, uploadSupplierEvidence } from '../../services/imagePickerService';
+import { useTranslation } from 'react-i18next';
 
 import { User } from '../../types';
 import {
@@ -52,10 +53,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   user: userProp
 }) => {
   const { user: contextUser } = useAuth();
+  const { t, i18n } = useTranslation();
   const user = userProp || contextUser;
 
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType>('General');
-  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState(false);
 
@@ -209,12 +211,12 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       });
       console.log('✅ Progress Saved');
       if (!silent) {
-        Alert.alert('Guardado', 'Su progreso se ha guardado correctamente.');
+        Alert.alert(t('proveedor.creation.saved'), t('proveedor.creation.progressSaved'));
       }
       return true;
     } catch (error) {
       console.error('Error saving progress:', error);
-      Alert.alert('Error', 'No se pudo guardar el progreso.');
+      Alert.alert(t('common.error'), t('proveedor.creation.saveError'));
       return false;
     } finally {
       setSaving(false);
@@ -283,11 +285,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
   // --- UI RENDER HELPERS ---
 
   const tabs: { key: TabType; label: string; icon: keyof typeof Ionicons.glyphMap; step: number }[] = [
-    { key: 'General', label: 'Datos Generales', icon: 'business-outline', step: 1 },
-    { key: 'Operaciones', label: 'Operaciones', icon: 'stats-chart-outline', step: 2 },
-    { key: 'Sistemas', label: 'Sistemas', icon: 'construct-outline', step: 3 },
-    { key: 'Cuestionario', label: 'Cuestionario', icon: 'list-circle-outline', step: 4 },
-    { key: 'Checklist', label: 'Documentos', icon: 'folder-open-outline', step: 5 },
+    { key: 'General', label: t('proveedor.creation.tabs.general'), icon: 'business-outline', step: 1 },
+    { key: 'Operaciones', label: t('proveedor.creation.tabs.operations'), icon: 'stats-chart-outline', step: 2 },
+    { key: 'Sistemas', label: t('proveedor.creation.tabs.systems'), icon: 'construct-outline', step: 3 },
+    { key: 'Cuestionario', label: t('proveedor.creation.tabs.questionnaire'), icon: 'list-circle-outline', step: 4 },
+    { key: 'Checklist', label: t('proveedor.creation.tabs.documents'), icon: 'folder-open-outline', step: 5 },
   ];
 
   const getTabStatus = (tab: TabType): 'completed' | 'current' | 'pending' => {
@@ -332,24 +334,23 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
     <View style={styles.formCard}>
       <Text style={styles.sectionTitle}>Datos Generales del Proveedor</Text>
 
-      {/* SAP SECTION: Identificación y Datos Maestros */}
-      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>Identificación SAP</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>{t('proveedor.creation.form.sapId')}</Text>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de BP</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.bpType')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Persona / Organización"
+            placeholder={t('proveedor.creation.form.bpTypePlaceholder')}
             value={generalData.bpType}
             onChangeText={(v) => setGeneralData(p => ({ ...p, bpType: v as any }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de Agrupador</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.grouping')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Nacional, Exterior, etc."
+            placeholder={t('proveedor.creation.form.groupingPlaceholder')}
             value={generalData.groupingType}
             onChangeText={(v) => setGeneralData(p => ({ ...p, groupingType: v }))}
           />
@@ -358,19 +359,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Tratamiento</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.treatment')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Sra., Sr., Empresa, Sres."
+            placeholder={t('proveedor.creation.form.treatmentPlaceholder')}
             value={generalData.treatment}
             onChangeText={(v) => setGeneralData(p => ({ ...p, treatment: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Idioma</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.language')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Español / Inglés"
+            placeholder={t('proveedor.creation.form.languagePlaceholder')}
             value={generalData.language}
             onChangeText={(v) => setGeneralData(p => ({ ...p, language: v as any }))}
           />
@@ -379,19 +380,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Razón Social</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.companyName')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Indurama Ecuador S.A."
+            placeholder={t('proveedor.creation.form.companyNamePlaceholder')}
             value={generalData.companyName}
             onChangeText={(v) => setGeneralData(p => ({ ...p, companyName: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Apellidos (Persona Natural)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.lastName')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Solo si BP = Persona"
+            placeholder={t('proveedor.creation.form.lastNamePlaceholder')}
             value={generalData.lastName}
             onChangeText={(v) => setGeneralData(p => ({ ...p, lastName: v }))}
           />
@@ -400,20 +401,20 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>RUC / ID Fiscal</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.ruc')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="0190..."
+            placeholder={t('proveedor.creation.form.rucPlaceholder')}
             value={generalData.ruc}
             onChangeText={(v) => setGeneralData(p => ({ ...p, ruc: v }))}
             keyboardType="numeric"
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Concepto de Búsqueda</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.searchTerm')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Término SAP"
+            placeholder={t('proveedor.creation.form.searchTermPlaceholder')}
             value={generalData.searchTerm}
             onChangeText={(v) => setGeneralData(p => ({ ...p, searchTerm: v }))}
           />
@@ -422,19 +423,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Nacionalidad</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.nationality')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Ecuador, Colombia, etc."
+            placeholder={t('proveedor.creation.form.nationalityPlaceholder')}
             value={generalData.nationality}
             onChangeText={(v) => setGeneralData(p => ({ ...p, nationality: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Estado Civil (Persona)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.maritalStatus')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Soltero, Casado, etc."
+            placeholder={t('proveedor.creation.form.maritalStatusPlaceholder')}
             value={generalData.maritalStatus}
             onChangeText={(v) => setGeneralData(p => ({ ...p, maritalStatus: v }))}
           />
@@ -443,19 +444,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Forma Jurídica</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.legalForm')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="S.A., Cía. Ltda., Natural"
+            placeholder={t('proveedor.creation.form.legalFormPlaceholder')}
             value={generalData.legalForm}
             onChangeText={(v) => setGeneralData(p => ({ ...p, legalForm: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Categoría Tributaria</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.taxCategory')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Contribuyente Especial, etc."
+            placeholder={t('proveedor.creation.form.taxCategoryPlaceholder')}
             value={generalData.taxCategory}
             onChangeText={(v) => setGeneralData(p => ({ ...p, taxCategory: v }))}
           />
@@ -463,23 +464,23 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       {/* SAP SECTION: Ubicación Desglosada */}
-      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>Ubicación Completa</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>{t('proveedor.creation.form.location')}</Text>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>País</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.country')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Ecuador"
+            placeholder={t('proveedor.creation.form.countryPlaceholder')}
             value={generalData.country}
             onChangeText={(v) => setGeneralData(p => ({ ...p, country: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Región / Provincia</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.region')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Azuay, Pichincha, etc."
+            placeholder={t('proveedor.creation.form.regionPlaceholder')}
             value={generalData.region}
             onChangeText={(v) => setGeneralData(p => ({ ...p, region: v }))}
           />
@@ -488,16 +489,16 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Ciudad</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.city')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Cuenca, Quito, etc."
+            placeholder={t('proveedor.creation.form.cityPlaceholder')}
             value={generalData.city}
             onChangeText={(v) => setGeneralData(p => ({ ...p, city: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Distrito / Población</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.district')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.district}
@@ -507,10 +508,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Calle Principal</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.street')}</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Av. 10 de Agosto"
+          placeholder={t('proveedor.creation.form.streetPlaceholder')}
           value={generalData.street}
           onChangeText={(v) => setGeneralData(p => ({ ...p, street: v }))}
         />
@@ -518,7 +519,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Calle 2</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.street2')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.street2}
@@ -526,7 +527,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Calle 3</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.street3')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.street3}
@@ -537,16 +538,16 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Número de Casa</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.houseNumber')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="123-A"
+            placeholder={t('proveedor.creation.form.houseNumberPlaceholder')}
             value={generalData.houseNumber}
             onChangeText={(v) => setGeneralData(p => ({ ...p, houseNumber: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Código Postal</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.postalCode')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.postalCode}
@@ -557,13 +558,13 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       {/* SAP SECTION: Contacto */}
-      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>Información de Contacto</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16, color: '#003E85' }]}>{t('proveedor.creation.form.contactInfo')}</Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Email de Facturación</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.billingEmail')}</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="facturacion@empresa.com"
+          placeholder={t('proveedor.creation.form.billingEmailPlaceholder')}
           value={generalData.email}
           onChangeText={(v) => setGeneralData(p => ({ ...p, email: v }))}
           keyboardType="email-address"
@@ -573,20 +574,20 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Teléfono Fijo</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.landline')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="07-1234567"
+            placeholder={t('proveedor.creation.form.landlinePlaceholder')}
             value={generalData.centralPhone}
             onChangeText={(v) => setGeneralData(p => ({ ...p, centralPhone: v }))}
             keyboardType="phone-pad"
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Teléfono Celular</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.mobile')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="0987654321"
+            placeholder={t('proveedor.creation.form.mobilePlaceholder')}
             value={generalData.mobilePhone}
             onChangeText={(v) => setGeneralData(p => ({ ...p, mobilePhone: v }))}
             keyboardType="phone-pad"
@@ -595,10 +596,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       {/* === ORIGINAL FIELDS (Keeping for backward compatibility) === */}
-      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16 }]}>Datos Adicionales</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 16 }]}>{t('proveedor.creation.form.additionalData')}</Text>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Nombre Representante Legal</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.legalRepresentative')}</Text>
         <TextInput
           style={styles.textInput}
           value={generalData.legalRepresentative}
@@ -608,19 +609,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de Proveedor</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.supplierType')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Fabricante/Distribuidor/Servicio"
+            placeholder={t('proveedor.creation.form.supplierTypePlaceholder')}
             value={generalData.supplierType}
             onChangeText={(v) => setGeneralData(p => ({ ...p, supplierType: v as any }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Tiempo en Mercado (años)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.marketTime')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Ej: 5"
+            placeholder={t('proveedor.creation.form.marketTimePlaceholder')}
             value={generalData.marketTime}
             onChangeText={(v) => setGeneralData(p => ({ ...p, marketTime: v }))}
             keyboardType="numeric"
@@ -628,11 +629,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
       </View>
 
-      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Contacto para EPI</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>{t('proveedor.creation.form.epiContactTitle')}</Text>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Nombre quien llena EPI</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.epiContactName')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.contactPersonName}
@@ -640,7 +641,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Teléfono Contacto</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.epiContactPhone')}</Text>
           <TextInput
             style={styles.textInput}
             value={generalData.contactPersonPhone}
@@ -651,7 +652,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Sitio Web</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.website')}</Text>
         <TextInput
           style={styles.textInput}
           value={generalData.website}
@@ -672,17 +673,28 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       'Suministros / Materia Prima'
     ];
 
+    const focusOptionsMap: Record<string, string> = {
+      'Servicio Reparación': 'repair',
+      'Servicios de Construcción': 'construction',
+      'Servicio de Asesoramiento': 'consulting',
+      'Venta de Repuestos': 'spares',
+      'Suministros / Materia Prima': 'supplies'
+    };
+
     return (
       <View style={styles.formCard}>
         {/* SAP: ENFOQUE DE SERVICIO (Chip Selector) */}
-        <Text style={[styles.sectionTitle, { color: '#003E85' }]}>Enfoque de Servicio Principal</Text>
+        <Text style={[styles.sectionTitle, { color: '#003E85' }]}>{t('proveedor.creation.form.operations.serviceFocus')}</Text>
         <Text style={{ fontSize: 13, color: '#6B7280', marginBottom: 12 }}>
-          Seleccione la opción que mejor describe su actividad principal:
+          {t('proveedor.creation.form.operations.serviceFocusSubtitle')}
         </Text>
 
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginBottom: 16 }}>
           {focusOptions.map(opt => {
             const isSelected = operationsData.serviceFocus === opt;
+            const trKey = focusOptionsMap[opt] || 'repair';
+            const label = t(`proveedor.creation.form.chips.${trKey}`);
+
             return (
               <TouchableOpacity
                 key={opt}
@@ -706,7 +718,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
                   fontSize: 13,
                   fontWeight: isSelected ? '600' : '500'
                 }}>
-                  {opt}
+                  {label}
                 </Text>
               </TouchableOpacity>
             );
@@ -724,20 +736,20 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             marginBottom: 20
           }}>
             <Text style={{ fontSize: 12, color: '#1E40AF', fontWeight: '600' }}>
-              ✓ Seleccionado: <Text style={{ fontWeight: '700' }}>{operationsData.serviceFocus}</Text>
+              ✓ {t('proveedor.creation.form.operations.selected')}: <Text style={{ fontWeight: '700' }}>{t(`proveedor.creation.form.chips.${focusOptionsMap[operationsData.serviceFocus] || 'repair'}`)}</Text>
             </Text>
           </View>
         )}
 
         {/* SAP: ACTIVIDAD COMERCIAL */}
-        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>Actividad Comercial</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16, color: '#003E85' }]}>{t('proveedor.creation.form.operations.commercialActivity')}</Text>
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.inputLabel}>Plazo de Entrega (Días)</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.deliveryTime')}</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="Ej: 7, 15, 30 días"
+              placeholder={t('proveedor.creation.form.operations.deliveryTimePlaceholder')}
               placeholderTextColor="#9CA3AF"
               value={operationsData.deliveryTime}
               onChangeText={(v) => setOperationsData(p => ({ ...p, deliveryTime: v }))}
@@ -745,10 +757,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             />
           </View>
           <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-            <Text style={styles.inputLabel}>Tipos de Negocio</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.businessTypes')}</Text>
             <TextInput
               style={styles.textInput}
-              placeholder="Fabricación, Distribución..."
+              placeholder={t('proveedor.creation.form.operations.businessTypesPlaceholder')}
               placeholderTextColor="#9CA3AF"
               value={operationsData.businessType?.join(', ')}
               onChangeText={(v) => setOperationsData(p => ({ ...p, businessType: v.split(',').map(s => s.trim()) }))}
@@ -757,10 +769,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Descripción Comercial Completa</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.commercialDescription')}</Text>
           <TextInput
             style={[styles.textInput, { height: 70 }]}
-            placeholder="Describa la actividad y capacidad comercial de su empresa..."
+            placeholder={t('proveedor.creation.form.operations.commercialDescriptionPlaceholder')}
             placeholderTextColor="#9CA3AF"
             value={operationsData.commercialDescription}
             onChangeText={(v) => setOperationsData(p => ({ ...p, commercialDescription: v }))}
@@ -770,10 +782,11 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         {/* === ORIGINAL FIELDS === */}
-        <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 15 }]}>Operaciones y Ventas</Text>
+        {/* === ORIGINAL FIELDS === */}
+        <Text style={[styles.sectionTitle, { marginTop: 20, fontSize: 15 }]}>{t('proveedor.creation.form.operations.operationsAndSales')}</Text>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Principal rubro de enfoque</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.mainFocus')}</Text>
           <TextInput
             style={styles.textInput}
             value={operationsData.mainFocus}
@@ -782,7 +795,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Principales Materias Primas</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.mainRawMaterials')}</Text>
           <TextInput
             style={styles.textInput}
             value={operationsData.mainRawMaterials}
@@ -792,7 +805,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Productos que fabrica o comercializa</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.products')}</Text>
           <TextInput
             style={[styles.textInput, { height: 60 }]}
             value={operationsData.productsOrServices}
@@ -801,13 +814,13 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
 
-        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Principales Clientes</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>{t('proveedor.creation.form.operations.mainClients')}</Text>
         {operationsData.mainClients.map((client, index) => (
           <View key={index} style={styles.row}>
             <View style={[styles.inputGroup, { flex: 2, marginRight: 8 }]}>
               <TextInput
                 style={styles.textInput}
-                placeholder={`Cliente ${index + 1}`}
+                placeholder={`${t('proveedor.creation.form.operations.client')} ${index + 1}`}
                 value={client.name}
                 onChangeText={(v) => {
                   const newClients = [...operationsData.mainClients];
@@ -819,7 +832,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             <View style={[styles.inputGroup, { flex: 1 }]}>
               <TextInput
                 style={styles.textInput}
-                placeholder="% Part."
+                placeholder={t('proveedor.creation.form.operations.share')}
                 value={client.share}
                 onChangeText={(v) => {
                   const newClients = [...operationsData.mainClients];
@@ -831,7 +844,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           </View>
         ))}
 
-        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>Ventas Totales Anuales (USD)</Text>
+        <Text style={[styles.sectionTitle, { marginTop: 16, fontSize: 16 }]}>{t('proveedor.creation.form.operations.annualSales')}</Text>
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1, marginRight: 4 }]}>
             <Text style={styles.miniLabel}>2023</Text>
@@ -864,7 +877,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
         <View style={styles.row}>
           <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-            <Text style={styles.inputLabel}>Cantidad Empleados</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.employeesCount')}</Text>
             <TextInput
               style={styles.textInput}
               value={operationsData.employeesCount}
@@ -873,7 +886,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             />
           </View>
           <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-            <Text style={styles.inputLabel}>Área Fábrica (m²)</Text>
+            <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.factoryArea')}</Text>
             <TextInput
               style={styles.textInput}
               value={operationsData.factoryArea}
@@ -884,7 +897,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Certificaciones (ISO, BASC, etc)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.certifications')}</Text>
           <TextInput
             style={styles.textInput}
             value={operationsData.certifications}
@@ -893,17 +906,17 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         </View>
 
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Etiquetas de Productos (Para Búsqueda)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.operations.productTags')}</Text>
           <View style={{ flexDirection: 'row', gap: 8, marginBottom: 8 }}>
             <TextInput
               style={[styles.textInput, { flex: 1 }]}
-              placeholder="Ej: Electrodomésticos, Muebles..."
+              placeholder={t('proveedor.creation.form.operations.productTagsPlaceholder')}
               value={newTag}
               onChangeText={setNewTag}
               onSubmitEditing={handleAddTag}
             />
             <TouchableOpacity style={styles.addButton} onPress={handleAddTag}>
-              <Text style={styles.addButtonText}>Agregar</Text>
+              <Text style={styles.addButtonText}>{t('proveedor.creation.form.operations.add')}</Text>
             </TouchableOpacity>
           </View>
           <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
@@ -925,15 +938,15 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
   const renderSystemsTab = () => (
     <View style={styles.formCard}>
-      <Text style={styles.sectionTitle}>Sistemas de Gestión</Text>
-      <Text style={styles.helperText}>Marque lo que tenga implementado:</Text>
+      <Text style={styles.sectionTitle}>{t('proveedor.creation.form.systems.title')}</Text>
+      <Text style={styles.helperText}>{t('proveedor.creation.form.systems.subtitle')}</Text>
 
       <TouchableOpacity
         style={styles.checkboxRow}
         onPress={() => setSystemsData(p => ({ ...p, has5S: !p.has5S }))}
       >
         <Ionicons name={systemsData.has5S ? "checkbox" : "square-outline"} size={24} color="#003E85" />
-        <Text style={styles.checkboxLabel}>¿Tiene implementado 5'S?</Text>
+        <Text style={styles.checkboxLabel}>{t('proveedor.creation.form.systems.has5S')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -941,7 +954,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         onPress={() => setSystemsData(p => ({ ...p, hasIndustrialSafety: !p.hasIndustrialSafety }))}
       >
         <Ionicons name={systemsData.hasIndustrialSafety ? "checkbox" : "square-outline"} size={24} color="#003E85" />
-        <Text style={styles.checkboxLabel}>¿Tiene Seguridad Industrial?</Text>
+        <Text style={styles.checkboxLabel}>{t('proveedor.creation.form.systems.hasIndustrialSafety')}</Text>
       </TouchableOpacity>
 
       <TouchableOpacity
@@ -949,21 +962,21 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         onPress={() => setSystemsData(p => ({ ...p, hasQualitySystem: !p.hasQualitySystem }))}
       >
         <Ionicons name={systemsData.hasQualitySystem ? "checkbox" : "square-outline"} size={24} color="#003E85" />
-        <Text style={styles.checkboxLabel}>¿Tiene Sistema de Calidad?</Text>
+        <Text style={styles.checkboxLabel}>{t('proveedor.creation.form.systems.hasQualitySystem')}</Text>
       </TouchableOpacity>
 
-      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>Matriz de Contactos</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24 }]}>{t('proveedor.creation.form.systems.contactsMatrix')}</Text>
 
       {/* Gerente */}
       <View style={styles.contactBlock}>
-        <Text style={styles.contactRole}>Gerente General</Text>
+        <Text style={styles.contactRole}>{t('proveedor.creation.form.systems.roles.generalManager')}</Text>
         <TextInput
-          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder={t('proveedor.creation.form.systems.name')}
           value={systemsData.generalManager.name}
           onChangeText={v => setSystemsData(p => ({ ...p, generalManager: { ...p.generalManager, name: v } }))}
         />
         <TextInput
-          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          style={styles.textInput} placeholder={t('proveedor.creation.form.systems.email')} keyboardType="email-address"
           value={systemsData.generalManager.email}
           onChangeText={v => setSystemsData(p => ({ ...p, generalManager: { ...p.generalManager, email: v } }))}
         />
@@ -971,14 +984,14 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       {/* Comercial */}
       <View style={styles.contactBlock}>
-        <Text style={styles.contactRole}>Comercial</Text>
+        <Text style={styles.contactRole}>{t('proveedor.creation.form.systems.roles.commercial')}</Text>
         <TextInput
-          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder={t('proveedor.creation.form.systems.name')}
           value={systemsData.commercial.name}
           onChangeText={v => setSystemsData(p => ({ ...p, commercial: { ...p.commercial, name: v } }))}
         />
         <TextInput
-          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          style={styles.textInput} placeholder={t('proveedor.creation.form.systems.email')} keyboardType="email-address"
           value={systemsData.commercial.email}
           onChangeText={v => setSystemsData(p => ({ ...p, commercial: { ...p.commercial, email: v } }))}
         />
@@ -986,14 +999,14 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       {/* Calidad */}
       <View style={styles.contactBlock}>
-        <Text style={styles.contactRole}>Calidad</Text>
+        <Text style={styles.contactRole}>{t('proveedor.creation.form.systems.roles.quality')}</Text>
         <TextInput
-          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder={t('proveedor.creation.form.systems.name')}
           value={systemsData.quality.name}
           onChangeText={v => setSystemsData(p => ({ ...p, quality: { ...p.quality, name: v } }))}
         />
         <TextInput
-          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          style={styles.textInput} placeholder={t('proveedor.creation.form.systems.email')} keyboardType="email-address"
           value={systemsData.quality.email}
           onChangeText={v => setSystemsData(p => ({ ...p, quality: { ...p.quality, email: v } }))}
         />
@@ -1001,14 +1014,14 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       {/* Técnico */}
       <View style={styles.contactBlock}>
-        <Text style={styles.contactRole}>Técnico</Text>
+        <Text style={styles.contactRole}>{t('proveedor.creation.form.systems.roles.technical')}</Text>
         <TextInput
-          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder={t('proveedor.creation.form.systems.name')}
           value={systemsData.technical.name}
           onChangeText={v => setSystemsData(p => ({ ...p, technical: { ...p.technical, name: v } }))}
         />
         <TextInput
-          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          style={styles.textInput} placeholder={t('proveedor.creation.form.systems.email')} keyboardType="email-address"
           value={systemsData.technical.email}
           onChangeText={v => setSystemsData(p => ({ ...p, technical: { ...p.technical, email: v } }))}
         />
@@ -1016,14 +1029,14 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       {/* Producción */}
       <View style={styles.contactBlock}>
-        <Text style={styles.contactRole}>Producción</Text>
+        <Text style={styles.contactRole}>{t('proveedor.creation.form.systems.roles.production')}</Text>
         <TextInput
-          style={[styles.textInput, { marginBottom: 6 }]} placeholder="Nombre"
+          style={[styles.textInput, { marginBottom: 6 }]} placeholder={t('proveedor.creation.form.systems.name')}
           value={systemsData.production.name}
           onChangeText={v => setSystemsData(p => ({ ...p, production: { ...p.production, name: v } }))}
         />
         <TextInput
-          style={styles.textInput} placeholder="Email" keyboardType="email-address"
+          style={styles.textInput} placeholder={t('proveedor.creation.form.systems.email')} keyboardType="email-address"
           value={systemsData.production.email}
           onChangeText={v => setSystemsData(p => ({ ...p, production: { ...p.production, email: v } }))}
         />
@@ -1107,27 +1120,105 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         />
       </View>
 
+      {/* SAP SECTION: Información Bancaria */}
+      <Text style={[styles.sectionTitle, { marginTop: 24, fontSize: 16, color: '#003E85' }]}>{t('proveedor.creation.form.systems.bankingInfo')}</Text>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.taxIdType')}</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('proveedor.creation.form.systems.taxIdTypePlaceholder')}
+            value={systemsData.taxIdType}
+            onChangeText={v => setSystemsData(p => ({ ...p, taxIdType: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.taxIdNumber')}</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('proveedor.creation.form.systems.taxIdNumberPlaceholder')}
+            value={systemsData.taxId || generalData.ruc}
+            onChangeText={v => setSystemsData(p => ({ ...p, taxId: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.bank')}</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('proveedor.creation.form.systems.bankPlaceholder')}
+            value={systemsData.bankName}
+            onChangeText={v => setSystemsData(p => ({ ...p, bankName: v }))}
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.bankKey')}</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('proveedor.creation.form.systems.bankKeyPlaceholder')}
+            value={systemsData.bankKey}
+            onChangeText={v => setSystemsData(p => ({ ...p, bankKey: v }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.row}>
+        <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.bankAccount')}</Text>
+          <TextInput
+            style={styles.textInput}
+            value={systemsData.accountNumber}
+            onChangeText={v => setSystemsData(p => ({ ...p, accountNumber: v }))}
+            keyboardType="numeric"
+          />
+        </View>
+        <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.accountType')}</Text>
+          <TextInput
+            style={styles.textInput}
+            placeholder={t('proveedor.creation.form.systems.accountTypePlaceholder')}
+            value={systemsData.accountType}
+            onChangeText={v => setSystemsData(p => ({ ...p, accountType: v as any }))}
+          />
+        </View>
+      </View>
+
+      <View style={styles.inputGroup}>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.iban')}</Text>
+        <TextInput
+          style={styles.textInput}
+          placeholder={t('proveedor.creation.form.systems.ibanPlaceholder')}
+          value={systemsData.iban}
+          onChangeText={v => setSystemsData(p => ({ ...p, iban: v }))}
+          autoCapitalize="characters"
+        />
+      </View>
+
       {/* SAP SECTION: Datos de Sociedad (Optional/Read-Only for Provider) */}
-      <Text style={[styles.sectionTitle, { marginTop: 24, fontSize: 16, color: '#666' }]}>Datos de Sociedad y Compras (Opcional)</Text>
+      <Text style={[styles.sectionTitle, { marginTop: 24, fontSize: 16, color: '#666' }]}>{t('proveedor.creation.form.systems.societyData')}</Text>
       <Text style={{ fontSize: 12, color: '#9CA3AF', marginBottom: 12, fontStyle: 'italic' }}>
-        Estos campos normalmente los completa el Gestor, pero puede dejar sus preferencias aquí.
+        {t('proveedor.creation.form.systems.societyDataSubtitle')}
       </Text>
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Sociedad Asignada</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.society')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="INDURAMA ECUADOR (por defecto)"
+            placeholder={t('proveedor.creation.form.systems.societyPlaceholder')}
             value={systemsData.society}
             onChangeText={v => setSystemsData(p => ({ ...p, society: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Condición de Pago</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.paymentCondition')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="30 días, 60 días, etc."
+            placeholder={t('proveedor.creation.form.systems.paymentConditionPlaceholder')}
             value={systemsData.paymentCondition}
             onChangeText={v => setSystemsData(p => ({ ...p, paymentCondition: v }))}
           />
@@ -1135,10 +1226,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Vías de Pago Aceptadas</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.paymentMethods')}</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Transferencia, Cheque, Depósito, etc."
+          placeholder={t('proveedor.creation.form.systems.paymentMethodsPlaceholder')}
           value={systemsData.paymentMethods?.join(', ')}
           onChangeText={v => setSystemsData(p => ({ ...p, paymentMethods: v.split(',').map(s => s.trim()) }))}
         />
@@ -1146,19 +1237,19 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
       <View style={styles.row}>
         <View style={[styles.inputGroup, { flex: 1, marginRight: 8 }]}>
-          <Text style={styles.inputLabel}>Tipo de Retención</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.withholdingType')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="IVA, Renta, etc."
+            placeholder={t('proveedor.creation.form.systems.withholdingPlaceholder')}
             value={systemsData.withholdingType}
             onChangeText={v => setSystemsData(p => ({ ...p, withholdingType: v }))}
           />
         </View>
         <View style={[styles.inputGroup, { flex: 1, marginLeft: 8 }]}>
-          <Text style={styles.inputLabel}>Organización de Compras</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.purchasingOrg')}</Text>
           <TextInput
             style={styles.textInput}
-            placeholder="Org Compras Central"
+            placeholder={t('proveedor.creation.form.systems.purchasingOrgPlaceholder')}
             value={systemsData.purchasingOrg}
             onChangeText={v => setSystemsData(p => ({ ...p, purchasingOrg: v }))}
           />
@@ -1166,10 +1257,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
       </View>
 
       <View style={styles.inputGroup}>
-        <Text style={styles.inputLabel}>Grupo de Compras</Text>
+        <Text style={styles.inputLabel}>{t('proveedor.creation.form.systems.purchasingGroup')}</Text>
         <TextInput
           style={styles.textInput}
-          placeholder="Nacional, Importado, Servicios, etc."
+          placeholder={t('proveedor.creation.form.systems.purchasingGroupPlaceholder')}
           value={systemsData.purchasingGroup}
           onChangeText={v => setSystemsData(p => ({ ...p, purchasingGroup: v }))}
         />
@@ -1192,13 +1283,13 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             style={[styles.switchOption, value === true && styles.switchActive]}
             onPress={() => onChange(true)}
           >
-            <Text style={[styles.switchText, value === true && styles.switchTextActive]}>SÍ</Text>
+            <Text style={[styles.switchText, value === true && styles.switchTextActive]}>{t('proveedor.creation.form.questionnaire.yes')}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             style={[styles.switchOption, value === false && styles.switchActive]}
             onPress={() => onChange(false)}
           >
-            <Text style={[styles.switchText, value === false && styles.switchTextActive]}>NO</Text>
+            <Text style={[styles.switchText, value === false && styles.switchTextActive]}>{t('proveedor.creation.form.questionnaire.no')}</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -1206,82 +1297,82 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
     return (
       <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>Cuestionario de Evaluación</Text>
-        <Text style={styles.helperText}>Seleccione con una X (Si/No):</Text>
+        <Text style={styles.sectionTitle}>{t('proveedor.creation.form.questionnaire.title')}</Text>
+        <Text style={styles.helperText}>{t('proveedor.creation.form.questionnaire.subtitle')}</Text>
 
         <QuestionRow
-          label="¿Disposición a firmar contrato?"
+          label={t('proveedor.creation.form.questionnaire.questions.signContract')}
           value={questionnaireData.signContract}
           onChange={v => setQuestionnaireData(p => ({ ...p, signContract: v }))}
         />
         <QuestionRow
-          label="¿Está dispuesto a compartir su situación Financiera?"
+          label={t('proveedor.creation.form.questionnaire.questions.shareFinancial')}
           value={questionnaireData.shareFinancial}
           onChange={v => setQuestionnaireData(p => ({ ...p, shareFinancial: v }))}
         />
         <QuestionRow
-          label="¿Tiene contratos de empleados por escrito y firmados?"
+          label={t('proveedor.creation.form.questionnaire.questions.writtenContracts')}
           value={questionnaireData.writtenContracts}
           onChange={v => setQuestionnaireData(p => ({ ...p, writtenContracts: v }))}
         />
         <QuestionRow
-          label="¿Tiene procedimientos de Salud y Seguridad Ocupacional?"
+          label={t('proveedor.creation.form.questionnaire.questions.hseProcedures')}
           value={questionnaireData.hseProcedures}
           onChange={v => setQuestionnaireData(p => ({ ...p, hseProcedures: v }))}
         />
         <QuestionRow
-          label="¿Está al día con Organismos Municipales?"
+          label={t('proveedor.creation.form.questionnaire.questions.governmentCompliance')}
           value={questionnaireData.governmentCompliance}
           onChange={v => setQuestionnaireData(p => ({ ...p, governmentCompliance: v }))}
         />
         <QuestionRow
-          label="¿Acepta reproceso en instalaciones de Indurama?"
+          label={t('proveedor.creation.form.questionnaire.questions.reworkInIndurama')}
           value={questionnaireData.reworkInIndurama}
           onChange={v => setQuestionnaireData(p => ({ ...p, reworkInIndurama: v }))}
         />
         <QuestionRow
-          label="¿Acepta nuestras condiciones de Crédito y Pago?"
+          label={t('proveedor.creation.form.questionnaire.questions.creditConditions')}
           value={questionnaireData.creditConditions}
           onChange={v => setQuestionnaireData(p => ({ ...p, creditConditions: v }))}
         />
         <QuestionRow
-          label="¿Cuenta con proceso de atención de reclamos (OBLIGATORIO)?"
+          label={t('proveedor.creation.form.questionnaire.questions.claimsProcess')}
           value={questionnaireData.claimsProcess}
           onChange={v => setQuestionnaireData(p => ({ ...p, claimsProcess: v }))}
         />
         <QuestionRow
-          label="¿Posee Código de Conducta?"
+          label={t('proveedor.creation.form.questionnaire.questions.codeOfConduct')}
           value={questionnaireData.codeOfConduct}
           onChange={v => setQuestionnaireData(p => ({ ...p, codeOfConduct: v }))}
         />
         <QuestionRow
-          label="¿Tiene Eficiencia Energética (ISO 50001)?"
+          label={t('proveedor.creation.form.questionnaire.questions.iso50001')}
           value={questionnaireData.iso50001}
           onChange={v => setQuestionnaireData(p => ({ ...p, iso50001: v }))}
         />
         <QuestionRow
-          label="¿Cumplimiento tributario al día (SRI)?"
+          label={t('proveedor.creation.form.questionnaire.questions.sriCompliance')}
           value={questionnaireData.sriCompliance}
           onChange={v => setQuestionnaireData(p => ({ ...p, sriCompliance: v }))}
         />
         <QuestionRow
-          label="¿Cumplimiento IESS al día?"
+          label={t('proveedor.creation.form.questionnaire.questions.iessCompliance')}
           value={questionnaireData.iessCompliance}
           onChange={v => setQuestionnaireData(p => ({ ...p, iessCompliance: v }))}
         />
         <QuestionRow
-          label="¿Tiene sistema propio de facturación?"
+          label={t('proveedor.creation.form.questionnaire.questions.billingSystem')}
           value={questionnaireData.billingSystem}
           onChange={v => setQuestionnaireData(p => ({ ...p, billingSystem: v }))}
         />
         <QuestionRow
-          label="¿Ofrece Garantía y servicio Post Venta?"
+          label={t('proveedor.creation.form.questionnaire.questions.warranty')}
           value={questionnaireData.warranty}
           onChange={v => setQuestionnaireData(p => ({ ...p, warranty: v }))}
         />
 
         <View style={[styles.inputGroup, { marginTop: 16 }]}>
-          <Text style={styles.inputLabel}>Nombre primer contacto Indurama</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.questionnaire.firstContact')}</Text>
           <TextInput
             style={styles.textInput}
             value={questionnaireData.firstContactName}
@@ -1289,7 +1380,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           />
         </View>
         <View style={styles.inputGroup}>
-          <Text style={styles.inputLabel}>Tiempos de reposición (días)</Text>
+          <Text style={styles.inputLabel}>{t('proveedor.creation.form.questionnaire.replenishment')}</Text>
           <TextInput
             style={styles.textInput}
             value={questionnaireData.replenishmentTime}
@@ -1315,7 +1406,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           >
             <Ionicons name={data.checked ? "checkbox" : "square-outline"} size={24} color="#003E85" />
             <Text style={[styles.checkboxLabel, { marginLeft: 10, fontSize: 14 }]}>
-              {data.label} {data.required && <Text style={{ color: 'red' }}>*</Text>}
+              {t(`proveedor.creation.form.checklist.items.${itemKey}`)} {data.required && <Text style={{ color: 'red' }}>*</Text>}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1326,7 +1417,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
         >
           <Ionicons name={data.fileUrl ? "document-text" : "cloud-upload-outline"} size={20} color="#fff" />
           <Text style={styles.uploadButtonText}>
-            {data.fileUrl ? "Ver/Cambiar" : "Subir"}
+            {data.fileUrl ? t('proveedor.creation.form.checklist.viewChange') : t('proveedor.creation.form.checklist.upload')}
           </Text>
         </TouchableOpacity>
       </View>
@@ -1334,7 +1425,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
     const handleFileUpload = async (key: string) => {
       if (!user?.id) {
-        Alert.alert('Error', 'No se pudo identificar al usuario');
+        Alert.alert(t('common.error'), t('proveedor.creation.userError'));
         return;
       }
 
@@ -1364,10 +1455,10 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           }
         }));
 
-        Alert.alert('Éxito', 'Documento subido correctamente');
+        Alert.alert(t('common.success'), t('proveedor.creation.uploadSuccess'));
       } catch (error) {
         console.error('Error uploading file:', error);
-        Alert.alert('Error', 'No se pudo subir el documento');
+        Alert.alert(t('common.error'), t('proveedor.creation.uploadError'));
       } finally {
         setSaving(false);
       }
@@ -1375,8 +1466,8 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
     return (
       <View style={styles.formCard}>
-        <Text style={styles.sectionTitle}>Checklist de Documentos</Text>
-        <Text style={styles.helperText}>Marque y suba los archivos correspondientes:</Text>
+        <Text style={styles.sectionTitle}>{t('proveedor.creation.form.checklist.title')}</Text>
+        <Text style={styles.helperText}>{t('proveedor.creation.form.checklist.subtitle')}</Text>
 
         {Object.entries(checklistData).map(([key, item]) => (
           <ChecklistRow key={key} itemKey={key} data={item} />
@@ -1404,9 +1495,9 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
 
   const getButtonText = () => {
     if (activeTab === 'Checklist') {
-      return 'Guardar y Completar';
+      return t('proveedor.creation.saveAndComplete');
     }
-    return 'Guardar y Continuar';
+    return t('proveedor.creation.saveAndContinue');
   };
 
   return (
@@ -1421,20 +1512,31 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
           </TouchableOpacity>
 
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Creación de Proveedor EPI</Text>
+            <Text style={styles.headerTitle}>{t('proveedor.creation.title')}</Text>
             <Text style={styles.headerStep}>
-              Paso {
+              {t('proveedor.creation.step')} {
                 activeTab === 'General' ? 1 :
                   activeTab === 'Operaciones' ? 2 :
                     activeTab === 'Sistemas' ? 3 :
                       activeTab === 'Cuestionario' ? 4 : 5
-              } de 5
+              } {t('proveedor.creation.of')} 5
             </Text>
           </View>
 
-          <TouchableOpacity style={styles.helpButton}>
-            <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
-          </TouchableOpacity>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+            <TouchableOpacity
+              style={styles.langToggle}
+              onPress={() => i18n.changeLanguage(i18n.language === 'es' ? 'en' : 'es')}
+            >
+              <View style={styles.langCircle}>
+                <Text style={styles.langText}>{i18n.language.toUpperCase()}</Text>
+              </View>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.helpButton}>
+              <Ionicons name="help-circle-outline" size={24} color="#FFFFFF" />
+            </TouchableOpacity>
+          </View>
         </View>
       </View>
 
@@ -1463,7 +1565,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             style={styles.cancelButton}
             onPress={handleGoBack}
           >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
+            <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
@@ -1472,7 +1574,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
             disabled={loading || saving}
           >
             <Text style={styles.nextButtonText}>
-              {saving ? 'Guardando...' : getButtonText()}
+              {saving ? t('common.saving') : getButtonText()}
             </Text>
           </TouchableOpacity>
         </View>
@@ -1491,10 +1593,9 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
               <Ionicons name="checkmark-circle" size={56} color="#10B981" />
             </View>
 
-            <Text style={styles.modalTitle}>EPI Completado</Text>
+            <Text style={styles.modalTitle}>{t('proveedor.creation.epiCompleted')}</Text>
             <Text style={styles.modalMessage}>
-              Has completado exitosamente todos los pasos del proceso EPI.{'\n\n'}
-              Ahora puedes continuar con los cuestionarios de evaluación de Calidad y Abastecimiento.
+              {t('proveedor.creation.completionMessage')}
             </Text>
 
             <TouchableOpacity
@@ -1506,7 +1607,7 @@ export const SupplierCreationScreen: React.FC<SupplierCreationScreenProps> = ({
                 }
               }}
             >
-              <Text style={styles.modalButtonText}>Continuar</Text>
+              <Text style={styles.modalButtonText}>{t('proveedor.creation.form.questionnaire.continue')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -1545,6 +1646,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
     letterSpacing: -0.5,
+  },
+  langToggle: {
+    padding: 2,
+  },
+  langCircle: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(255,255,255,0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.5)',
+  },
+  langText: {
+    color: '#FFF',
+    fontSize: 12,
+    fontWeight: '700',
   },
   headerStep: {
     fontSize: 13,

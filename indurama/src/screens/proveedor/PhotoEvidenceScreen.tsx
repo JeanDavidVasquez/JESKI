@@ -23,6 +23,7 @@ import {
   pickDocument,
   uploadSupplierEvidence,
 } from '../../services/imagePickerService';
+import { useTranslation } from 'react-i18next';
 
 // Tipos para las categorías de evidencia
 interface EvidenceCategory {
@@ -50,6 +51,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
   supplierId: supplierIdProp
 }) => {
   const { user } = useAuth();
+  const { t } = useTranslation();
   const supplierId = supplierIdProp || user?.id;
   const { width } = useWindowDimensions();
   const isMobile = width < 768;
@@ -144,7 +146,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
   const handleAccept = async () => {
     if (!supplierId) {
-      Alert.alert('Error', 'No se pudo identificar el usuario');
+      Alert.alert(t('common.error'), t('proveedor.photoEvidence.userNotIdentified'));
       return;
     }
 
@@ -155,8 +157,8 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
     if (missingCategories.length > 0) {
       Alert.alert(
-        'Fotos Requeridas',
-        'Debes subir al menos una foto para cada categoría antes de continuar.'
+        t('proveedor.photoEvidence.photosRequired'),
+        t('proveedor.photoEvidence.uploadPhotoPerCategory')
       );
       return;
     }
@@ -174,13 +176,13 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       setShowEpiModal(true);
     } catch (error) {
       console.error('Error saving evidence:', error);
-      Alert.alert('Error', 'No se pudieron guardar las evidencias');
+      Alert.alert(t('common.error'), t('proveedor.photoEvidence.saveError'));
     }
   };
 
   const handleUploadPhoto = (categoryId: string) => {
     if (!supplierId) {
-      Alert.alert('Error', 'Debes iniciar sesión');
+      Alert.alert(t('common.error'), t('proveedor.photoEvidence.mustLogin'));
       return;
     }
     setActiveUploadCategory(categoryId);
@@ -218,11 +220,11 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
             : cat
         ));
 
-        Alert.alert('¡Éxito!', 'Archivo subido correctamente');
+        Alert.alert(t('common.success'), t('proveedor.photoEvidence.fileUploaded'));
       }
     } catch (error) {
       console.error('Error uploading:', error);
-      Alert.alert('Error', 'No se pudo subir el archivo');
+      Alert.alert(t('common.error'), t('proveedor.photoEvidence.uploadError'));
     } finally {
       setUploading(false);
       setActiveUploadCategory(null);
@@ -231,12 +233,12 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
 
   const handleRemovePhoto = (categoryId: string, photoUrl: string) => {
     Alert.alert(
-      'Eliminar Foto',
-      '¿Estás seguro de que deseas eliminar esta foto?',
+      t('proveedor.photoEvidence.deletePhoto'),
+      t('proveedor.photoEvidence.confirmDelete'),
       [
-        { text: 'Cancelar', style: 'cancel' },
+        { text: t('common.cancel'), style: 'cancel' },
         {
-          text: 'Eliminar',
+          text: t('common.delete'),
           style: 'destructive',
           onPress: () => {
             setCategoryPhotos(prev => ({
@@ -310,7 +312,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
           ) : (
             <View style={styles.emptyPhotosState}>
               <Ionicons name="images-outline" size={24} color="#CBD5E1" />
-              <Text style={styles.emptyPhotosText}>No hay fotos subidas</Text>
+              <Text style={styles.emptyPhotosText}>{t('proveedor.photoEvidence.noPhotos')}</Text>
             </View>
           )}
         </View>
@@ -318,14 +320,14 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
         {/* Footer Info */}
         <View style={styles.cardFooter}>
           <Text style={styles.photoCountText}>
-            {photos.length} {photos.length === 1 ? 'archivo' : 'archivos'}
+            {photos.length} {photos.length === 1 ? t('proveedor.photoEvidence.file') : t('proveedor.photoEvidence.files')}
           </Text>
           {hasPhotos && (
             <TouchableOpacity onPress={() => {
               setSelectedCategory(category.id);
               setShowPhotosModal(true);
             }}>
-              <Text style={styles.viewAllText}>Ver Detalle</Text>
+              <Text style={styles.viewAllText}>{t('proveedor.photoEvidence.viewDetail')}</Text>
             </TouchableOpacity>
           )}
         </View>
@@ -344,9 +346,9 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
             <Ionicons name="arrow-back" size={24} color="#FFFFFF" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle}>Evidencias Fotográficas</Text>
+            <Text style={styles.headerTitle}>{t('proveedor.photoEvidence.title')}</Text>
             <Text style={styles.headerSubtitle}>
-              {categories.filter(c => c.status === 'completed').length} de {categories.length} completadas
+              {categories.filter(c => c.status === 'completed').length} {t('common.of')} {categories.length} {t('proveedor.photoEvidence.completed')}
             </Text>
           </View>
           <View style={styles.logoContainer}>
@@ -363,8 +365,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
           showsVerticalScrollIndicator={false}
         >
           <Text style={styles.screenDescription}>
-            Por favor, sube las fotografías requeridas para cada categoría.{"\n"}
-            Asegúrate de que sean claras y legibles.
+            {t('proveedor.photoEvidence.description')}
           </Text>
 
           <View style={styles.gridContainer}>
@@ -380,7 +381,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
             style={styles.acceptButton}
             onPress={handleAccept}
           >
-            <Text style={styles.acceptButtonText}>Completar Evaluación</Text>
+            <Text style={styles.acceptButtonText}>{t('proveedor.photoEvidence.completeEvaluation')}</Text>
             <Ionicons name="checkmark-circle" size={20} color="#FFF" />
           </TouchableOpacity>
         </View>
@@ -391,12 +392,12 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
         <View style={styles.modalOverlay}>
           <View style={styles.modalContainer}>
             <Ionicons name="checkmark-circle" size={60} color="#22C55E" style={{ marginBottom: 16 }} />
-            <Text style={styles.modalTitle}>¡Excelente!</Text>
+            <Text style={styles.modalTitle}>{t('proveedor.photoEvidence.excellent')}</Text>
             <Text style={styles.modalMessage}>
-              Has completado el registro de evidencias exitosamente.
+              {t('proveedor.photoEvidence.evidenceRegisteredSuccess')}
             </Text>
             <TouchableOpacity style={styles.modalButton} onPress={handleEpiModalClose}>
-              <Text style={styles.modalButtonText}>Finalizar</Text>
+              <Text style={styles.modalButtonText}>{t('proveedor.questionnaire.finish')}</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -406,18 +407,18 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
         <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowUploadModal(false)}>
           <TouchableOpacity activeOpacity={1} style={{ alignItems: 'center' }}>
             <View style={styles.uploadModalContainer}>
-              <Text style={styles.uploadModalTitle}>Añadir Evidencia</Text>
+              <Text style={styles.uploadModalTitle}>{t('proveedor.photoEvidence.addEvidence')}</Text>
               <TouchableOpacity style={styles.uploadOptionButton} onPress={() => { setShowUploadModal(false); performUpload('camera'); }}>
-                <Text style={styles.uploadOptionText}>📷 Tomar Foto</Text>
+                <Text style={styles.uploadOptionText}>📷 {t('proveedor.questionnaire.takePhoto')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.uploadOptionButton} onPress={() => { setShowUploadModal(false); performUpload('gallery'); }}>
-                <Text style={styles.uploadOptionText}>🖼️ Galería</Text>
+                <Text style={styles.uploadOptionText}>🖼️ {t('proveedor.photoEvidence.gallery')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.uploadOptionButton} onPress={() => { setShowUploadModal(false); performUpload('document'); }}>
-                <Text style={styles.uploadOptionText}>📄 Documento</Text>
+                <Text style={styles.uploadOptionText}>📄 {t('proveedor.photoEvidence.document')}</Text>
               </TouchableOpacity>
               <TouchableOpacity style={styles.uploadCancelButton} onPress={() => setShowUploadModal(false)}>
-                <Text style={styles.uploadCancelText}>Cancelar</Text>
+                <Text style={styles.uploadCancelText}>{t('common.cancel')}</Text>
               </TouchableOpacity>
             </View>
           </TouchableOpacity>
@@ -428,7 +429,7 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
       <Modal visible={showPhotosModal} transparent animationType="slide" onRequestClose={() => setShowPhotosModal(false)}>
         <View style={styles.fullScreenModal}>
           <View style={styles.fullScreenModalHeader}>
-            <Text style={styles.fullScreenModalTitle}>Galería de Evidencias</Text>
+            <Text style={styles.fullScreenModalTitle}>{t('proveedor.photoEvidence.evidenceGallery')}</Text>
             <TouchableOpacity onPress={() => setShowPhotosModal(false)} style={styles.closeModalButton}>
               <Ionicons name="close" size={24} color="#1E293B" />
             </TouchableOpacity>
@@ -438,13 +439,13 @@ export const PhotoEvidenceScreen: React.FC<PhotoEvidenceScreenProps> = ({
               <View key={idx} style={styles.largePhotoCard}>
                 <Image source={{ uri: url }} style={styles.largePhotoImage} resizeMode="contain" />
                 <View style={styles.largePhotoFooter}>
-                  <Text style={styles.photoIndexText}>Imagen {idx + 1}</Text>
+                  <Text style={styles.photoIndexText}>{t('proveedor.photoEvidence.image')} {idx + 1}</Text>
                   <TouchableOpacity
                     style={styles.deleteLargeButton}
                     onPress={() => handleRemovePhoto(selectedCategory, url)}
                   >
                     <Ionicons name="trash-outline" size={20} color="#EF4444" />
-                    <Text style={{ color: '#EF4444', fontWeight: '600', marginLeft: 4 }}>Eliminar</Text>
+                    <Text style={{ color: '#EF4444', fontWeight: '600', marginLeft: 4 }}>{t('common.delete')}</Text>
                   </TouchableOpacity>
                 </View>
               </View>

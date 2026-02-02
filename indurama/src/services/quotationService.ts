@@ -1,6 +1,3 @@
-/**
- * QuotationService - Manejo de invitaciones y cotizaciones
- */
 import { db } from './firebaseConfig';
 import {
     collection,
@@ -22,7 +19,6 @@ import {
     QuotationInvitation,
     Quotation,
     QuotationComment,
-    QuotationInvitationStatus,
 } from '../types';
 import { NotificationService } from './notificationService';
 import { EmailHelperService } from './emailHelperService';
@@ -31,14 +27,22 @@ const INVITATIONS_COLLECTION = 'quotation_invitations';
 const QUOTATIONS_COLLECTION = 'quotations';
 const COMMENTS_COLLECTION = 'quotation_comments';
 
-export const QuotationService = {
-    // ============================================
-    // INVITATIONS
-    // ============================================
+// --- FUNCIÓN HELPER PARA CALCULAR DÍAS HÁBILES ---
+const addBusinessDays = (startDate: Date, days: number): Date => {
+    const currentDate = new Date(startDate);
+    let addedDays = 0;
+    while (addedDays < days) {
+        currentDate.setDate(currentDate.getDate() + 1);
+        const day = currentDate.getDay(); // 0 = Domingo, 6 = Sábado
+        if (day !== 0 && day !== 6) {
+            addedDays++;
+        }
+    }
+    return currentDate;
+};
 
-    /**
-     * Enviar invitaciones a múltiples proveedores para cotizar una solicitud
-     */
+export const QuotationService = {
+    // ... (MÉTODOS DE INVITATIONS SIN CAMBIOS) ...
     async sendInvitations(
         requestId: string,
         supplierIds: string[],
@@ -48,9 +52,7 @@ export const QuotationService = {
         deliveryAddress?: string
     ): Promise<string[]> {
         const invitationIds: string[] = [];
-
         for (const supplierId of supplierIds) {
-            // Build invitation object, excluding undefined values (Firebase doesn't allow undefined)
             const invitation: Record<string, any> = {
                 requestId,
                 supplierId,
@@ -59,15 +61,12 @@ export const QuotationService = {
                 dueDate: Timestamp.fromDate(dueDate),
                 createdAt: serverTimestamp(),
             };
-
-            // Only add optional fields if they have values
             if (message) invitation.message = message;
             if (deliveryAddress) invitation.deliveryAddress = deliveryAddress;
 
             const docRef = await addDoc(collection(db, INVITATIONS_COLLECTION), invitation);
             invitationIds.push(docRef.id);
 
-            // Enviar notificación al proveedor
             await NotificationService.create({
                 userId: supplierId,
                 type: 'quotation_invitation',
@@ -78,14 +77,12 @@ export const QuotationService = {
             });
         }
 
-        // Actualizar estado de la solicitud a 'cotizacion'
         await updateDoc(doc(db, 'requests', requestId), {
             status: 'quoting',
             quotationStartedAt: serverTimestamp(),
             updatedAt: serverTimestamp(),
         });
 
-        // Enviar emails de invitación (no bloqueante)
         try {
             const requestDoc = await getDoc(doc(db, 'requests', requestId));
             if (requestDoc.exists()) {
@@ -102,15 +99,10 @@ export const QuotationService = {
             }
         } catch (emailError) {
             console.error('Error enviando emails de invitación:', emailError);
-            // No fallar la operación principal si falla el email
         }
-
         return invitationIds;
     },
 
-    /**
-     * Obtener invitaciones pendientes de un proveedor
-     */
     async getProviderInvitations(supplierId: string): Promise<QuotationInvitation[]> {
         const q = query(
             collection(db, INVITATIONS_COLLECTION),
@@ -121,9 +113,6 @@ export const QuotationService = {
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuotationInvitation));
     },
 
-    /**
-     * Obtener invitaciones de una solicitud
-     */
     async getRequestInvitations(requestId: string): Promise<QuotationInvitation[]> {
         const q = query(
             collection(db, INVITATIONS_COLLECTION),
@@ -133,9 +122,6 @@ export const QuotationService = {
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuotationInvitation));
     },
 
-    /**
-     * Marcar invitación como vista
-     */
     async markInvitationViewed(invitationId: string): Promise<void> {
         await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
             status: 'viewed',
@@ -143,9 +129,6 @@ export const QuotationService = {
         });
     },
 
-    /**
-     * Declinar invitación
-     */
     async declineInvitation(invitationId: string): Promise<void> {
         await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
             status: 'declined',
@@ -153,7 +136,7 @@ export const QuotationService = {
     },
 
     // ============================================
-    // QUOTATIONS
+    // QUOTATIONS (AQUÍ ESTÁN LOS CAMBIOS)
     // ============================================
 
     /**
@@ -173,20 +156,23 @@ export const QuotationService = {
             attachments?: string[];
         }
     ): Promise<string> {
-        // Obtener la invitación para saber el requestId
         const invDoc = await getDoc(doc(db, INVITATIONS_COLLECTION, invitationId));
         if (!invDoc.exists()) throw new Error('Invitación no encontrada');
 
         const invitation = invDoc.data() as QuotationInvitation;
 
-        const quotation: Omit<Quotation, 'id'> = {
+        // CALCULAR LA FECHA DE ENTREGA ESTIMADA (Solo días hábiles)
+        const calculatedDeliveryDate = addBusinessDays(new Date(), data.deliveryDays);
+
+        const quotation: Omit<Quotation, 'id'> & { deliveryDate: Timestamp } = {
             invitationId,
             requestId: invitation.requestId,
             supplierId,
             supplierName,
             totalAmount: data.totalAmount,
             currency: data.currency,
-            deliveryDays: data.deliveryDays,
+            deliveryDays: data.deliveryDays, // Se mantiene para referencia del input (ej: "6")
+            deliveryDate: Timestamp.fromDate(calculatedDeliveryDate), // AQUI SE GUARDA LA FECHA CALCULADA
             paymentTerms: data.paymentTerms,
             validUntil: Timestamp.fromDate(data.validUntil),
             notes: data.notes || '',
@@ -198,13 +184,11 @@ export const QuotationService = {
 
         const docRef = await addDoc(collection(db, QUOTATIONS_COLLECTION), quotation);
 
-        // Actualizar la invitación con el ID de la cotización
         await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
             status: 'quoted',
             quotationId: docRef.id,
         });
 
-        // Notificar al gestor
         await NotificationService.create({
             userId: invitation.gestorId,
             type: 'quotation_received',
@@ -224,42 +208,37 @@ export const QuotationService = {
         quotationId: string,
         data: Partial<Quotation>
     ): Promise<void> {
-        // Remove undefined values to prevent Firestore errors
-        const cleanData = Object.entries(data).reduce((acc, [key, value]) => {
+        const cleanData: any = Object.entries(data).reduce((acc, [key, value]) => {
             if (value !== undefined) {
                 acc[key] = value;
             }
             return acc;
         }, {} as any);
 
+        // Si se actualizan los días de entrega, recalcular la fecha de entrega
+        if (data.deliveryDays !== undefined) {
+            const calculatedDeliveryDate = addBusinessDays(new Date(), data.deliveryDays);
+            cleanData.deliveryDate = Timestamp.fromDate(calculatedDeliveryDate);
+        }
+
         await updateDoc(doc(db, QUOTATIONS_COLLECTION, quotationId), {
             ...cleanData,
             updatedAt: serverTimestamp(),
-            status: 'submitted', // Asegurar que vuelva a submitted
+            status: 'submitted',
         });
     },
 
-    /**
-     * Cancelar una cotización
-     */
+    // ... (RESTO DE LOS MÉTODOS SIN CAMBIOS) ...
     async cancelQuotation(quotationId: string, invitationId: string): Promise<void> {
-        // Marcar cotización como cancelada
         await updateDoc(doc(db, QUOTATIONS_COLLECTION, quotationId), {
             status: 'cancelled',
             updatedAt: serverTimestamp(),
         });
-
-        // Revertir invitación a 'viewed' para permitir acciones futuras si es necesario
-        // Nota: Mantenemos el quotationId en la invitación para historial, 
-        // pero el estado 'viewed' indica que no hay oferta activa vigente.
         await updateDoc(doc(db, INVITATIONS_COLLECTION, invitationId), {
             status: 'viewed',
         });
     },
 
-    /**
-     * Obtener cotizaciones de una solicitud
-     */
     async getRequestQuotations(requestId: string): Promise<Quotation[]> {
         const q = query(
             collection(db, QUOTATIONS_COLLECTION),
@@ -270,9 +249,6 @@ export const QuotationService = {
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Quotation));
     },
 
-    /**
-     * Obtener cotizaciones de un proveedor
-     */
     async getProviderQuotations(supplierId: string): Promise<Quotation[]> {
         const q = query(
             collection(db, QUOTATIONS_COLLECTION),
@@ -283,12 +259,8 @@ export const QuotationService = {
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as Quotation));
     },
 
-    /**
-     * Calcular ranking de cotizaciones
-     */
     calculateRanking(quotations: Quotation[], supplierScores: Record<string, number>): Quotation[] {
         if (quotations.length === 0) return [];
-
         const minPrice = Math.min(...quotations.map(q => q.totalAmount));
         const minDays = Math.min(...quotations.map(q => q.deliveryDays));
 
@@ -296,44 +268,33 @@ export const QuotationService = {
             const priceScore = minPrice > 0 ? (minPrice / q.totalAmount) * 40 : 0;
             const deliveryScore = minDays > 0 ? (minDays / q.deliveryDays) * 30 : 0;
             const epiScore = ((supplierScores[q.supplierId] || 0) / 100) * 20;
-            const baseHistoryScore = 10; // Simplificado por ahora
-
+            const baseHistoryScore = 10;
             const rankingScore = priceScore + deliveryScore + epiScore + baseHistoryScore;
-
             return { ...q, rankingScore: Math.round(rankingScore * 100) / 100 };
         }).sort((a, b) => (b.rankingScore || 0) - (a.rankingScore || 0));
     },
 
-    /**
-     * Seleccionar cotización ganadora
-     */
     async selectWinner(
         quotationId: string,
         requestId: string,
         solicitanteId: string
     ): Promise<void> {
-        // Obtener la cotización ganadora
         const quotationDoc = await getDoc(doc(db, QUOTATIONS_COLLECTION, quotationId));
         if (!quotationDoc.exists()) throw new Error('Cotización no encontrada');
-
         const winner = quotationDoc.data() as Quotation;
 
-        // Marcar como ganadora
         await updateDoc(doc(db, QUOTATIONS_COLLECTION, quotationId), {
             status: 'selected',
             isWinner: true,
             selectedAt: serverTimestamp(),
         });
 
-        // Marcar las demás como rechazadas
         const allQuotations = await this.getRequestQuotations(requestId);
         for (const q of allQuotations) {
             if (q.id !== quotationId) {
                 await updateDoc(doc(db, QUOTATIONS_COLLECTION, q.id), {
                     status: 'rejected',
                 });
-
-                // Notificar a los no seleccionados
                 await NotificationService.create({
                     userId: q.supplierId,
                     type: 'quotation_not_selected',
@@ -345,7 +306,6 @@ export const QuotationService = {
             }
         }
 
-        // Notificar al ganador
         await NotificationService.create({
             userId: winner.supplierId,
             type: 'quotation_winner',
@@ -355,7 +315,6 @@ export const QuotationService = {
             relatedType: 'request',
         });
 
-        // Notificar al solicitante
         await NotificationService.create({
             userId: solicitanteId,
             type: 'supplier_selected',
@@ -365,7 +324,6 @@ export const QuotationService = {
             relatedType: 'request',
         });
 
-        // Actualizar estado de la solicitud
         await updateDoc(doc(db, 'requests', requestId), {
             status: 'awarded',
             winnerId: winner.supplierId,
@@ -376,7 +334,6 @@ export const QuotationService = {
             updatedAt: serverTimestamp(),
         });
 
-        // Enviar emails de ganador (no bloqueante)
         try {
             const requestDoc = await getDoc(doc(db, 'requests', requestId));
             if (requestDoc.exists()) {
@@ -393,19 +350,10 @@ export const QuotationService = {
             }
         } catch (emailError) {
             console.error('Error enviando emails de ganador:', emailError);
-            // No fallar la operación principal si falla el email
         }
     },
 
-    // ============================================
-    // COMMENTS / Q&A
-    // ============================================
-
-    /**
-     * Agregar un comentario
-     */
     async addComment(comment: Omit<QuotationComment, 'id' | 'createdAt' | 'read'>): Promise<string> {
-        // Remove undefined values to prevent Firestore errors
         const cleanComment = Object.entries(comment).reduce((acc, [key, value]) => {
             if (value !== undefined) {
                 acc[key] = value;
@@ -421,9 +369,6 @@ export const QuotationService = {
         return docRef.id;
     },
 
-    /**
-     * Obtener comentarios de una conversación (solicitud - proveedor)
-     */
     async getComments(requestId: string, supplierId: string): Promise<QuotationComment[]> {
         const q = query(
             collection(db, COMMENTS_COLLECTION),
@@ -435,9 +380,6 @@ export const QuotationService = {
         return snapshot.docs.map(d => ({ id: d.id, ...d.data() } as QuotationComment));
     },
 
-    /**
-     * Suscribirse a comentarios de una conversación (Real-time)
-     */
     subscribeToComments(requestId: string, supplierId: string, callback: (comments: QuotationComment[]) => void): Unsubscribe {
         const q = query(
             collection(db, COMMENTS_COLLECTION),
@@ -454,9 +396,6 @@ export const QuotationService = {
         });
     },
 
-    /**
-     * Marcar comentarios como leídos
-     */
     async markCommentsAsRead(requestId: string, supplierId: string, authorRoleToRead: 'gestor' | 'proveedor'): Promise<void> {
         const q = query(
             collection(db, COMMENTS_COLLECTION),
@@ -475,5 +414,89 @@ export const QuotationService = {
         });
 
         await batch.commit();
+    },
+
+    /**
+     * Re-select a new winner after non-compliance
+     * This is used when the original winner didn't deliver
+     */
+    async reselectWinner(
+        quotationId: string,
+        requestId: string,
+        gestorId: string
+    ): Promise<void> {
+        const quotationDoc = await getDoc(doc(db, QUOTATIONS_COLLECTION, quotationId));
+        if (!quotationDoc.exists()) throw new Error('Cotización no encontrada');
+        const newWinner = quotationDoc.data() as Quotation;
+
+        // Get request to find previous winner
+        const requestDoc = await getDoc(doc(db, 'requests', requestId));
+        if (!requestDoc.exists()) throw new Error('Solicitud no encontrada');
+        const requestData = requestDoc.data();
+
+        // Validate the quotation is not from the penalized supplier
+        if (newWinner.supplierId === requestData.previousWinnerId) {
+            throw new Error('No se puede seleccionar al proveedor penalizado');
+        }
+
+        // Update new winning quotation
+        await updateDoc(doc(db, QUOTATIONS_COLLECTION, quotationId), {
+            status: 'selected',
+            isWinner: true,
+            selectedAt: serverTimestamp(),
+            isReselection: true,
+        });
+
+        // Reject other quotations (except the revoked one)
+        const allQuotations = await this.getRequestQuotations(requestId);
+        for (const q of allQuotations) {
+            if (q.id !== quotationId && q.status !== 'revoked') {
+                await updateDoc(doc(db, QUOTATIONS_COLLECTION, q.id), {
+                    status: 'rejected',
+                });
+            }
+        }
+
+        // Notify new winner
+        await NotificationService.create({
+            userId: newWinner.supplierId,
+            type: 'quotation_winner',
+            title: '🏆 ¡Felicitaciones!',
+            message: `Tu oferta fue seleccionada para la solicitud #${requestId.slice(-6).toUpperCase()} (Re-adjudicación)`,
+            relatedId: requestId,
+            relatedType: 'request',
+        });
+
+        // Update request status back to awarded with new winner
+        await updateDoc(doc(db, 'requests', requestId), {
+            status: 'awarded',
+            winnerId: newWinner.supplierId,
+            winnerQuotationId: quotationId,
+            winnerAmount: newWinner.totalAmount,
+            winnerDeliveryDays: newWinner.deliveryDays,
+            adjudicatedAt: serverTimestamp(),
+            updatedAt: serverTimestamp(),
+        });
+
+        console.log(`Reselection complete: ${newWinner.supplierName} for request ${requestId}`);
+    },
+
+    /**
+     * Get eligible quotations for reselection (excludes penalized supplier)
+     */
+    async getEligibleQuotationsForReselection(requestId: string): Promise<Quotation[]> {
+        const requestDoc = await getDoc(doc(db, 'requests', requestId));
+        if (!requestDoc.exists()) return [];
+
+        const requestData = requestDoc.data();
+        const previousWinnerId = requestData.previousWinnerId;
+
+        const allQuotations = await this.getRequestQuotations(requestId);
+
+        // Filter out revoked quotation and any from the penalized supplier
+        return allQuotations.filter(q =>
+            q.status !== 'revoked' &&
+            q.supplierId !== previousWinnerId
+        );
     },
 };

@@ -123,6 +123,10 @@ export interface User extends BaseEntity {
   street?: string; // Calle Principal
   serviceFocus?: string; // Focus service area
   commercialDescription?: string; // Detalle comercial
+
+  // EPI Expiration Control
+  epiExpiresAt?: any;           // Firestore Timestamp - Fecha de vencimiento definida por gestor
+  epiExpired?: boolean;         // Flag: true si la fecha de vencimiento ya pasó
 }
 
 
@@ -154,6 +158,9 @@ export interface EPISubmission {
   // Score calculado por el gestor
   calculatedScore?: number;
   reviewComments?: string;
+
+  // Expiration set by Gestor during approval
+  expiresAt?: any;              // Firestore Timestamp - Fecha de próximo control EPI
 
   createdAt: any; // Firestore Timestamp
   updatedAt: any; // Firestore Timestamp
@@ -364,6 +371,7 @@ export enum RequestStatus {
   AWARDED = 'awarded',
   COMPLETED = 'completed',
   REJECTED = 'rejected',
+  REOPENED_NONCOMPLIANCE = 'reopened_noncompliance', // Reabierta por incumplimiento del proveedor
   // Legacy values (mantener para compatibilidad)
   DRAFT = 'draft',
   SUBMITTED = 'submitted',
@@ -449,7 +457,13 @@ export interface Request extends BaseEntity {
 
   // Location
   deliveryLocationSuggestion?: string; // Ubicación sugerida por el solicitante
-  winnerQuotationId?: string; // ID de cotización ganadora
+
+  // Winner tracking (Proveedor adjudicado)
+  winnerId?: string;                 // ID del proveedor ganador
+  winnerQuotationId?: string;        // ID de cotización ganadora
+  winnerDeliveryDays?: number;       // Días de entrega del ganador
+  winnerAmount?: number;             // Monto de la cotización ganadora
+  adjudicatedAt?: any;               // Timestamp de adjudicación
 
   // Receipt Confirmation (Solicitante confirms delivery)
   receivedAt?: any;             // Timestamp when solicitante confirmed receipt
@@ -462,6 +476,14 @@ export interface Request extends BaseEntity {
   paymentDate?: any; // Timestamp
   paymentNotes?: string;
   proofFileUrl?: string; // URL of the proof of payment document
+
+  // Non-compliance tracking (Incumplimiento del proveedor)
+  nonComplianceReportedAt?: any;         // Timestamp cuando se reportó
+  nonComplianceReason?: string;          // Motivo del incumplimiento
+  previousWinnerId?: string;             // Proveedor original que incumplió
+  previousWinnerQuotationId?: string;    // Cotización original revocada
+  reselectionCount?: number;             // Número de re-adjudicaciones
+  deliveryDeadline?: any;                // Fecha límite de entrega calculada
 }
 
 /**
@@ -518,7 +540,7 @@ export interface QuotationInvitation {
 /**
  * Estados de cotización
  */
-export type QuotationStatus = 'submitted' | 'selected' | 'rejected' | 'cancelled';
+export type QuotationStatus = 'submitted' | 'selected' | 'rejected' | 'cancelled' | 'revoked';
 
 /**
  * Comentarios / Q&A dentro de una cotización

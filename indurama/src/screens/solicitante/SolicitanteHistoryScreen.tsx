@@ -12,7 +12,9 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 import { useAuth } from '../../hooks/useAuth';
+import { useLanguage } from '../../hooks/useLanguage';
 import { getUserRequests, getRelativeTime } from '../../services/requestService';
 import { Request } from '../../types';
 
@@ -33,6 +35,7 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
 }) => {
     // ... (rest of hook logic unchanged)
     const { user } = useAuth();
+    const { t } = useLanguage();
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [requests, setRequests] = useState<Request[]>([]);
@@ -90,15 +93,15 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
 
     const getStatusBadge = (status: string) => {
         const configs = {
-            pending: { label: 'Pendiente', color: '#FFA726' },
-            rectification_required: { label: 'Corregir', color: '#FF9800' },
-            in_progress: { label: 'En Progreso', color: '#2196F3' },
-            quoting: { label: 'Cotizando', color: '#F59E0B' },
-            cotizacion: { label: 'Cotizando', color: '#F59E0B' },
-            awarded: { label: 'Adjudicada', color: '#9C27B0' },
-            adjudicado: { label: 'Adjudicada', color: '#9C27B0' },
-            completed: { label: 'Completada', color: '#4CAF50' },
-            rejected: { label: 'Rechazada', color: '#F44336' },
+            pending: { label: t('solicitante.status.pending'), color: '#FFA726' },
+            rectification_required: { label: t('solicitante.status.rectificationRequired'), color: '#FF9800' },
+            in_progress: { label: t('solicitante.status.inProgress'), color: '#2196F3' },
+            quoting: { label: t('solicitante.status.quoting'), color: '#F59E0B' },
+            cotizacion: { label: t('solicitante.status.quoting'), color: '#F59E0B' },
+            awarded: { label: t('solicitante.status.awarded'), color: '#9C27B0' },
+            adjudicado: { label: t('solicitante.status.awarded'), color: '#9C27B0' },
+            completed: { label: t('solicitante.status.completed'), color: '#4CAF50' },
+            rejected: { label: t('solicitante.status.rejected'), color: '#F44336' },
         };
         const config = configs[status as keyof typeof configs] || configs.pending;
         return (
@@ -129,12 +132,12 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
     );
 
     // Navigation items for ResponsiveNavShell (using Ionicons names)
-    const navItems = [
-        { key: 'Dashboard', label: 'Dashboard', iconName: 'home' as const, onPress: onNavigateToDashboard },
-        { key: 'NewRequest', label: 'Nueva Solicitud', iconName: 'add-circle' as const, onPress: onNavigateToNewRequest },
-        { key: 'History', label: 'Historial', iconName: 'document-text' as const, onPress: () => { } },
-        { key: 'Profile', label: 'Perfil', iconName: 'person' as const, onPress: onNavigateToProfile },
-    ];
+    const navItems = getSolicitanteNavItems(t, {
+        onNavigateToDashboard: onNavigateToDashboard,
+        onNavigateToNewRequest: onNavigateToNewRequest,
+        onNavigateToHistory: () => { },
+        onNavigateToProfile: onNavigateToProfile,
+    });
 
     return (
         <ResponsiveNavShell
@@ -147,14 +150,14 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
 
             {/* Header */}
             <View style={styles.header}>
-                <Text style={styles.title}>Historial de Solicitudes</Text>
+                <Text style={styles.title}>{t('solicitante.history.title')}</Text>
             </View>
 
             {/* Search */}
             <View style={styles.searchContainer}>
                 <TextInput
                     style={styles.searchInput}
-                    placeholder="Buscar por código o descripción..."
+                    placeholder={t('solicitante.history.searchDetailedPlaceholder')}
                     value={searchText}
                     onChangeText={setSearchText}
                 />
@@ -169,10 +172,10 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
                         onPress={() => setActiveFilter(filter as any)}
                     >
                         <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                            {filter === 'all' ? 'Todas' :
-                                filter === 'pending' ? 'Pendientes' :
-                                    filter === 'in_progress' ? 'En Progreso' :
-                                        filter === 'completed' ? 'Completadas' : 'Rechazadas'}
+                            {filter === 'all' ? t('solicitante.history.filters.all') :
+                                filter === 'pending' ? t('solicitante.history.filters.pending') :
+                                    filter === 'in_progress' ? t('solicitante.history.filters.inProgress') :
+                                        filter === 'completed' ? t('solicitante.history.filters.completed') : t('solicitante.history.filters.rejected')}
                         </Text>
                     </TouchableOpacity>
                 ))}
@@ -189,11 +192,12 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
                     refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRequests(); }} />}
                     ListEmptyComponent={
                         <View style={styles.emptyState}>
-                            <Text style={styles.emptyText}>No se encontraron solicitudes</Text>
+                            <Text style={styles.emptyText}>{t('solicitante.history.empty')}</Text>
                         </View>
                     }
                 />
             )}
+
         </ResponsiveNavShell>
     );
 };
