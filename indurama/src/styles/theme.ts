@@ -12,23 +12,23 @@ export const theme = {
     primary: '#003E85', // Azul oscuro principal
     primaryLight: '#4A90E2', // Azul claro
     primaryDark: '#062A4F', // Azul más oscuro
-    
+
     // Colores secundarios
     secondary: '#00A8CC', // Azul turquesa del logo
     secondaryLight: '#33BCDB',
     secondaryDark: '#007B99',
-    
+
     // Colores de acento
     accent: '#FF6B35', // Naranja para botones de acción
     accentLight: '#FF8A5F',
     accentDark: '#E55529',
-    
+
     // Colores de estado
     success: '#10B981',
     warning: '#F59E0B',
     error: '#EF4444',
     info: '#3B82F6',
-    
+
     // Colores neutrales
     white: '#FFFFFF',
     black: '#000000',
@@ -44,14 +44,14 @@ export const theme = {
       800: '#1F2937',
       900: '#111827',
     },
-    
+
     // Colores de fondo
     background: {
       primary: '#FFFFFF',
       secondary: '#F8F9FA',
       tertiary: '#F3F4F6',
     },
-    
+
     // Colores de texto
     text: {
       primary: '#111827',
@@ -60,7 +60,7 @@ export const theme = {
       inverse: '#FFFFFF',
       muted: '#9CA3AF',
     },
-    
+
     // Colores de bordes
     border: {
       light: '#E5E7EB',
@@ -68,7 +68,7 @@ export const theme = {
       dark: '#9CA3AF',
     }
   },
-  
+
   // Tipografía
   typography: {
     fontFamily: {
@@ -76,6 +76,124 @@ export const theme = {
       medium: undefined,
       bold: undefined,
     },
+
+    // Estilos de texto predefinidos para usar con spread operator
+    styles: {
+      // Títulos principales
+      h1: {
+        fontSize: 36,
+        fontWeight: '700' as '700',
+        lineHeight: 42,
+        color: '#111827',
+      },
+      h2: {
+        fontSize: 24,
+        fontWeight: '700' as '700',
+        lineHeight: 32,
+        color: '#111827',
+      },
+      h3: {
+        fontSize: 20,
+        fontWeight: '600' as '600',
+        lineHeight: 28,
+        color: '#111827',
+      },
+      h4: {
+        fontSize: 18,
+        fontWeight: '600' as '600',
+        lineHeight: 24,
+        color: '#111827',
+      },
+
+      // Cuerpo de texto
+      bodyLarge: {
+        fontSize: 16,
+        fontWeight: '400' as '400',
+        lineHeight: 24,
+        color: '#4B5563',
+      },
+      body: {
+        fontSize: 14,
+        fontWeight: '400' as '400',
+        lineHeight: 20,
+        color: '#4B5563',
+      },
+      bodySmall: {
+        fontSize: 12,
+        fontWeight: '400' as '400',
+        lineHeight: 18,
+        color: '#6B7280',
+      },
+
+      // Texto semibold
+      bodySemibold: {
+        fontSize: 14,
+        fontWeight: '600' as '600',
+        lineHeight: 20,
+        color: '#111827',
+      },
+      bodyLargeSemibold: {
+        fontSize: 16,
+        fontWeight: '600' as '600',
+        lineHeight: 24,
+        color: '#111827',
+      },
+
+      // Botones
+      button: {
+        fontSize: 16,
+        fontWeight: '600' as '600',
+        lineHeight: 20,
+        color: '#FFFFFF',
+      },
+      buttonSmall: {
+        fontSize: 14,
+        fontWeight: '600' as '600',
+        lineHeight: 18,
+        color: '#FFFFFF',
+      },
+
+      // Labels y captions
+      label: {
+        fontSize: 14,
+        fontWeight: '500' as '500',
+        lineHeight: 20,
+        color: '#374151',
+      },
+      labelBold: {
+        fontSize: 14,
+        fontWeight: '600' as '600',
+        lineHeight: 20,
+        color: '#424242',
+      },
+      caption: {
+        fontSize: 12,
+        fontWeight: '400' as '400',
+        lineHeight: 16,
+        color: '#6B7280',
+      },
+      captionBold: {
+        fontSize: 12,
+        fontWeight: '700' as '700',
+        lineHeight: 16,
+        color: '#6B7280',
+      },
+
+      // Tamaños especiales
+      small: {
+        fontSize: 10,
+        fontWeight: '400' as '400',
+        lineHeight: 14,
+        color: '#757575',
+      },
+      smallBold: {
+        fontSize: 10,
+        fontWeight: '700' as '700',
+        lineHeight: 14,
+        color: '#757575',
+      },
+    },
+
     fontSize: {
       xs: 12,
       sm: 14,
@@ -100,7 +218,7 @@ export const theme = {
       loose: 1.8,
     }
   },
-  
+
   // Espaciados
   spacing: {
     0: 0,
@@ -117,7 +235,7 @@ export const theme = {
     20: 80,
     24: 96,
   },
-  
+
   // Radios de borde
   borderRadius: {
     none: 0,
@@ -128,7 +246,7 @@ export const theme = {
     '2xl': 24,
     full: 999,
   },
-  
+
   // Sombras
   shadows: {
     sm: {
@@ -160,7 +278,7 @@ export const theme = {
       elevation: 8,
     },
   },
-  
+
   // Dimensiones responsivas
   dimensions: {
     buttonHeight: 48,
@@ -181,7 +299,7 @@ export const theme = {
       xl: 40,
     }
   },
-  
+
   // Opacidades
   opacity: {
     disabled: 0.6,

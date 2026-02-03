@@ -359,7 +359,7 @@ const styles = StyleSheet.create({
   },
   ctaCard: {
     position: 'relative',
-    backgroundColor: '#1D4ED8',
+    backgroundColor: theme.colors.primary,
     borderRadius: 24,
     padding: 24,
     overflow: 'hidden',
@@ -390,11 +390,11 @@ const styles = StyleSheet.create({
   ctaButtonIcon: {
     width: 18,
     height: 18,
-    tintColor: '#1D4ED8',
+    tintColor: theme.colors.primary,
     marginRight: 8,
   },
   ctaButtonText: {
-    color: '#1D4ED8',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   ctaAccent: {
@@ -402,7 +402,7 @@ const styles = StyleSheet.create({
     width: 140,
     height: 140,
     borderRadius: 70,
-    backgroundColor: '#1E40AF',
+    backgroundColor: theme.colors.primary,
     top: -30,
     right: -20,
     opacity: 0.3,
@@ -420,7 +420,7 @@ const styles = StyleSheet.create({
   },
   sectionLink: {
     fontSize: 14,
-    color: '#1D4ED8',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   summaryGrid: {
@@ -516,7 +516,7 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   timelineDotActive: {
-    backgroundColor: '#1D4ED8',
+    backgroundColor: theme.colors.primary,
   },
   timelineLabel: {
     fontSize: 11,
@@ -524,7 +524,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   timelineLabelActive: {
-    color: '#1D4ED8',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   timelineBar: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E2E8F0',
   },
   timelineBarActive: {
-    backgroundColor: '#1D4ED8',
+    backgroundColor: theme.colors.primary,
   },
   requestFooter: {
     flexDirection: 'row',
@@ -561,13 +561,13 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   detailsLinkText: {
-    color: '#1D4ED8',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
   arrowIcon: {
     width: 14,
     height: 14,
-    tintColor: '#1D4ED8',
+    tintColor: theme.colors.primary,
   },
   bottomNav: {
     position: 'absolute',
@@ -599,7 +599,7 @@ const styles = StyleSheet.create({
     tintColor: '#94A3B8',
   },
   navIconActive: {
-    tintColor: '#1D4ED8',
+    tintColor: theme.colors.primary,
   },
   navLabel: {
     fontSize: 12,
@@ -607,7 +607,10 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   navLabelActive: {
-    color: '#1D4ED8',
+    color: theme.colors.primary,
   },
 });
+
+
+
 

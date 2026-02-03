@@ -7,6 +7,7 @@ import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { AppNotification } from '../../types';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
+import { theme } from '../../styles/theme';
 
 interface SolicitanteNotificationsScreenProps {
     onNavigateToDashboard: () => void;
@@ -230,7 +231,7 @@ export const SolicitanteNotificationsScreen: React.FC<SolicitanteNotificationsSc
 
                 {/* Notifications List */}
                 {loading ? (
-                    <ActivityIndicator size="large" color="#0D47A1" style={styles.loader} />
+                    <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
                 ) : notifications.length === 0 ? (
                     <View style={styles.emptyState}>
                         <Ionicons name="notifications-off-outline" size={64} color="#BDBDBD" />
@@ -277,7 +278,7 @@ const styles = StyleSheet.create({
     markAllButton: {
         paddingHorizontal: 16,
         paddingVertical: 8,
-        backgroundColor: '#0D47A1',
+        backgroundColor: theme.colors.primary,
         borderRadius: 8,
     },
     markAllText: {
@@ -318,7 +319,7 @@ const styles = StyleSheet.create({
     unreadItem: {
         backgroundColor: '#E3F2FD',
         borderLeftWidth: 4,
-        borderLeftColor: '#0D47A1',
+        borderLeftColor: theme.colors.primary,
     },
     iconContainer: {
         width: 48,
@@ -354,8 +355,11 @@ const styles = StyleSheet.create({
         width: 10,
         height: 10,
         borderRadius: 5,
-        backgroundColor: '#0D47A1',
+        backgroundColor: theme.colors.primary,
         marginLeft: 8,
         marginTop: 4,
     },
 });
+
+
+

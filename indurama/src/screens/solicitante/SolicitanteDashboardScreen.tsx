@@ -21,6 +21,7 @@ import { getUserRequests, getUserRequestStats, getRelativeTime, confirmReceipt, 
 import { Request, RequestStatus } from '../../types';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
+import { theme } from '../../styles/theme';
 
 interface SolicitanteDashboardScreenProps {
     onNavigateToNewRequest: () => void;
@@ -322,7 +323,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                                         style={styles.actionButton}
                                         onPress={onNavigateToNewRequest}
                                     >
-                                        <Ionicons name="add-circle" size={20} color="#1565C0" style={{ marginRight: 6 }} />
+                                        <Ionicons name="add-circle" size={20} color={theme.colors.primary} style={{ marginRight: 6 }} />
                                         <Text style={styles.actionButtonText}>{t('solicitante.createNewRequest')}</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -436,7 +437,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                                                     onPress={() => onNavigateToRequestDetail?.(request.id)}
                                                 >
                                                     <Text style={styles.detailsButtonText}>{t('solicitante.viewDetails')}</Text>
-                                                    <Ionicons name="arrow-forward" size={16} color="#1565C0" style={{ marginLeft: 4 }} />
+                                                    <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} style={{ marginLeft: 4 }} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -462,13 +463,13 @@ const styles = StyleSheet.create({
     userRole: { fontSize: 13, color: '#888', marginTop: 2 },
     logo: { width: 80, height: 40 },
     content: { flex: 1, padding: 20 },
-    actionBanner: { backgroundColor: '#1565C0', borderRadius: 16, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden', shadowColor: '#1565C0', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
+    actionBanner: { backgroundColor: theme.colors.primary, borderRadius: 16, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden', shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
     actionBannerContent: { zIndex: 2 },
     bannerCircle: { position: 'absolute', right: -20, top: -20, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.1)', zIndex: 1 },
     actionTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
     actionSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 20, maxWidth: '80%' },
     actionButton: { backgroundColor: '#FFFFFF', borderRadius: 25, paddingVertical: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-    actionButtonText: { color: '#1565C0', fontWeight: 'bold', fontSize: 14 },
+    actionButtonText: { color: theme.colors.primary, fontWeight: 'bold', fontSize: 14 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#212121', marginBottom: 16 },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, gap: 12 },
     statItem: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
@@ -476,7 +477,7 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 14, fontWeight: '600', color: '#333' },
     statSub: { fontSize: 11, color: '#999', marginTop: 2 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    seeAllText: { color: '#1565C0', fontWeight: '600', fontSize: 14 },
+    seeAllText: { color: theme.colors.primary, fontWeight: '600', fontSize: 14 },
 
     // Grid System
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
@@ -517,7 +518,7 @@ const styles = StyleSheet.create({
     dateContainer: { flexDirection: 'row', alignItems: 'center' },
     dateText: { fontSize: 12, color: '#9E9E9E' },
     detailsButton: { flexDirection: 'row', alignItems: 'center' },
-    detailsButtonText: { color: '#1565C0', fontWeight: '600', fontSize: 14 },
+    detailsButtonText: { color: theme.colors.primary, fontWeight: '600', fontSize: 14 },
     emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFF', borderRadius: 16 },
     emptyText: { color: '#999', fontSize: 16 },
 
@@ -530,3 +531,6 @@ const styles = StyleSheet.create({
     reopenedInfoBanner: { backgroundColor: '#FFFBEB', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FDE68A' },
     reopenedInfoText: { flex: 1, color: '#92400E', fontSize: 13 },
 });
+
+
+

@@ -513,13 +513,11 @@ const styles = StyleSheet.create({
         gap: 8,
     },
     backText: {
+        ...theme.typography.styles.bodyLargeSemibold,
         color: theme.colors.primary,
-        fontSize: 16,
-        fontWeight: '500',
     },
     title: {
-        fontSize: 18,
-        fontWeight: 'bold',
+        ...theme.typography.styles.h4,
         color: '#111827',
     },
     tabsWrapper: {
@@ -554,6 +552,10 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#9CA3AF',
         fontWeight: '500',
+    },
+    roleButtonText: {
+        ...theme.typography.styles.buttonSmall,
+        color: theme.colors.primary,
     },
     activeTabText: {
         color: theme.colors.primary,
@@ -624,13 +626,12 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     userName: {
-        fontSize: 16,
-        fontWeight: '600',
+        ...theme.typography.styles.bodyLargeSemibold,
         color: '#111827',
         marginBottom: 2,
     },
     userEmail: {
-        fontSize: 13,
+        ...theme.typography.styles.body,
         color: '#6B7280',
         marginBottom: 6,
     },
@@ -641,7 +642,7 @@ const styles = StyleSheet.create({
         marginBottom: 8,
     },
     departmentText: {
-        fontSize: 12,
+        ...theme.typography.styles.bodySmall,
         color: '#9CA3AF',
     },
     badgesRow: {
@@ -657,8 +658,8 @@ const styles = StyleSheet.create({
         borderRadius: 6,
     },
     badgeText: {
+        ...theme.typography.styles.captionBold,
         fontSize: 10,
-        fontWeight: 'bold',
     },
     approveButton: {
         flexDirection: 'row',
@@ -675,8 +676,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#9CA3AF',
     },
     approveButtonText: {
-        color: '#FFF',
-        fontWeight: '600',
+        ...theme.typography.styles.button,
         fontSize: 14,
     },
     emptyContainer: {
@@ -685,9 +685,8 @@ const styles = StyleSheet.create({
         paddingVertical: 60,
     },
     emptyTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#374151',
+        ...theme.typography.styles.bodySemibold,
+        color: '#6B7280',
         marginTop: 16,
     },
     emptyText: {

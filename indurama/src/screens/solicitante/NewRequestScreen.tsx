@@ -32,6 +32,7 @@ import { Request } from '../../types';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
+import { theme } from '../../styles/theme';
 
 
 
@@ -391,7 +392,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               <Text style={[styles.dropdownOptionText, value === opt.value && styles.dropdownOptionTextSelected]}>
                 {opt.label}
               </Text>
-              {value === opt.value && <Ionicons name="checkmark" size={18} color="#1565C0" />}
+              {value === opt.value && <Ionicons name="checkmark" size={18} color={theme.colors.primary} />}
             </TouchableOpacity>
           ))}
         </ScrollView>
@@ -452,7 +453,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                           <Text style={[styles.pickerItemText, value === item.value && styles.pickerItemTextSelected]}>
                             {item.label}
                           </Text>
-                          {value === item.value && <Ionicons name="checkmark" size={20} color="#1565C0" />}
+                          {value === item.value && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
                         </TouchableOpacity>
                       )}
                     />
@@ -521,7 +522,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                 isDesktopView && (showProjectTypeDropdown || showSearchClassDropdown) && { zIndex: 3000, position: 'relative' }
               ]}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="information-circle-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Ionicons name="information-circle-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.basicInfo')}</Text>
                 </View>
 
@@ -630,7 +631,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 2. DETALLE DE LA NECESIDAD */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="document-text-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Ionicons name="document-text-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.needsDetail')}</Text>
                 </View>
 
@@ -666,7 +667,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 3. CRITERIOS DE PROVEEDOR */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="people-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Ionicons name="people-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.providerPreferences')}</Text>
                 </View>
 
@@ -724,12 +725,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 4. ADJUNTOS */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="attach-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Ionicons name="attach-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.documents')}</Text>
                 </View>
 
                 <View style={styles.uploadArea}>
-                  <Ionicons name="cloud-upload-outline" size={48} color="#1565C0" style={{ marginBottom: 10 }} />
+                  <Ionicons name="cloud-upload-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 10 }} />
                   <Text style={styles.uploadTitle}>{t('requests.form.uploadTitle')}</Text>
                   <Text style={styles.uploadSubtitle}>{t('requests.form.uploadSubtitle')}</Text>
 
@@ -832,7 +833,7 @@ const styles = StyleSheet.create({
 
   // HERO HEADER
   heroHeader: {
-    backgroundColor: '#1565C0',
+    backgroundColor: theme.colors.primary,
     paddingTop: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 40 : 80,
     paddingBottom: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 60 : 100,
     paddingHorizontal: 20,
@@ -996,7 +997,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
   },
   dropdownOptionText: { fontSize: 15, color: '#333' },
-  dropdownOptionTextSelected: { fontWeight: '600', color: '#1565C0' },
+  dropdownOptionTextSelected: { fontWeight: '600', color: theme.colors.primary },
 
   // Mobile Picker Styles (Modal - Bottom Sheet)
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
@@ -1017,7 +1018,7 @@ const styles = StyleSheet.create({
   pickerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   pickerItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerItemText: { fontSize: 16, color: '#333' },
-  pickerItemTextSelected: { color: '#1565C0', fontWeight: '600' },
+  pickerItemTextSelected: { color: theme.colors.primary, fontWeight: '600' },
 
 
 
@@ -1044,7 +1045,7 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chipTextSelected: {
-    color: '#1565C0',
+    color: theme.colors.primary,
     fontWeight: '600',
   },
 
@@ -1071,7 +1072,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   selectFilesButton: {
-    backgroundColor: '#1565C0',
+    backgroundColor: theme.colors.primary,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1156,13 +1157,13 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flex: 2,
-    backgroundColor: '#1565C0',
+    backgroundColor: theme.colors.primary,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: '#1565C0',
+    shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1180,6 +1181,8 @@ const styles = StyleSheet.create({
   successIconContainer: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   successTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 12 },
   successMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24, lineHeight: 24 },
-  successButton: { backgroundColor: '#1565C0', paddingVertical: 14, paddingHorizontal: 40, borderRadius: 10, width: '100%' },
+  successButton: { backgroundColor: theme.colors.primary, paddingVertical: 14, paddingHorizontal: 40, borderRadius: 10, width: '100%' },
   successButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', textAlign: 'center' },
 });
+
+

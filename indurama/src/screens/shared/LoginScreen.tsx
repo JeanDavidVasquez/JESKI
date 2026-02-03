@@ -380,18 +380,19 @@ const styles = StyleSheet.create({
     marginBottom: isMobile ? theme.spacing[6] : theme.spacing[12],
   },
   loginTitle: {
-    fontSize: isMobile ? 36 : 42, // Keeping it balanced
-    fontWeight: '700',
+    fontSize: isMobile ? 36 : 42,
+    fontWeight: '700' as '700',
     color: '#333333',
     marginBottom: theme.spacing[2],
     letterSpacing: 2,
-    textAlign: 'center',
+    textAlign: 'center' as 'center',
   },
   subtitle: {
+    ...theme.typography.styles.body,
     fontSize: isMobile ? 14 : 18,
     color: '#666666',
     lineHeight: isMobile ? 20 : 24,
-    textAlign: 'center',
+    textAlign: 'center' as 'center',
   },
   formContainer: {
     width: '100%',
@@ -431,6 +432,7 @@ const styles = StyleSheet.create({
   },
   directInput: {
     flex: 1,
+    ...theme.typography.styles.bodyLarge,
     fontSize: isMobile ? 16 : 18,
     color: '#333333',
     height: '100%',
@@ -442,6 +444,7 @@ const styles = StyleSheet.create({
     borderColor: '#e53935',
   },
   errorText: {
+    ...theme.typography.styles.bodySmall,
     color: '#e53935',
     marginTop: 6,
     marginLeft: 6,
@@ -453,10 +456,11 @@ const styles = StyleSheet.create({
     paddingVertical: theme.spacing[2],
   },
   forgotPasswordText: {
+    ...theme.typography.styles.body,
     fontSize: isMobile ? 14 : 16,
-    textDecorationLine: 'underline',
+    textDecorationLine: 'underline' as 'underline',
     color: theme.colors.primary,
-    textAlign: 'center',
+    textAlign: 'center' as 'center',
   },
   feedbackContainer: {
     borderRadius: theme.borderRadius.lg,
@@ -475,8 +479,8 @@ const styles = StyleSheet.create({
     borderColor: `${theme.colors.error}40`,
   },
   feedbackTitle: {
+    ...theme.typography.styles.bodyLargeSemibold,
     fontSize: isMobile ? 16 : 18,
-    fontWeight: '600',
     marginBottom: theme.spacing[1],
   },
   feedbackTitleSuccess: {
@@ -486,6 +490,7 @@ const styles = StyleSheet.create({
     color: theme.colors.error,
   },
   feedbackMessage: {
+    ...theme.typography.styles.body,
     fontSize: isMobile ? 14 : 16,
     color: '#333333',
     lineHeight: 20,
@@ -513,10 +518,10 @@ const styles = StyleSheet.create({
     }),
   },
   submitButtonText: {
-    color: '#ffffff',
+    ...theme.typography.styles.button,
     fontSize: isMobile ? 16 : 18,
-    fontWeight: '600',
-    textAlign: 'center',
+    color: '#ffffff',
+    textAlign: 'center' as 'center',
   },
   loginLink: {
     alignItems: 'center',

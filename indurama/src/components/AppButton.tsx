@@ -48,11 +48,11 @@ export const AppButton: React.FC<AppButtonProps> = ({
     style,
   ];
 
-  const textColor = 
+  const textColor =
     variant === 'primary' ? theme.colors.white :
-    variant === 'secondary' ? theme.colors.white :
-    variant === 'outline' ? theme.colors.primary :
-    theme.colors.primary;
+      variant === 'secondary' ? theme.colors.white :
+        variant === 'outline' ? theme.colors.primary :
+          theme.colors.primary;
 
   return (
     <TouchableOpacity
@@ -63,8 +63,8 @@ export const AppButton: React.FC<AppButtonProps> = ({
       {...props}
     >
       {loading ? (
-        <ActivityIndicator 
-          color={textColor} 
+        <ActivityIndicator
+          color={textColor}
           size="small"
         />
       ) : (

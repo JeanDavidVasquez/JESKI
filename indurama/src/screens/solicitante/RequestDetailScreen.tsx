@@ -122,7 +122,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
   if (loading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#1565C0" />
+        <ActivityIndicator size="large" color={theme.colors.primary} />
       </View>
     );
   }
@@ -360,7 +360,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                     style={styles.btnOutline}
                     onPress={() => onNavigateToPurchaseOrder(request.id, request.winnerQuotationId!)}
                   >
-                    <Ionicons name="document-text-outline" size={18} color="#1565C0" style={{ marginRight: 8 }} />
+                    <Ionicons name="document-text-outline" size={18} color={theme.colors.primary} style={{ marginRight: 8 }} />
                     <Text style={styles.btnOutlineText}>{t('requests.details.viewOrder')}</Text>
                   </TouchableOpacity>
                 )}
@@ -387,7 +387,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           <View style={[styles.grid, isDesktopView && styles.gridDesktop]}>
             <View style={styles.gridItem}>
               <View style={[styles.gridIcon, { backgroundColor: '#E3F2FD' }]}>
-                <Ionicons name="person" size={20} color="#1565C0" />
+                <Ionicons name="person" size={20} color={theme.colors.primary} />
               </View>
               <View>
                 <Text style={styles.gridLabel}>{t('requests.details.requestor')}</Text>
@@ -429,7 +429,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           {/* 3. PROJECT INFO */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="briefcase-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
+              <Ionicons name="briefcase-outline" size={22} color={theme.colors.primary} style={{ marginRight: 10 }} />
               <Text style={styles.cardTitle}>{t('requests.details.projectDetails')}</Text>
             </View>
 
@@ -469,7 +469,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           {request.documents && request.documents.length > 0 && (
             <View style={styles.card}>
               <View style={styles.cardHeader}>
-                <Ionicons name="folder-open-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
+                <Ionicons name="folder-open-outline" size={22} color={theme.colors.primary} style={{ marginRight: 10 }} />
                 <Text style={styles.cardTitle}>{t('requests.details.attachments')}</Text>
               </View>
               {request.documents.map((doc: any, index: number) => (
@@ -492,7 +492,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
           {/* 5. TIMELINE */}
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Ionicons name="git-network-outline" size={22} color="#1565C0" style={{ marginRight: 10 }} />
+              <Ionicons name="git-network-outline" size={22} color={theme.colors.primary} style={{ marginRight: 10 }} />
               <Text style={styles.cardTitle}>{t('requests.details.statusHistory')}</Text>
             </View>
 
@@ -503,7 +503,7 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
                     <View style={styles.timelineLine} />
                     <View style={[
                       styles.timelineDot,
-                      event.active ? { backgroundColor: '#1565C0', borderColor: '#BBDEFB' } : { backgroundColor: '#E0E0E0', borderColor: '#F5F5F5' }
+                      event.active ? { backgroundColor: theme.colors.primary, borderColor: '#BBDEFB' } : { backgroundColor: '#E0E0E0', borderColor: '#F5F5F5' }
                     ]}>
                       <Ionicons name={event.icon as any} size={14} color={event.active ? "#FFF" : "#9E9E9E"} />
                     </View>
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
 
   // HERO HEADER
   heroHeader: {
-    backgroundColor: '#1565C0', // Indurama Blue
+    backgroundColor: theme.colors.primary, // Indurama Blue
     paddingTop: 60,
     paddingBottom: 60, // Extra padding for overlap
     paddingHorizontal: 20,
@@ -681,11 +681,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#1565C0',
+    borderColor: theme.colors.primary,
     backgroundColor: '#FFF',
   },
   btnOutlineText: {
-    color: '#1565C0',
+    color: theme.colors.primary,
     fontWeight: '600',
     fontSize: 14,
   },
@@ -885,3 +885,5 @@ const styles = StyleSheet.create({
     color: '#90A4AE',
   }
 });
+
+

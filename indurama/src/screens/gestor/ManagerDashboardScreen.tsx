@@ -17,6 +17,7 @@ import { getSupplierCount } from '../../services/supplierDataService';
 import { Request, RequestPriority, RequestStatus } from '../../types';
 import { useResponsive, isWeb, BREAKPOINTS } from '../../styles/responsive';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { theme } from '../../styles/theme';
 
 interface StatCardData {
   label: string;
@@ -696,7 +697,7 @@ const styles = StyleSheet.create({
   requestDepartment: { fontSize: 11, color: '#9CA3AF', maxWidth: 150 },
   requestDescription: { fontSize: 13, color: '#6B7280', fontStyle: 'italic', marginTop: 4 },
   actionButtonContainer: { alignItems: 'flex-end', marginTop: 12 },
-  validateButton: { backgroundColor: '#2563EB', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
+  validateButton: { backgroundColor: theme.colors.primary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 6 },
   validateButtonText: { color: '#FFFFFF', fontWeight: '600', fontSize: 13 },
   urgentActionBox: { backgroundColor: '#F9FAFB', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
   urgentActionText: { fontSize: 13, color: '#6B7280', flex: 1, marginRight: 8 },
@@ -755,3 +756,5 @@ const styles = StyleSheet.create({
 });
 
 export default ManagerDashboardScreen;
+
+

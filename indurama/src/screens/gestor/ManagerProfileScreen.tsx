@@ -276,8 +276,7 @@ const styles = StyleSheet.create({
     alignSelf: 'center',
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...theme.typography.styles.h2,
     color: '#FFFFFF',
   },
   // Profile Section
@@ -306,12 +305,12 @@ const styles = StyleSheet.create({
   },
   userName: {
     fontSize: 22,
-    fontWeight: 'bold',
+    ...theme.typography.styles.h3,
     color: '#212121',
     marginBottom: 4,
   },
   userRole: {
-    fontSize: 14,
+    ...theme.typography.styles.body,
     color: '#757575',
     marginBottom: 20,
   },
@@ -336,13 +335,11 @@ const styles = StyleSheet.create({
   },
   statValue: {
     fontSize: 28,
-    fontWeight: 'bold',
+    fontWeight: '700' as '700',
   },
   statLabelNew: {
-    fontSize: 10,
-    color: '#757575',
+    ...theme.typography.styles.smallBold,
     marginTop: 4,
-    fontWeight: '600',
     letterSpacing: 0.5,
   },
   // Datos Laborales Section
@@ -351,9 +348,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   sectionHeader: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#757575',
+    ...theme.typography.styles.captionBold,
     marginBottom: 10,
     letterSpacing: 0.5,
   },
@@ -374,13 +369,11 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   dataLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#424242',
+    ...theme.typography.styles.labelBold,
     marginRight: 8,
   },
   dataValue: {
-    fontSize: 14,
+    ...theme.typography.styles.body,
     color: '#757575',
     flex: 1,
   },
@@ -391,9 +384,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   sectionTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#6B7280',
+    ...theme.typography.styles.captionBold,
     marginBottom: 12,
     letterSpacing: 0.5,
   },
@@ -421,8 +412,8 @@ const styles = StyleSheet.create({
     marginRight: 14,
   },
   menuItemText: {
+    ...theme.typography.styles.label,
     fontSize: 15,
-    fontWeight: '500',
     color: '#1F2937',
   },
   menuArrow: {
@@ -445,8 +436,8 @@ const styles = StyleSheet.create({
     tintColor: theme.colors.primary,
   },
   languageText: {
+    ...theme.typography.styles.bodySemibold,
     fontSize: 15,
-    fontWeight: '600',
     color: theme.colors.primary,
   },
   logoutIconContainer: {
@@ -464,8 +455,8 @@ const styles = StyleSheet.create({
     tintColor: '#EF4444',
   },
   logoutText: {
+    ...theme.typography.styles.label,
     fontSize: 15,
-    fontWeight: '500',
     color: '#EF4444',
   },
 });

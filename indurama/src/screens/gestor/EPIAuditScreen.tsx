@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
         height: 35,
     },
     scoreContainer: {
-        backgroundColor: '#1565C0',
+        backgroundColor: theme.colors.primary,
         margin: 16,
         borderRadius: 16,
         padding: 20,
@@ -1130,3 +1130,5 @@ const styles = StyleSheet.create({
 });
 
 export default EPIAuditScreen;
+
+

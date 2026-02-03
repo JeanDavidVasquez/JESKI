@@ -294,8 +294,8 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#F8F9FB' },
   // Header styles removed for standardization
   content: { padding: 20, maxWidth: 1200, alignSelf: 'center', width: '100%' },
-  mainTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 5 },
-  subTitle: { fontSize: 14, color: '#666', marginBottom: 20 },
+  mainTitle: { ...theme.typography.styles.h3, fontSize: 22, color: '#333', marginBottom: 5 },
+  subTitle: { ...theme.typography.styles.body, color: '#666', marginBottom: 20 },
   bottomSpacing: { height: 100 },
   searchRow: { marginBottom: 16 },
 
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
   },
   searchIcon: { width: 20, height: 20, tintColor: '#9CA3AF', marginRight: 8 },
-  searchInput: { flex: 1, fontSize: 14, color: '#333' },
+  searchInput: { flex: 1, ...theme.typography.styles.body, color: '#333' },
   newButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -323,11 +323,11 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   plusIcon: { width: 16, height: 16, tintColor: '#FFF', marginRight: 8 },
-  newButtonText: { color: '#FFF', fontWeight: '600', fontSize: 14 },
+  newButtonText: { ...theme.typography.styles.buttonSmall, color: '#FFF' },
   tabsContainer: { flexDirection: 'row', borderBottomWidth: 2, borderBottomColor: '#E5E7EB', marginBottom: 16 },
   tab: { flex: 1, paddingVertical: 12, alignItems: 'center' },
   tabActive: { borderBottomWidth: 2, borderBottomColor: theme.colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: '#9CA3AF' },
+  tabText: { ...theme.typography.styles.bodySemibold, color: '#9CA3AF' },
   tabTextActive: { color: theme.colors.primary },
   listContent: { paddingBottom: 20 },
 
@@ -355,12 +355,12 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 12,
   },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: theme.colors.primary },
+  avatarText: { fontSize: 20, ...theme.typography.styles.h3, color: theme.colors.primary },
   cardInfo: { flex: 1 },
-  cardTitle: { fontSize: 16, fontWeight: 'bold', color: '#1F2937', marginBottom: 4 },
+  cardTitle: { ...theme.typography.styles.bodyLargeSemibold, color: '#1F2937', marginBottom: 4 },
   locationRow: { flexDirection: 'row', alignItems: 'center' },
   locationIcon: { width: 14, height: 14, tintColor: '#6B7280', marginRight: 4 },
-  cardSubtitle: { fontSize: 12, color: '#6B7280' },
+  cardSubtitle: { ...theme.typography.styles.bodySmall, color: '#6B7280' },
   scoreBadge: {
     backgroundColor: theme.colors.primary,
     paddingHorizontal: 8,
@@ -368,15 +368,14 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     alignItems: 'center',
   },
-  scoreText: { fontSize: 16, fontWeight: 'bold', color: '#FFF' },
-  scorePTS: { fontSize: 8, color: '#FFF' },
+  scoreText: { ...theme.typography.styles.bodyLargeSemibold, fontSize: 16, color: '#FFF' },
+  scorePTS: { ...theme.typography.styles.small, fontSize: 8, color: '#FFF' },
 
   // CATEGORIAS STYLES (Bonito)
   cardFooter: { gap: 12 },
   categoriesSection: { marginBottom: 4 },
   catLabel: {
-    fontSize: 10,
-    fontWeight: '700',
+    ...theme.typography.styles.smallBold,
     color: '#9CA3AF',
     marginBottom: 6,
     letterSpacing: 0.5,
@@ -392,8 +391,7 @@ const styles = StyleSheet.create({
   },
   catTagGray: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
   catTagText: {
-    fontSize: 10,
-    fontWeight: '700', // Negrita
+    ...theme.typography.styles.smallBold,
     color: '#006064', // Texto oscuro para contraste
     letterSpacing: 0.5,
   },
@@ -409,7 +407,7 @@ const styles = StyleSheet.create({
     borderColor: '#E5E7EB',
     alignItems: 'center',
   },
-  infoButtonText: { fontSize: 12, fontWeight: '600', color: '#374151' },
+  infoButtonText: { ...theme.typography.styles.captionBold, fontSize: 12, color: '#374151' },
   selectButton: {
     flex: 1,
     flexDirection: 'row',
@@ -422,7 +420,7 @@ const styles = StyleSheet.create({
   },
   selectButtonActive: { backgroundColor: '#10B981' }, // Verde cuando está activo
   selectIcon: { width: 14, height: 14, tintColor: '#FFF' },
-  selectButtonText: { fontSize: 12, fontWeight: '600', color: '#FFF' },
+  selectButtonText: { ...theme.typography.styles.captionBold, fontSize: 12, color: '#FFF' },
   removeButton: {
     flex: 1,
     flexDirection: 'row',
@@ -436,7 +434,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   removeIcon: { width: 14, height: 14, tintColor: '#EF4444' },
-  removeButtonText: { fontSize: 12, fontWeight: '600', color: '#EF4444' },
+  removeButtonText: { ...theme.typography.styles.captionBold, fontSize: 12, color: '#EF4444' },
 
   // Footer
   footerContainer: {
@@ -458,6 +456,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     alignItems: 'center',
   },
-  continueButtonText: { color: '#FFF', fontSize: 14, fontWeight: 'bold' },
+  continueButtonText: { ...theme.typography.styles.buttonSmall, color: '#FFF' },
   continueButtonDisabled: { backgroundColor: '#9CA3AF' }
 });

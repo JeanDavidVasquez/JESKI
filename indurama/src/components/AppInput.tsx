@@ -66,14 +66,14 @@ export const AppInput: React.FC<AppInputProps> = ({
           </AppText>
         </View>
       )}
-      
+
       <View style={inputContainerStyle}>
         {leftIcon && (
           <View style={styles.leftIconContainer}>
             {leftIcon}
           </View>
         )}
-        
+
         <TextInput
           style={inputStyle}
           onFocus={() => setIsFocused(true)}
@@ -82,9 +82,9 @@ export const AppInput: React.FC<AppInputProps> = ({
           secureTextEntry={isPassword && !isPasswordVisible}
           {...props}
         />
-        
+
         {(rightIcon || isPassword) && (
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.rightIconContainer}
             onPress={isPassword ? () => setIsPasswordVisible(!isPasswordVisible) : undefined}
           >
@@ -96,11 +96,11 @@ export const AppInput: React.FC<AppInputProps> = ({
           </TouchableOpacity>
         )}
       </View>
-      
+
       {(error || hint) && (
         <View style={styles.messageContainer}>
-          <AppText 
-            variant="small" 
+          <AppText
+            variant="small"
             color={error ? theme.colors.error : theme.colors.text.tertiary}
           >
             {error || hint}
