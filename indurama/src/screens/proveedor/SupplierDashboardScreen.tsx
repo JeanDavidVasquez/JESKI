@@ -485,7 +485,7 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
                                                 </LinearGradient>
                                                 <View style={styles.invitationDetails}>
                                                     <Text style={styles.invitationId}>
-                                                        Solicitud #{invitation.requestId.slice(-6).toUpperCase()}
+                                                        {t('common.request')} #{invitation.requestId.slice(-6).toUpperCase()}
                                                     </Text>
                                                     <View style={styles.invitationMeta}>
                                                         <View style={[

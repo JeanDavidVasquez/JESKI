@@ -9,6 +9,7 @@
         "save": "Guardar",
         "delete": "Eliminar",
         "edit": "Editar",
+        "request": "Solicitud",
         "back": "Volver",
         "next": "Siguiente",
         "previous": "Anterior",
@@ -34,7 +35,6 @@
         "saving": "Guardando...",
         "done": "Listo",
         "understood": "Entendido",
-        "of": "de",
         "history": "Historial"
     },
     "auth": {
@@ -47,7 +47,8 @@
         "welcomeBack": "Bienvenido de nuevo",
         "loginError": "Error al iniciar sesión",
         "invalidCredentials": "Credenciales inválidas",
-        "loggingOut": "Cerrando sesión..."
+        "loggingOut": "Cerrando sesión...",
+        "logoutConfirm": "¿Estás seguro de que deseas cerrar sesión?"
     },
     "navigation": {
         "home": "Inicio",
@@ -409,6 +410,19 @@
                 "rejected": "Rechazadas"
             },
             "empty": "No se encontraron solicitudes"
+        },
+        "alerts": {
+            "receiptConfirmed": "La recepción ha sido confirmada correctamente.",
+            "confirmError": "No se pudo confirmar.",
+            "confirmReceiptTitle": "Confirmar Recepción",
+            "confirmReceiptMessage": "¿Confirmas que recibiste el producto/servicio?",
+            "yesReceived": "Sí, Recibí",
+            "nonComplianceReported": "Incumplimiento reportado. El gestor será notificado para re-adjudicar.",
+            "reportError": "No se pudo reportar el incumplimiento.",
+            "reportTitle": "Reportar Incumplimiento",
+            "reportMessage": "¿El proveedor no cumplió con la entrega?",
+            "yesReport": "Sí, Reportar",
+            "gestorReadjudicating": "El gestor está re-adjudicando esta solicitud"
         }
     },
     "appNotifications": {
@@ -423,20 +437,10 @@
         "providerSelectedTitle": "Proveedor Seleccionado",
         "providerSelectedMessage": "Se seleccionó a {{supplier}} para tu solicitud #{{code}}",
         "requestValidatedTitle": "Solicitud Validada",
-        "requestValidatedMessage": "Tu solicitud {{code}} ha sido validada y está en fase de búsqueda de proveedores."
-    },
-    "alerts": {
-        "receiptConfirmed": "La recepción ha sido confirmada correctamente.",
-        "confirmError": "No se pudo confirmar.",
-        "confirmReceiptTitle": "Confirmar Recepción",
-        "confirmReceiptMessage": "¿Confirmas que recibiste el producto/servicio?",
-        "yesReceived": "Sí, Recibí",
-        "nonComplianceReported": "Incumplimiento reportado. El gestor será notificado para re-adjudicar.",
-        "reportError": "No se pudo reportar el incumplimiento.",
-        "reportTitle": "Reportar Incumplimiento",
-        "reportMessage": "¿El proveedor no cumplió con la entrega?",
-        "yesReport": "Sí, Reportar",
-        "gestorReadjudicating": "El gestor está re-adjudicando esta solicitud"
+        "requestValidatedMessage": "Tu solicitud {{code}} ha sido validada y está en fase de búsqueda de proveedores.",
+        "invitationMessage": "Has sido invitado a cotizar para la solicitud #{{code}}",
+        "quotationSubmittedMessage": "{{supplier}} envió su cotización para la solicitud #{{code}}",
+        "quotationWinnerAwarded": "Tu oferta fue seleccionada para la solicitud #{{code}} (Re-adjudicación)"
     },
     "proveedor": {
         "dashboard": {
@@ -565,7 +569,6 @@
             "markAsRead": "Marcar como leída",
             "markAllRead": "Marcar todas como leídas",
             "noNotifications": "No tienes notificaciones",
-            "newInvitation": "Nueva invitación a cotizar",
             "quotationAwarded": "¡Tu cotización fue seleccionada!",
             "quotationRejected": "Tu cotización no fue seleccionada",
             "epiExpiring": "Tu evaluación EPI está por vencer",

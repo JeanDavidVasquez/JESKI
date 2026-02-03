@@ -14,7 +14,8 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   FlatList,
-  TouchableWithoutFeedback
+  TouchableWithoutFeedback, // Asegurar importación
+  Keyboard // Asegurar importación
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
@@ -257,10 +258,10 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       const result = await DocumentPicker.getDocumentAsync({
         // 1. RESTRICCIÓN EN EL SELECTOR NATIVO
         type: [
-          "application/pdf",                                                           // PDF
-          "application/msword",                                                        // .doc
+          "application/pdf",                                                 // PDF
+          "application/msword",                                              // .doc
           "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   // .docx
-          "application/vnd.ms-excel",                                                  // .xls
+          "application/vnd.ms-excel",                                        // .xls
           "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"          // .xlsx
         ],
         multiple: true,
@@ -332,11 +333,26 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     );
   };
 
+  // --- LÓGICA PARA CERRAR DROPDOWNS (Clic fuera + Tecla Esc) ---
   const closeDropdowns = () => {
     setShowProjectTypeDropdown(false);
     setShowSearchClassDropdown(false);
     setShowDatePicker(false);
+    Keyboard.dismiss();
   };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleKeyDown = (e: any) => {
+        if (e.key === 'Escape') {
+          closeDropdowns();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showProjectTypeDropdown, showSearchClassDropdown]);
+  // -------------------------------------------------------------
 
   const { isMobileView } = useResponsive();
 
@@ -411,7 +427,11 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           <Modal visible={visible} transparent animationType="slide" onRequestClose={onToggle}>
             <TouchableWithoutFeedback onPress={onToggle}>
               <View style={styles.pickerOverlay}>
-                <TouchableWithoutFeedback>
+                {/* AQUÍ ESTÁ LA CORRECCIÓN MÓVIL: 
+                   El TouchableWithoutFeedback vacío interno detiene la propagación del evento onPress hacia el padre (el overlay).
+                   Esto permite que el FlatList interno reciba los clics correctamente.
+                */}
+                <TouchableWithoutFeedback onPress={() => { }}>
                   <View style={styles.pickerContainer}>
                     <View style={styles.pickerHandle} />
                     <View style={styles.pickerHeader}>
@@ -423,6 +443,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                     <FlatList
                       data={options}
                       keyExtractor={(item) => item.value}
+                      keyboardShouldPersistTaps="handled"
                       renderItem={({ item }) => (
                         <TouchableOpacity
                           style={styles.pickerItem}
@@ -485,289 +506,292 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           style={styles.content}
           contentContainerStyle={{ paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
-          onTouchStart={closeDropdowns}
+        // Eliminado onTouchStart del ScrollView para usar TouchableWithoutFeedback interno
         >
-          <View style={[
-            styles.contentWrapper,
-            isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
-          ]}>
-
-            {/* 1. INFORMACIÓN BÁSICA */}
+          {/* ENVUELTO EN TouchableWithoutFeedback PARA CERRAR DROPDOWNS AL CLICAR FUERA */}
+          <TouchableWithoutFeedback onPress={closeDropdowns}>
             <View style={[
-              styles.card,
-              isDesktopView && (showProjectTypeDropdown || showSearchClassDropdown) && { zIndex: 3000, position: 'relative' }
+              styles.contentWrapper,
+              isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
             ]}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="information-circle-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>{t('requests.form.basicInfo')}</Text>
-              </View>
 
-              <View style={[styles.formRow, !isDesktopView && { flexDirection: 'column' }, { zIndex: showProjectTypeDropdown ? 2000 : 1 }]}>
-                <View style={styles.formGroupHalf}>
-                  <Text style={styles.label}>{t('requests.form.dueDate')} <Text style={styles.required}>*</Text></Text>
-
-                  {Platform.OS === 'web' ? (
-                    <input
-                      type="date"
-                      min={new Date().toISOString().split('T')[0]}
-                      style={{
-                        backgroundColor: '#F9FAFB',
-                        borderWidth: 1,
-                        borderColor: '#E0E0E0',
-                        borderRadius: 10,
-                        paddingTop: 12,
-                        paddingBottom: 12,
-                        paddingLeft: 16,
-                        paddingRight: 16,
-                        fontSize: 15,
-                        color: '#333',
-                        fontFamily: 'inherit',
-                        width: '100%',
-                        borderStyle: 'solid',
-                        outline: 'none',
-                        boxSizing: 'border-box',
-                        height: 50
-                      } as any}
-                      value={formData.dueDate.toISOString().split('T')[0]}
-                      onChange={(e) => {
-                        const date = new Date(e.target.value);
-                        if (!isNaN(date.getTime())) {
-                          setFormData({ ...formData, dueDate: date });
-                        }
-                      }}
-                    />
-                  ) : (
-                    <>
-                      <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
-                        <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 10 }} />
-                        <Text style={{ color: '#333', fontSize: 15 }}>
-                          {formData.dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
-                        </Text>
-                      </TouchableOpacity>
-                      {showDatePicker && (
-                        <DateTimePicker
-                          value={formData.dueDate}
-                          mode="date"
-                          display="default"
-                          minimumDate={new Date()}
-                          onChange={(event, selectedDate) => {
-                            setShowDatePicker(false);
-                            if (selectedDate) setFormData({ ...formData, dueDate: selectedDate });
-                          }}
-                        />
-                      )}
-                    </>
-                  )}
+              {/* 1. INFORMACIÓN BÁSICA */}
+              <View style={[
+                styles.card,
+                isDesktopView && (showProjectTypeDropdown || showSearchClassDropdown) && { zIndex: 3000, position: 'relative' }
+              ]}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="information-circle-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Text style={styles.cardTitle}>{t('requests.form.basicInfo')}</Text>
                 </View>
 
-                <View style={[styles.formGroupHalf, { zIndex: showProjectTypeDropdown ? 1000 : 200 }]}>
+                <View style={[styles.formRow, !isDesktopView && { flexDirection: 'column' }, { zIndex: showProjectTypeDropdown ? 2000 : 1 }]}>
+                  <View style={styles.formGroupHalf}>
+                    <Text style={styles.label}>{t('requests.form.dueDate')} <Text style={styles.required}>*</Text></Text>
+
+                    {Platform.OS === 'web' ? (
+                      <input
+                        type="date"
+                        min={new Date().toISOString().split('T')[0]}
+                        style={{
+                          backgroundColor: '#F9FAFB',
+                          borderWidth: 1,
+                          borderColor: '#E0E0E0',
+                          borderRadius: 10,
+                          paddingTop: 12,
+                          paddingBottom: 12,
+                          paddingLeft: 16,
+                          paddingRight: 16,
+                          fontSize: 15,
+                          color: '#333',
+                          fontFamily: 'inherit',
+                          width: '100%',
+                          borderStyle: 'solid',
+                          outline: 'none',
+                          boxSizing: 'border-box',
+                          height: 50
+                        } as any}
+                        value={formData.dueDate.toISOString().split('T')[0]}
+                        onChange={(e) => {
+                          const date = new Date(e.target.value);
+                          if (!isNaN(date.getTime())) {
+                            setFormData({ ...formData, dueDate: date });
+                          }
+                        }}
+                      />
+                    ) : (
+                      <>
+                        <TouchableOpacity style={styles.dateInput} onPress={() => setShowDatePicker(true)}>
+                          <Ionicons name="calendar-outline" size={20} color="#666" style={{ marginRight: 10 }} />
+                          <Text style={{ color: '#333', fontSize: 15 }}>
+                            {formData.dueDate.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric' })}
+                          </Text>
+                        </TouchableOpacity>
+                        {showDatePicker && (
+                          <DateTimePicker
+                            value={formData.dueDate}
+                            mode="date"
+                            display="default"
+                            minimumDate={new Date()}
+                            onChange={(event, selectedDate) => {
+                              setShowDatePicker(false);
+                              if (selectedDate) setFormData({ ...formData, dueDate: selectedDate });
+                            }}
+                          />
+                        )}
+                      </>
+                    )}
+                  </View>
+
+                  <View style={[styles.formGroupHalf, { zIndex: showProjectTypeDropdown ? 1000 : 200 }]}>
+                    <Selector
+                      label={t('requests.form.projectType')}
+                      placeholder={t('requests.form.selectType')}
+                      value={
+                        // Find label corresponding to value for display
+                        projectTypeOptions.find(opt => opt.value === formData.projectType)?.label || formData.projectType
+                      }
+                      options={projectTypeOptions}
+                      visible={showProjectTypeDropdown}
+                      onToggle={() => {
+                        setShowProjectTypeDropdown(!showProjectTypeDropdown);
+                        setShowSearchClassDropdown(false);
+                      }}
+                      onSelect={(val) => {
+                        setFormData({ ...formData, projectType: val });
+                        setShowProjectTypeDropdown(false);
+                      }}
+                    />
+                  </View>
+                </View>
+
+                <View style={[styles.formGroup, { zIndex: showSearchClassDropdown ? 1000 : 100 }]}>
                   <Selector
-                    label={t('requests.form.projectType')}
-                    placeholder={t('requests.form.selectType')}
+                    label={t('requests.form.searchClass')}
+                    placeholder={t('requests.form.selectClass')}
                     value={
                       // Find label corresponding to value for display
-                      projectTypeOptions.find(opt => opt.value === formData.projectType)?.label || formData.projectType
+                      searchClassOptions.find(opt => opt.value === formData.searchClass)?.label || formData.searchClass
                     }
-                    options={projectTypeOptions}
-                    visible={showProjectTypeDropdown}
+                    options={searchClassOptions}
+                    visible={showSearchClassDropdown}
                     onToggle={() => {
-                      setShowProjectTypeDropdown(!showProjectTypeDropdown);
-                      setShowSearchClassDropdown(false);
+                      setShowSearchClassDropdown(!showSearchClassDropdown);
+                      setShowProjectTypeDropdown(false);
                     }}
                     onSelect={(val) => {
-                      setFormData({ ...formData, projectType: val });
-                      setShowProjectTypeDropdown(false);
+                      setFormData({ ...formData, searchClass: val });
+                      setShowSearchClassDropdown(false);
                     }}
                   />
                 </View>
               </View>
 
-              <View style={[styles.formGroup, { zIndex: showSearchClassDropdown ? 1000 : 100 }]}>
-                <Selector
-                  label={t('requests.form.searchClass')}
-                  placeholder={t('requests.form.selectClass')}
-                  value={
-                    // Find label corresponding to value for display
-                    searchClassOptions.find(opt => opt.value === formData.searchClass)?.label || formData.searchClass
-                  }
-                  options={searchClassOptions}
-                  visible={showSearchClassDropdown}
-                  onToggle={() => {
-                    setShowSearchClassDropdown(!showSearchClassDropdown);
-                    setShowProjectTypeDropdown(false);
-                  }}
-                  onSelect={(val) => {
-                    setFormData({ ...formData, searchClass: val });
-                    setShowSearchClassDropdown(false);
-                  }}
-                />
-              </View>
-            </View>
+              {/* 2. DETALLE DE LA NECESIDAD */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="document-text-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Text style={styles.cardTitle}>{t('requests.form.needsDetail')}</Text>
+                </View>
 
-            {/* 2. DETALLE DE LA NECESIDAD */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="document-text-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>{t('requests.form.needsDetail')}</Text>
-              </View>
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t('requests.form.detailedDescription')} <Text style={styles.required}>*</Text></Text>
+                  <TextInput
+                    style={styles.textArea}
+                    placeholder={t('requests.form.descriptionPlaceholder')}
+                    placeholderTextColor="#999"
+                    multiline={true}
+                    numberOfLines={4}
+                    value={formData.description}
+                    onChangeText={(text) => setFormData({ ...formData, description: text })}
+                  />
+                </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t('requests.form.detailedDescription')} <Text style={styles.required}>*</Text></Text>
-                <TextInput
-                  style={styles.textArea}
-                  placeholder={t('requests.form.descriptionPlaceholder')}
-                  placeholderTextColor="#999"
-                  multiline={true}
-                  numberOfLines={4}
-                  value={formData.description}
-                  onChangeText={(text) => setFormData({ ...formData, description: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t('requests.form.tags')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={t('requests.form.tagsPlaceholder')}
-                  placeholderTextColor="#999"
-                  value={formData.requiredTags.join(', ')}
-                  onChangeText={(text) => {
-                    const tags = text.split(',').map(t => t.trim()).filter(t => t);
-                    setFormData({ ...formData, requiredTags: tags });
-                  }}
-                />
-                <Text style={styles.helperText}>{t('requests.form.tagsHelper')}</Text>
-              </View>
-            </View>
-
-            {/* 3. CRITERIOS DE PROVEEDOR */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="people-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>{t('requests.form.providerPreferences')}</Text>
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t('requests.form.supplierSuggestion')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={t('requests.form.supplierPlaceholder')}
-                  placeholderTextColor="#999"
-                  value={formData.supplierSuggestion}
-                  onChangeText={(text) => setFormData({ ...formData, supplierSuggestion: text })}
-                />
-              </View>
-
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t('requests.form.preferredBusiness')}</Text>
-                <View style={styles.chipContainer}>
-                  {[
-                    { value: 'cualquiera', label: t('requests.form.businessTypes.any') },
-                    { value: 'fabricante', label: t('requests.form.businessTypes.manufacturer') },
-                    { value: 'distribuidor', label: t('requests.form.businessTypes.distributor') },
-                    { value: 'servicio', label: t('requests.form.businessTypes.service') }
-                  ].map((type) => (
-                    <TouchableOpacity
-                      key={type.value}
-                      style={[
-                        styles.chip,
-                        formData.requiredBusinessType === type.value && styles.chipSelected
-                      ]}
-                      onPress={() => setFormData({ ...formData, requiredBusinessType: type.value as any })}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        formData.requiredBusinessType === type.value && styles.chipTextSelected
-                      ]}>
-                        {type.label}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t('requests.form.tags')}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={t('requests.form.tagsPlaceholder')}
+                    placeholderTextColor="#999"
+                    value={formData.requiredTags.join(', ')}
+                    onChangeText={(text) => {
+                      const tags = text.split(',').map(t => t.trim()).filter(t => t);
+                      setFormData({ ...formData, requiredTags: tags });
+                    }}
+                  />
+                  <Text style={styles.helperText}>{t('requests.form.tagsHelper')}</Text>
                 </View>
               </View>
 
-              <View style={styles.formGroup}>
-                <Text style={styles.label}>{t('requests.form.deliveryLocation')}</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder={t('requests.form.locationPlaceholder')}
-                  placeholderTextColor="#999"
-                  value={formData.deliveryLocationSuggestion}
-                  onChangeText={(text) => setFormData({ ...formData, deliveryLocationSuggestion: text })}
-                />
+              {/* 3. CRITERIOS DE PROVEEDOR */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="people-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Text style={styles.cardTitle}>{t('requests.form.providerPreferences')}</Text>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t('requests.form.supplierSuggestion')}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={t('requests.form.supplierPlaceholder')}
+                    placeholderTextColor="#999"
+                    value={formData.supplierSuggestion}
+                    onChangeText={(text) => setFormData({ ...formData, supplierSuggestion: text })}
+                  />
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t('requests.form.preferredBusiness')}</Text>
+                  <View style={styles.chipContainer}>
+                    {[
+                      { value: 'cualquiera', label: t('requests.form.businessTypes.any') },
+                      { value: 'fabricante', label: t('requests.form.businessTypes.manufacturer') },
+                      { value: 'distribuidor', label: t('requests.form.businessTypes.distributor') },
+                      { value: 'servicio', label: t('requests.form.businessTypes.service') }
+                    ].map((type) => (
+                      <TouchableOpacity
+                        key={type.value}
+                        style={[
+                          styles.chip,
+                          formData.requiredBusinessType === type.value && styles.chipSelected
+                        ]}
+                        onPress={() => setFormData({ ...formData, requiredBusinessType: type.value as any })}
+                      >
+                        <Text style={[
+                          styles.chipText,
+                          formData.requiredBusinessType === type.value && styles.chipTextSelected
+                        ]}>
+                          {type.label}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </View>
+
+                <View style={styles.formGroup}>
+                  <Text style={styles.label}>{t('requests.form.deliveryLocation')}</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder={t('requests.form.locationPlaceholder')}
+                    placeholderTextColor="#999"
+                    value={formData.deliveryLocationSuggestion}
+                    onChangeText={(text) => setFormData({ ...formData, deliveryLocationSuggestion: text })}
+                  />
+                </View>
               </View>
-            </View>
 
-            {/* 4. ADJUNTOS */}
-            <View style={styles.card}>
-              <View style={styles.cardHeader}>
-                <Ionicons name="attach-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
-                <Text style={styles.cardTitle}>{t('requests.form.documents')}</Text>
+              {/* 4. ADJUNTOS */}
+              <View style={styles.card}>
+                <View style={styles.cardHeader}>
+                  <Ionicons name="attach-outline" size={24} color="#1565C0" style={{ marginRight: 10 }} />
+                  <Text style={styles.cardTitle}>{t('requests.form.documents')}</Text>
+                </View>
+
+                <View style={styles.uploadArea}>
+                  <Ionicons name="cloud-upload-outline" size={48} color="#1565C0" style={{ marginBottom: 10 }} />
+                  <Text style={styles.uploadTitle}>{t('requests.form.uploadTitle')}</Text>
+                  <Text style={styles.uploadSubtitle}>{t('requests.form.uploadSubtitle')}</Text>
+
+                  <TouchableOpacity
+                    style={[styles.selectFilesButton, uploadingFile && styles.disabledButton]}
+                    onPress={handleSelectFiles}
+                    disabled={uploadingFile}
+                  >
+                    {uploadingFile ? (
+                      <ActivityIndicator size="small" color="#FFFFFF" />
+                    ) : (
+                      <>
+                        <Ionicons name="add-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                        <Text style={styles.selectFilesText}>{t('requests.form.selectFiles')}</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </View>
+
+                {documents.length > 0 && (
+                  <View style={styles.documentsList}>
+                    {documents.map((doc, index) => (
+                      <View key={index} style={styles.documentItem}>
+                        <View style={styles.docIcon}>
+                          <Ionicons name="document-text" size={24} color="#1976D2" />
+                        </View>
+                        <View style={styles.documentInfo}>
+                          <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
+                          <Text style={styles.documentSize}>{formatFileSize(doc.size)}</Text>
+                        </View>
+                        <TouchableOpacity onPress={() => removeDocument(index)} style={styles.removeButton}>
+                          <Ionicons name="close" size={16} color="#D32F2F" />
+                        </TouchableOpacity>
+                      </View>
+                    ))}
+                  </View>
+                )}
               </View>
 
-              <View style={styles.uploadArea}>
-                <Ionicons name="cloud-upload-outline" size={48} color="#1565C0" style={{ marginBottom: 10 }} />
-                <Text style={styles.uploadTitle}>{t('requests.form.uploadTitle')}</Text>
-                <Text style={styles.uploadSubtitle}>{t('requests.form.uploadSubtitle')}</Text>
-
+              {/* ACTIONS */}
+              <View style={styles.actionButtons}>
+                <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
+                  <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
+                </TouchableOpacity>
                 <TouchableOpacity
-                  style={[styles.selectFilesButton, uploadingFile && styles.disabledButton]}
-                  onPress={handleSelectFiles}
-                  disabled={uploadingFile}
+                  style={[styles.submitButton, loading && styles.disabledButton]}
+                  onPress={handleSubmit}
+                  disabled={loading}
                 >
-                  {uploadingFile ? (
-                    <ActivityIndicator size="small" color="#FFFFFF" />
+                  {loading ? (
+                    <ActivityIndicator color="#FFF" />
                   ) : (
                     <>
-                      <Ionicons name="add-circle-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                      <Text style={styles.selectFilesText}>{t('requests.form.selectFiles')}</Text>
+                      <Ionicons name="paper-plane-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.submitButtonText}>{t('requests.form.submitRequest')}</Text>
                     </>
                   )}
                 </TouchableOpacity>
               </View>
 
-              {documents.length > 0 && (
-                <View style={styles.documentsList}>
-                  {documents.map((doc, index) => (
-                    <View key={index} style={styles.documentItem}>
-                      <View style={styles.docIcon}>
-                        <Ionicons name="document-text" size={24} color="#1976D2" />
-                      </View>
-                      <View style={styles.documentInfo}>
-                        <Text style={styles.documentName} numberOfLines={1}>{doc.name}</Text>
-                        <Text style={styles.documentSize}>{formatFileSize(doc.size)}</Text>
-                      </View>
-                      <TouchableOpacity onPress={() => removeDocument(index)} style={styles.removeButton}>
-                        <Ionicons name="close" size={16} color="#D32F2F" />
-                      </TouchableOpacity>
-                    </View>
-                  ))}
-                </View>
-              )}
             </View>
-
-            {/* ACTIONS */}
-            <View style={styles.actionButtons}>
-              <TouchableOpacity style={styles.cancelButton} onPress={handleCancel}>
-                <Text style={styles.cancelButtonText}>{t('common.cancel')}</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.submitButton, loading && styles.disabledButton]}
-                onPress={handleSubmit}
-                disabled={loading}
-              >
-                {loading ? (
-                  <ActivityIndicator color="#FFF" />
-                ) : (
-                  <>
-                    <Ionicons name="paper-plane-outline" size={20} color="#FFF" style={{ marginRight: 8 }} />
-                    <Text style={styles.submitButtonText}>{t('requests.form.submitRequest')}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-            </View>
-
-          </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
 

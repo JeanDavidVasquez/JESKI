@@ -22,6 +22,7 @@ import {
 } from '../types';
 import { NotificationService } from './notificationService';
 import { EmailHelperService } from './emailHelperService';
+import i18n from '../i18n/config';
 
 const INVITATIONS_COLLECTION = 'quotation_invitations';
 const QUOTATIONS_COLLECTION = 'quotations';
@@ -70,8 +71,8 @@ export const QuotationService = {
             await NotificationService.create({
                 userId: supplierId,
                 type: 'quotation_invitation',
-                title: 'Nueva Invitación a Cotizar',
-                message: `Has sido invitado a cotizar para la solicitud #${requestId.slice(-6).toUpperCase()}`,
+                title: i18n.t('notifications.newInvitation'),
+                message: i18n.t('appNotifications.invitationMessage', { code: requestId.slice(-6).toUpperCase() }),
                 relatedId: requestId,
                 relatedType: 'request',
             });
@@ -192,8 +193,8 @@ export const QuotationService = {
         await NotificationService.create({
             userId: invitation.gestorId,
             type: 'quotation_received',
-            title: 'Cotización Recibida',
-            message: `${supplierName} envió su cotización para la solicitud #${invitation.requestId.slice(-6).toUpperCase()}`,
+            title: i18n.t('notifications.quotationReceived'),
+            message: i18n.t('appNotifications.quotationSubmittedMessage', { supplier: supplierName, code: invitation.requestId.slice(-6).toUpperCase() }),
             relatedId: invitation.requestId,
             relatedType: 'request',
         });
@@ -298,8 +299,8 @@ export const QuotationService = {
                 await NotificationService.create({
                     userId: q.supplierId,
                     type: 'quotation_not_selected',
-                    title: 'Resultado de Cotización',
-                    message: `Gracias por participar en la solicitud #${requestId.slice(-6).toUpperCase()}. En esta ocasión se seleccionó otra oferta.`,
+                    title: i18n.t('notifications.quotationResult'),
+                    message: i18n.t('notifications.quotationRejectedMessage', { code: requestId.slice(-6).toUpperCase() }),
                     relatedId: requestId,
                     relatedType: 'request',
                 });
@@ -309,8 +310,8 @@ export const QuotationService = {
         await NotificationService.create({
             userId: winner.supplierId,
             type: 'quotation_winner',
-            title: '🏆 ¡Felicitaciones!',
-            message: `Tu oferta fue seleccionada para la solicitud #${requestId.slice(-6).toUpperCase()}`,
+            title: i18n.t('notifications.congratulations'),
+            message: i18n.t('notifications.quotationWinnerMessage', { code: requestId.slice(-6).toUpperCase() }),
             relatedId: requestId,
             relatedType: 'request',
         });
@@ -318,8 +319,8 @@ export const QuotationService = {
         await NotificationService.create({
             userId: solicitanteId,
             type: 'supplier_selected',
-            title: 'Proveedor Seleccionado',
-            message: `Se seleccionó a ${winner.supplierName} para tu solicitud #${requestId.slice(-6).toUpperCase()}`,
+            title: i18n.t('notifications.supplierSelected'),
+            message: i18n.t('appNotifications.providerSelectedMessage', { supplier: winner.supplierName, code: requestId.slice(-6).toUpperCase() }),
             relatedId: requestId,
             relatedType: 'request',
         });
@@ -461,8 +462,8 @@ export const QuotationService = {
         await NotificationService.create({
             userId: newWinner.supplierId,
             type: 'quotation_winner',
-            title: '🏆 ¡Felicitaciones!',
-            message: `Tu oferta fue seleccionada para la solicitud #${requestId.slice(-6).toUpperCase()} (Re-adjudicación)`,
+            title: i18n.t('notifications.congratulations'),
+            message: i18n.t('appNotifications.quotationWinnerAwarded', { code: requestId.slice(-6).toUpperCase() }),
             relatedId: requestId,
             relatedType: 'request',
         });

@@ -9,6 +9,7 @@
         "save": "Save",
         "delete": "Delete",
         "edit": "Edit",
+        "request": "Request",
         "back": "Back",
         "next": "Next",
         "previous": "Previous",
@@ -34,7 +35,6 @@
         "saving": "Saving...",
         "done": "Done",
         "understood": "Understood",
-        "of": "of",
         "history": "History"
     },
     "auth": {
@@ -47,7 +47,8 @@
         "welcomeBack": "Welcome back",
         "loginError": "Login error",
         "invalidCredentials": "Invalid credentials",
-        "loggingOut": "Logging out..."
+        "loggingOut": "Logging out...",
+        "logoutConfirm": "Are you sure you want to log out?"
     },
     "navigation": {
         "home": "Home",
@@ -410,6 +411,19 @@
                 "rejected": "Rejected"
             },
             "empty": "No requests found"
+        },
+        "alerts": {
+            "receiptConfirmed": "Receipt has been confirmed successfully.",
+            "confirmError": "Could not confirm.",
+            "confirmReceiptTitle": "Confirm Receipt",
+            "confirmReceiptMessage": "Do you confirm that you received the product/service?",
+            "yesReceived": "Yes, Received",
+            "nonComplianceReported": "Non-compliance reported. The manager will be notified to re-adjudicate.",
+            "reportError": "Could not report non-compliance.",
+            "reportTitle": "Report Non-Compliance",
+            "reportMessage": "Did the supplier fail to deliver?",
+            "yesReport": "Yes, Report",
+            "gestorReadjudicating": "The manager is re-adjudicating this request"
         }
     },
     "appNotifications": {
@@ -424,20 +438,10 @@
         "providerSelectedTitle": "Supplier Selected",
         "providerSelectedMessage": "Supplier {{supplier}} was selected for your request #{{code}}",
         "requestValidatedTitle": "Request Validated",
-        "requestValidatedMessage": "Your request {{code}} has been validated and is in the supplier search phase."
-    },
-    "alerts": {
-        "receiptConfirmed": "Receipt has been confirmed successfully.",
-        "confirmError": "Could not confirm.",
-        "confirmReceiptTitle": "Confirm Receipt",
-        "confirmReceiptMessage": "Do you confirm that you received the product/service?",
-        "yesReceived": "Yes, Received",
-        "nonComplianceReported": "Non-compliance reported. The manager will be notified to re-adjudicate.",
-        "reportError": "Could not report non-compliance.",
-        "reportTitle": "Report Non-Compliance",
-        "reportMessage": "Did the supplier fail to deliver?",
-        "yesReport": "Yes, Report",
-        "gestorReadjudicating": "The manager is re-adjudicating this request"
+        "requestValidatedMessage": "Your request {{code}} has been validated and is in the supplier search phase.",
+        "invitationMessage": "You have been invited to quote for request #{{code}}",
+        "quotationSubmittedMessage": "{{supplier}} sent their quotation for request #{{code}}",
+        "quotationWinnerAwarded": "Your offer was selected for request #{{code}} (Re-adjudication)"
     },
     "proveedor": {
         "dashboard": {
@@ -566,7 +570,6 @@
             "markAsRead": "Mark as read",
             "markAllRead": "Mark all as read",
             "noNotifications": "You have no notifications",
-            "newInvitation": "New invitation to quote",
             "quotationAwarded": "Your quotation was selected!",
             "quotationRejected": "Your quotation was not selected",
             "epiExpiring": "Your EPI evaluation is about to expire",

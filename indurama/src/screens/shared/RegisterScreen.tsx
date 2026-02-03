@@ -13,6 +13,8 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
+  TouchableWithoutFeedback, // <--- 1. Importado para detectar clics fuera
+  Keyboard // <--- 1. Importado para cerrar teclado si es necesario
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -115,6 +117,26 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   // Terms State
   const [showTerms, setShowTerms] = useState(false);
   const [_registeredUser, setRegisteredUser] = useState<User | null>(null);
+
+  // --- 2. Lógica para cerrar Dropdowns (Clic fuera + tecla ESC) ---
+  const closeDropdowns = () => {
+    if (showCompanyDropdown) setShowCompanyDropdown(false);
+    if (showDeptDropdown) setShowDeptDropdown(false);
+    Keyboard.dismiss();
+  };
+
+  useEffect(() => {
+    if (Platform.OS === 'web') {
+      const handleKeyDown = (e: any) => {
+        if (e.key === 'Escape') {
+          closeDropdowns();
+        }
+      };
+      window.addEventListener('keydown', handleKeyDown);
+      return () => window.removeEventListener('keydown', handleKeyDown);
+    }
+  }, [showCompanyDropdown, showDeptDropdown]);
+  // -------------------------------------------------------------
 
   // --- Fetch Data ---
   useEffect(() => {
@@ -1015,24 +1037,27 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           keyboardShouldPersistTaps="handled"
           bounces={false}
         >
-          <View style={styles.mainContainer}>
-            <View style={styles.headerSection}>
-              <Text style={styles.registerTitle}>REGISTRO</Text>
-              <Text style={styles.subtitle}>Sistema de Gestión de Proveedores</Text>
-            </View>
-
-            {step === 'selection' && renderSelectionStep()}
-            {step === 'form' && renderFormStep()}
-
-            {step === 'selection' && (
-              <View style={styles.bottomSection}>
-                <View style={styles.brandContainer}>
-                  <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
-                </View>
+          {/* 3. Wrap del contenido principal en TouchableWithoutFeedback para cerrar al hacer click fuera */}
+          <TouchableWithoutFeedback onPress={closeDropdowns}>
+            <View style={styles.mainContainer}>
+              <View style={styles.headerSection}>
+                <Text style={styles.registerTitle}>REGISTRO</Text>
+                <Text style={styles.subtitle}>Sistema de Gestión de Proveedores</Text>
               </View>
-            )}
 
-          </View>
+              {step === 'selection' && renderSelectionStep()}
+              {step === 'form' && renderFormStep()}
+
+              {step === 'selection' && (
+                <View style={styles.bottomSection}>
+                  <View style={styles.brandContainer}>
+                    <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
+                  </View>
+                </View>
+              )}
+
+            </View>
+          </TouchableWithoutFeedback>
         </ScrollView>
       </KeyboardAvoidingView>
     </View>
