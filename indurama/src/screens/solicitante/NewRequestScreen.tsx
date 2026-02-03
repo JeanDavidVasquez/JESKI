@@ -14,8 +14,9 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   FlatList,
-  TouchableWithoutFeedback, // Asegurar importación
-  Keyboard // Asegurar importación
+  TouchableWithoutFeedback,
+  Keyboard,
+  ViewStyle
 } from 'react-native';
 import * as DocumentPicker from 'expo-document-picker';
 import { StatusBar } from 'expo-status-bar';
@@ -29,12 +30,12 @@ import { generateRequestCode } from '../../services/requestService';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import { Request } from '../../types';
-import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
-import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+import { useResponsive } from '../../styles/responsive';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 import { theme } from '../../styles/theme';
 
-
+// Color unificado
+const UNIFIED_BLUE = '#003E85';
 
 interface NewRequestScreenProps {
   initialRequest?: Request | null;
@@ -145,29 +146,24 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       let uploadedDocuments: UploadedFile[] = [];
       const tempRequestId = initialRequest ? initialRequest.id : `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-      // Process ALL documents (both new and existing)
       for (const doc of documents) {
-        // If it's already a proper http/https URL, keep it
         if (doc.url.startsWith('http')) {
           uploadedDocuments.push(doc);
           continue;
         }
 
-        // If it's a blob/file URL, attempt to upload it
         try {
-          // Determine valid ID to use for path
           const idForPath = initialRequest ? initialRequest.id : tempRequestId;
           const uploaded = await uploadRequestFile(idForPath, doc.url, doc.name);
           uploadedDocuments.push(uploaded);
         } catch (error) {
           console.error('Error uploading file:', error);
-          setLoading(false); // Stop loading
+          setLoading(false);
           Alert.alert(
             t('common.error'),
             t('requests.form.uploadErrorMessage', { fileName: doc.name })
-            // TODO: Translate specific upload errors if needed
           );
-          return; // STOP execution
+          return;
         }
       }
 
@@ -210,7 +206,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       } else {
         const docRef = await addDoc(collection(db, 'requests'), requestData);
 
-        // Create notification for all managers (gestores)
         try {
           const managersQuery = query(collection(db, 'users'), where('role', '==', 'gestor'));
           const managersSnapshot = await getDocs(managersQuery);
@@ -227,13 +222,11 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           }
         } catch (notifError) {
           console.error('Error creating notifications:', notifError);
-          // Don't fail the request creation if notifications fail
         }
 
-        // Notify the Solicitante (Self)
         try {
           await NotificationService.create({
-            userId: user.id, // Current user
+            userId: user.id,
             type: 'request_created',
             title: t('appNotifications.requestCreatedTitle'),
             message: t('appNotifications.requestCreatedMessage', { code: requestData.code }),
@@ -257,13 +250,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
   const handleSelectFiles = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        // 1. RESTRICCIÓN EN EL SELECTOR NATIVO
         type: [
-          "application/pdf",                                                 // PDF
-          "application/msword",                                              // .doc
-          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",   // .docx
-          "application/vnd.ms-excel",                                        // .xls
-          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"          // .xlsx
+          "application/pdf",
+          "application/msword",
+          "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          "application/vnd.ms-excel",
+          "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         ],
         multiple: true,
         copyToCacheDirectory: true,
@@ -272,8 +264,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       if (result.canceled) return;
 
       for (const file of result.assets) {
-
-        // 2. VALIDACIÓN DOBLE DE EXTENSIÓN (Seguridad adicional)
         const extension = file.name.split('.').pop()?.toLowerCase();
         const allowedExtensions = ['pdf', 'doc', 'docx', 'xls', 'xlsx'];
 
@@ -285,7 +275,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           continue;
         }
 
-        // Validación de tamaño existente
         if (!validateFileSize(file.size || 0)) {
           Alert.alert(t('requests.form.fileSizeError'), t('requests.form.fileSizeErrorMessage', { fileName: file.name }));
           continue;
@@ -334,7 +323,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     );
   };
 
-  // --- LÓGICA PARA CERRAR DROPDOWNS (Clic fuera + Tecla Esc) ---
   const closeDropdowns = () => {
     setShowProjectTypeDropdown(false);
     setShowSearchClassDropdown(false);
@@ -342,6 +330,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     Keyboard.dismiss();
   };
 
+  // --- ESCAPE KEY LISTENER (WEB ONLY) ---
   useEffect(() => {
     if (Platform.OS === 'web') {
       const handleKeyDown = (e: any) => {
@@ -352,11 +341,9 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       window.addEventListener('keydown', handleKeyDown);
       return () => window.removeEventListener('keydown', handleKeyDown);
     }
-  }, [showProjectTypeDropdown, showSearchClassDropdown]);
-  // -------------------------------------------------------------
+  }, []);
 
-  const { isMobileView } = useResponsive();
-
+  // --- REUSABLE SELECTOR COMPONENT ---
   const Selector = ({
     label,
     value,
@@ -379,31 +366,22 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
     disabled?: boolean
   }) => {
 
-    // Desktop Dropdown Content
-    const dropdownContent = (
-      <View style={styles.dropdownListDesktop}>
-        <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
-          {options.map((opt) => (
-            <TouchableOpacity
-              key={opt.value}
-              style={styles.dropdownOption}
-              onPress={() => onSelect(opt.value)}
-            >
-              <Text style={[styles.dropdownOptionText, value === opt.value && styles.dropdownOptionTextSelected]}>
-                {opt.label}
-              </Text>
-              {value === opt.value && <Ionicons name="checkmark" size={18} color={theme.colors.primary} />}
-            </TouchableOpacity>
-          ))}
-        </ScrollView>
-      </View>
-    );
-
     return (
       <View style={[styles.formGroup, { zIndex: visible ? 1000 : 1 }]}>
+        
+        {/* OVERLAY / BACKDROP PARA CERRAR AL HACER CLIC FUERA (SOLO ESCRITORIO) */}
+        {isDesktopView && visible && !disabled && (
+           <TouchableOpacity
+             style={styles.desktopBackdrop} 
+             activeOpacity={1} 
+             onPress={onToggle}
+           />
+        )}
+
         <Text style={styles.label}>
           {label} <Text style={styles.required}>*</Text>
         </Text>
+        
         <TouchableOpacity
           style={[
             styles.selectorButton,
@@ -418,20 +396,34 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           </Text>
           {!disabled && <Ionicons name={visible ? "chevron-up" : "chevron-down"} size={20} color="#666" />}
         </TouchableOpacity>
+        
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
-        {/* Desktop: Render Dropdown Inline (Absolute) */}
-        {isDesktopView && visible && !disabled && dropdownContent}
+        {/* Desktop: Render Dropdown */}
+        {isDesktopView && visible && !disabled && (
+          <View style={styles.dropdownListDesktop}>
+            <ScrollView style={{ maxHeight: 200 }} nestedScrollEnabled>
+              {options.map((opt) => (
+                <TouchableOpacity
+                  key={opt.value}
+                  style={styles.dropdownOption}
+                  onPress={() => onSelect(opt.value)}
+                >
+                  <Text style={[styles.dropdownOptionText, value === opt.value && styles.dropdownOptionTextSelected]}>
+                    {opt.label}
+                  </Text>
+                  {value === opt.value && <Ionicons name="checkmark" size={18} color={UNIFIED_BLUE} />}
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         {/* Mobile: Render Modal */}
         {!isDesktopView && !disabled && (
           <Modal visible={visible} transparent animationType="slide" onRequestClose={onToggle}>
             <TouchableWithoutFeedback onPress={onToggle}>
               <View style={styles.pickerOverlay}>
-                {/* AQUÍ ESTÁ LA CORRECCIÓN MÓVIL: 
-                   El TouchableWithoutFeedback vacío interno detiene la propagación del evento onPress hacia el padre (el overlay).
-                   Esto permite que el FlatList interno reciba los clics correctamente.
-                */}
                 <TouchableWithoutFeedback onPress={() => { }}>
                   <View style={styles.pickerContainer}>
                     <View style={styles.pickerHandle} />
@@ -453,7 +445,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                           <Text style={[styles.pickerItemText, value === item.value && styles.pickerItemTextSelected]}>
                             {item.label}
                           </Text>
-                          {value === item.value && <Ionicons name="checkmark" size={20} color={theme.colors.primary} />}
+                          {value === item.value && <Ionicons name="checkmark" size={20} color={UNIFIED_BLUE} />}
                         </TouchableOpacity>
                       )}
                     />
@@ -466,13 +458,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       </View>
     );
   };
-
-  const navItems = getSolicitanteNavItems(t, {
-    onNavigateToDashboard: onNavigateToDashboard || (() => { }),
-    onNavigateToNewRequest: onNavigateToNewRequest || (() => { }),
-    onNavigateToHistory: onNavigateToHistory || (() => { }),
-    onNavigateToProfile: onNavigateToProfile || (() => { }),
-  });
 
   return (
     <View style={styles.container}>
@@ -505,15 +490,16 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       >
         <ScrollView
           style={styles.content}
-          contentContainerStyle={{ paddingBottom: 100 }}
+          contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
-        // Eliminado onTouchStart del ScrollView para usar TouchableWithoutFeedback interno
         >
-          {/* ENVUELTO EN TouchableWithoutFeedback PARA CERRAR DROPDOWNS AL CLICAR FUERA */}
+          {/* Touchable global para resetear al hacer clic en el fondo general (backup) */}
           <TouchableWithoutFeedback onPress={closeDropdowns}>
             <View style={[
               styles.contentWrapper,
-              isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
+              // MODIFICACIÓN DE ANCHO: Reducido a 800px para mejor proporción
+              isDesktopView && { maxWidth: 800, alignSelf: 'center', width: '100%' },
+              { minHeight: '100%' }
             ]}>
 
               {/* 1. INFORMACIÓN BÁSICA */}
@@ -522,7 +508,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                 isDesktopView && (showProjectTypeDropdown || showSearchClassDropdown) && { zIndex: 3000, position: 'relative' }
               ]}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="information-circle-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Ionicons name="information-circle-outline" size={24} color={UNIFIED_BLUE} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.basicInfo')}</Text>
                 </View>
 
@@ -545,7 +531,8 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                           paddingRight: 16,
                           fontSize: 15,
                           color: '#333',
-                          fontFamily: 'inherit',
+                          // --- CORRECCIÓN DEFINITIVA DE FUENTE ---
+                          fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                           width: '100%',
                           borderStyle: 'solid',
                           outline: 'none',
@@ -589,7 +576,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                       label={t('requests.form.projectType')}
                       placeholder={t('requests.form.selectType')}
                       value={
-                        // Find label corresponding to value for display
                         projectTypeOptions.find(opt => opt.value === formData.projectType)?.label || formData.projectType
                       }
                       options={projectTypeOptions}
@@ -611,7 +597,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                     label={t('requests.form.searchClass')}
                     placeholder={t('requests.form.selectClass')}
                     value={
-                      // Find label corresponding to value for display
                       searchClassOptions.find(opt => opt.value === formData.searchClass)?.label || formData.searchClass
                     }
                     options={searchClassOptions}
@@ -631,7 +616,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 2. DETALLE DE LA NECESIDAD */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="document-text-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Ionicons name="document-text-outline" size={24} color={UNIFIED_BLUE} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.needsDetail')}</Text>
                 </View>
 
@@ -667,7 +652,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 3. CRITERIOS DE PROVEEDOR */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="people-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Ionicons name="people-outline" size={24} color={UNIFIED_BLUE} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.providerPreferences')}</Text>
                 </View>
 
@@ -725,12 +710,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
               {/* 4. ADJUNTOS */}
               <View style={styles.card}>
                 <View style={styles.cardHeader}>
-                  <Ionicons name="attach-outline" size={24} color={theme.colors.primary} style={{ marginRight: 10 }} />
+                  <Ionicons name="attach-outline" size={24} color={UNIFIED_BLUE} style={{ marginRight: 10 }} />
                   <Text style={styles.cardTitle}>{t('requests.form.documents')}</Text>
                 </View>
 
                 <View style={styles.uploadArea}>
-                  <Ionicons name="cloud-upload-outline" size={48} color={theme.colors.primary} style={{ marginBottom: 10 }} />
+                  <Ionicons name="cloud-upload-outline" size={48} color={UNIFIED_BLUE} style={{ marginBottom: 10 }} />
                   <Text style={styles.uploadTitle}>{t('requests.form.uploadTitle')}</Text>
                   <Text style={styles.uploadSubtitle}>{t('requests.form.uploadSubtitle')}</Text>
 
@@ -813,7 +798,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
         </View>
       </Modal>
     </View>
-
   );
 };
 
@@ -824,16 +808,14 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: -40, // Overlap
+    marginTop: -40,
   },
   contentWrapper: {
     paddingHorizontal: 16,
     width: '100%',
   },
-
-  // HERO HEADER
   heroHeader: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: UNIFIED_BLUE,
     paddingTop: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 40 : 80,
     paddingBottom: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 60 : 100,
     paddingHorizontal: 20,
@@ -869,8 +851,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: 'rgba(255,255,255,0.8)',
   },
-
-  // CARDS
   card: {
     backgroundColor: '#FFF',
     borderRadius: 16,
@@ -895,8 +875,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
   },
-
-  // FORMS
   formGroup: {
     marginBottom: 20,
   },
@@ -923,8 +901,6 @@ const styles = StyleSheet.create({
     color: '#999',
     marginTop: 4,
   },
-
-  // INPUTS
   textInput: {
     backgroundColor: '#F9FAFB',
     borderWidth: 1,
@@ -956,10 +932,8 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    height: 50, // Match fixed height
+    height: 50,
   },
-
-  // SELECTOR STYLES (NEW)
   selectorButton: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -980,8 +954,8 @@ const styles = StyleSheet.create({
   placeholderText: { color: '#999' },
   inputError: { borderColor: '#e53935' },
   errorText: { color: '#e53935', marginTop: 4, marginLeft: 6, fontSize: 12 },
-
-  // Desktop Dropdown
+  
+  // --- ESTILOS DE DESKTOP CORREGIDOS ---
   dropdownListDesktop: {
     position: 'absolute',
     top: '100%', left: 0, right: 0, marginTop: 4,
@@ -992,14 +966,24 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     zIndex: 9999,
   },
+  // Usar "as any" para propiedades web (fixed, cursor)
+  desktopBackdrop: {
+    position: Platform.OS === 'web' ? 'fixed' : 'absolute',
+    top: 0, 
+    left: 0, 
+    right: 0, 
+    bottom: 0,
+    zIndex: 998,
+  } as any,
+  
   dropdownOption: {
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5',
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
   },
   dropdownOptionText: { fontSize: 15, color: '#333' },
-  dropdownOptionTextSelected: { fontWeight: '600', color: theme.colors.primary },
-
-  // Mobile Picker Styles (Modal - Bottom Sheet)
+  dropdownOptionTextSelected: { fontWeight: '600', color: UNIFIED_BLUE },
+  
+  // Mobile Picker Styles
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   pickerContainer: {
     backgroundColor: 'white',
@@ -1018,11 +1002,7 @@ const styles = StyleSheet.create({
   pickerTitle: { fontSize: 18, fontWeight: '700', color: '#1A1A1A' },
   pickerItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F5F5F5', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   pickerItemText: { fontSize: 16, color: '#333' },
-  pickerItemTextSelected: { color: theme.colors.primary, fontWeight: '600' },
-
-
-
-  // CHIPS
+  pickerItemTextSelected: { color: UNIFIED_BLUE, fontWeight: '600' },
   chipContainer: {
     flexDirection: 'row',
     flexWrap: 'wrap',
@@ -1045,11 +1025,9 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   chipTextSelected: {
-    color: theme.colors.primary,
+    color: UNIFIED_BLUE,
     fontWeight: '600',
   },
-
-  // UPLOAD
   uploadArea: {
     backgroundColor: '#F8F9FA',
     borderWidth: 2,
@@ -1072,7 +1050,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   selectFilesButton: {
-    backgroundColor: theme.colors.primary,
+    backgroundColor: UNIFIED_BLUE,
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 8,
@@ -1087,8 +1065,6 @@ const styles = StyleSheet.create({
   disabledButton: {
     opacity: 0.6,
   },
-
-  // DOC LIST
   documentsList: {
     borderTopWidth: 1,
     borderTopColor: '#F5F5F5',
@@ -1133,8 +1109,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // ACTIONS
   actionButtons: {
     flexDirection: 'row',
     gap: 16,
@@ -1157,13 +1131,13 @@ const styles = StyleSheet.create({
   },
   submitButton: {
     flex: 2,
-    backgroundColor: theme.colors.primary,
+    backgroundColor: UNIFIED_BLUE,
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'center',
-    shadowColor: theme.colors.primary,
+    shadowColor: UNIFIED_BLUE,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,
@@ -1174,15 +1148,11 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#FFF',
   },
-
-  // MODAL
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
   modalContent: { backgroundColor: '#FFFFFF', borderRadius: 20, padding: 32, alignItems: 'center', maxWidth: 400, width: '100%' },
   successIconContainer: { width: 72, height: 72, borderRadius: 36, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
   successTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 12 },
   successMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 24, lineHeight: 24 },
-  successButton: { backgroundColor: theme.colors.primary, paddingVertical: 14, paddingHorizontal: 40, borderRadius: 10, width: '100%' },
+  successButton: { backgroundColor: UNIFIED_BLUE, paddingVertical: 14, paddingHorizontal: 40, borderRadius: 10, width: '100%' },
   successButtonText: { color: '#FFFFFF', fontSize: 16, fontWeight: '600', textAlign: 'center' },
 });
-
-

@@ -12,7 +12,6 @@ import {
   Modal,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { theme } from '../../styles/theme';
 import { db } from '../../services/firebaseConfig';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { useResponsive } from '../../styles/responsive';
@@ -32,7 +31,7 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
   const [email, setEmail] = useState('');
   const [contactName, setContactName] = useState('');
   const [phone, setPhone] = useState('');
-  const [category, setCategory] = useState('');
+  // Se eliminó el estado de 'category'
   const [message, setMessage] = useState('');
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -52,7 +51,7 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
         role: 'proveedor',
         companyName: companyName,
         phone,
-        category,
+        // Se eliminó el campo 'category' del envío
         status: 'INVITED',
         isActive: true,
         createdAt: serverTimestamp(),
@@ -178,16 +177,7 @@ export const SupplierInviteScreen: React.FC<SupplierInviteScreenProps> = ({
               </View>
             </FormRow>
 
-            {/* Categoría */}
-            <View style={styles.inputGroupNonRow}>
-              <Text style={styles.label}>Categoría del Proveedor</Text>
-              <View style={styles.selectContainer}>
-                <Text style={[styles.selectText, !category && styles.placeholderText]}>
-                  {category || 'Seleccione categoría (Opcional)'}
-                </Text>
-                <MaterialCommunityIcons name="chevron-down" size={24} color="#6B7280" />
-              </View>
-            </View>
+            {/* SE ELIMINÓ LA SECCIÓN DE CATEGORÍA DEL PROVEEDOR AQUÍ */}
 
             {/* Mensaje Personalizado */}
             <View style={styles.inputGroupNonRow}>
@@ -280,7 +270,7 @@ const styles = StyleSheet.create({
   blueHeaderContainer: {
     backgroundColor: '#004CA3',
     paddingTop: Platform.OS === 'ios' ? 60 : 40,
-    paddingBottom: 30, // Increased for visual overlap feel if needed, or straight cut
+    paddingBottom: 30,
     borderBottomLeftRadius: 24,
     borderBottomRightRadius: 24,
     shadowColor: "#000",
@@ -333,7 +323,7 @@ const styles = StyleSheet.create({
 
   // Responsive Form Layout
   formRow: { flexDirection: 'column', gap: 16, marginBottom: 16 },
-  formRowDesktop: { flexDirection: 'row', gap: 24 }, // On desktop, items sit side-by-side
+  formRowDesktop: { flexDirection: 'row', gap: 24 },
 
   inputGroup: { flex: 1 },
   inputGroupNonRow: { marginBottom: 16 },
@@ -361,19 +351,7 @@ const styles = StyleSheet.create({
   textArea: {
     minHeight: 100,
   },
-  selectContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#E5E7EB',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  selectText: { fontSize: 14, color: '#1F2937' },
-  placeholderText: { color: '#9CA3AF' },
+  // Se eliminaron los estilos de 'selectContainer' y 'selectText' ya que no se usan
 
   infoBox: {
     backgroundColor: '#EFF6FF',
@@ -424,7 +402,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    // backdropFilter: 'blur(4px)' // Only works on web, ignored on native usually
   },
   modalContent: {
     backgroundColor: '#FFF',

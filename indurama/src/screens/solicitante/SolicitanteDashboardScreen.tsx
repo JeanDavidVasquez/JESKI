@@ -23,6 +23,9 @@ import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 import { theme } from '../../styles/theme';
 
+// Color unificado solicitado
+const UNIFIED_BLUE = '#003E85';
+
 interface SolicitanteDashboardScreenProps {
     onNavigateToNewRequest: () => void;
     onNavigateToHistory: () => void;
@@ -91,7 +94,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
             case 'adjudicado': return 4;
             case 'completed': return 5;
             case 'rejected': return 1;
-            case 'reopened_noncompliance': return 4; // Same level as awarded
+            case 'reopened_noncompliance': return 4;
             default: return 0;
         }
     };
@@ -165,8 +168,8 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
         const activeStep = getTimelineStatus(status);
         const isRejected = status === 'rejected';
 
-        // Colors
-        let progressColor = '#2196F3';
+        // Colors - Updated Blue
+        let progressColor = UNIFIED_BLUE;
         if (status === 'quoting' || status === 'cotizacion') progressColor = '#F59E0B';
         if (status === 'awarded' || status === 'adjudicado' || status === 'completed') progressColor = '#9C27B0';
         if (status === 'rejected') progressColor = '#F44336';
@@ -214,7 +217,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                         const isCurrent = index === activeStep - 1;
 
                         let dotColor = '#E0E0E0';
-                        let activeColor = '#2196F3';
+                        let activeColor = UNIFIED_BLUE; // Updated Blue
 
                         if (status === 'quoting' || status === 'cotizacion') activeColor = '#F59E0B';
                         if (status === 'awarded' || status === 'adjudicado' || status === 'completed') activeColor = '#9C27B0';
@@ -248,9 +251,9 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
 
     const getStatusBadge = (status: string) => {
         let label = t('solicitante.status.inProcess');
-        let color = '#2196F3';
+        let color = UNIFIED_BLUE; // Updated Blue
         if (status === 'pending') { label = t('solicitante.status.waitingApproval'); color = '#FFA726'; }
-        if (status === 'in_progress') { label = t('solicitante.status.inManagement'); color = '#2196F3'; }
+        if (status === 'in_progress') { label = t('solicitante.status.inManagement'); color = UNIFIED_BLUE; } // Updated Blue
         if (status === 'quoting' || status === 'cotizacion') { label = t('solicitante.status.quoting'); color = '#F59E0B'; }
         if (status === 'awarded' || status === 'adjudicado') { label = t('solicitante.status.awarded'); color = '#9C27B0'; }
         if (status === 'completed') { label = t('solicitante.status.readyPurchase'); color = '#4CAF50'; }
@@ -310,7 +313,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
             >
                 <View style={[styles.contentWrapper, isDesktopView && styles.contentWrapperDesktop]}>
                     {loading ? (
-                        <ActivityIndicator size="large" color="#0D47A1" style={{ marginTop: 50 }} />
+                        <ActivityIndicator size="large" color={UNIFIED_BLUE} style={{ marginTop: 50 }} />
                     ) : (
                         <>
                             <View style={styles.actionBanner}>
@@ -323,7 +326,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                                         style={styles.actionButton}
                                         onPress={onNavigateToNewRequest}
                                     >
-                                        <Ionicons name="add-circle" size={20} color={theme.colors.primary} style={{ marginRight: 6 }} />
+                                        <Ionicons name="add-circle" size={20} color={UNIFIED_BLUE} style={{ marginRight: 6 }} />
                                         <Text style={styles.actionButtonText}>{t('solicitante.createNewRequest')}</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -333,7 +336,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                             <Text style={styles.sectionTitle}>{t('solicitante.yourSummary')}</Text>
                             <View style={styles.statsRow}>
                                 <View style={styles.statItem}>
-                                    <Text style={[styles.statValue, { color: '#0D47A1' }]}>{stats.inProgress}</Text>
+                                    <Text style={[styles.statValue, { color: UNIFIED_BLUE }]}>{stats.inProgress}</Text>
                                     <Text style={styles.statLabel}>{t('solicitante.inProgress')}</Text>
                                     <Text style={styles.statSub}>{t('solicitante.activeRequests')}</Text>
                                 </View>
@@ -437,7 +440,7 @@ export const SolicitanteDashboardScreen: React.FC<SolicitanteDashboardScreenProp
                                                     onPress={() => onNavigateToRequestDetail?.(request.id)}
                                                 >
                                                     <Text style={styles.detailsButtonText}>{t('solicitante.viewDetails')}</Text>
-                                                    <Ionicons name="arrow-forward" size={16} color={theme.colors.primary} style={{ marginLeft: 4 }} />
+                                                    <Ionicons name="arrow-forward" size={16} color={UNIFIED_BLUE} style={{ marginLeft: 4 }} />
                                                 </TouchableOpacity>
                                             </View>
                                         </View>
@@ -463,13 +466,13 @@ const styles = StyleSheet.create({
     userRole: { fontSize: 13, color: '#888', marginTop: 2 },
     logo: { width: 80, height: 40 },
     content: { flex: 1, padding: 20 },
-    actionBanner: { backgroundColor: theme.colors.primary, borderRadius: 16, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden', shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
+    actionBanner: { backgroundColor: UNIFIED_BLUE, borderRadius: 16, padding: 24, marginBottom: 24, position: 'relative', overflow: 'hidden', shadowColor: UNIFIED_BLUE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 5 },
     actionBannerContent: { zIndex: 2 },
     bannerCircle: { position: 'absolute', right: -20, top: -20, width: 150, height: 150, borderRadius: 75, backgroundColor: 'rgba(255,255,255,0.1)', zIndex: 1 },
     actionTitle: { fontSize: 20, fontWeight: 'bold', color: '#FFFFFF', marginBottom: 8 },
     actionSubtitle: { fontSize: 14, color: 'rgba(255,255,255,0.8)', marginBottom: 20, maxWidth: '80%' },
     actionButton: { backgroundColor: '#FFFFFF', borderRadius: 25, paddingVertical: 10, paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start' },
-    actionButtonText: { color: theme.colors.primary, fontWeight: 'bold', fontSize: 14 },
+    actionButtonText: { color: UNIFIED_BLUE, fontWeight: 'bold', fontSize: 14 },
     sectionTitle: { fontSize: 18, fontWeight: 'bold', color: '#212121', marginBottom: 16 },
     statsRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 32, gap: 12 },
     statItem: { flex: 1, backgroundColor: '#FFFFFF', borderRadius: 12, padding: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
@@ -477,7 +480,7 @@ const styles = StyleSheet.create({
     statLabel: { fontSize: 14, fontWeight: '600', color: '#333' },
     statSub: { fontSize: 11, color: '#999', marginTop: 2 },
     sectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-    seeAllText: { color: theme.colors.primary, fontWeight: '600', fontSize: 14 },
+    seeAllText: { color: UNIFIED_BLUE, fontWeight: '600', fontSize: 14 },
 
     // Grid System
     gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
@@ -492,12 +495,12 @@ const styles = StyleSheet.create({
     cardSubtitle: { fontSize: 13, color: '#757575', marginBottom: 20 },
 
     // Timeline Desktop
-    timelineWrapper: { backgroundColor: 'rgba(21,101,192,0.06)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8, marginBottom: 24 },
+    timelineWrapper: { backgroundColor: 'rgba(0, 62, 133, 0.06)', borderRadius: 12, paddingVertical: 10, paddingHorizontal: 8, marginBottom: 24 },
     timelineContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 4, position: 'relative', minHeight: 46 },
     timelineStep: { alignItems: 'center', flex: 1 },
     timelineDot: { marginBottom: 4, zIndex: 2, borderWidth: 2, borderColor: '#FFFFFF', shadowColor: '#000', shadowOpacity: 0.08, shadowRadius: 2, elevation: 1, justifyContent: 'center', alignItems: 'center' },
     timelineLabel: { fontSize: 10, color: '#757575', textAlign: 'center' },
-    timelineLabelActive: { color: '#2196F3', fontWeight: '600' },
+    timelineLabelActive: { color: UNIFIED_BLUE, fontWeight: '600' },
     trackWrapper: { position: 'absolute', top: 18, left: 16, right: 16, height: 4, zIndex: 1 },
     timelineBase: { width: '100%', height: '100%', backgroundColor: '#E0E0E0', borderRadius: 2, position: 'absolute' },
     timelineProgress: { height: '100%', borderRadius: 2 },
@@ -518,7 +521,7 @@ const styles = StyleSheet.create({
     dateContainer: { flexDirection: 'row', alignItems: 'center' },
     dateText: { fontSize: 12, color: '#9E9E9E' },
     detailsButton: { flexDirection: 'row', alignItems: 'center' },
-    detailsButtonText: { color: theme.colors.primary, fontWeight: '600', fontSize: 14 },
+    detailsButtonText: { color: UNIFIED_BLUE, fontWeight: '600', fontSize: 14 },
     emptyState: { alignItems: 'center', padding: 40, backgroundColor: '#FFF', borderRadius: 16 },
     emptyText: { color: '#999', fontSize: 16 },
 
@@ -531,6 +534,3 @@ const styles = StyleSheet.create({
     reopenedInfoBanner: { backgroundColor: '#FFFBEB', flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 14, borderRadius: 12, marginBottom: 20, borderWidth: 1, borderColor: '#FDE68A' },
     reopenedInfoText: { flex: 1, color: '#92400E', fontSize: 13 },
 });
-
-
-
