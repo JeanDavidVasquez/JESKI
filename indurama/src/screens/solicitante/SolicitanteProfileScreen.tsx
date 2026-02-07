@@ -6,7 +6,6 @@ import {
     ScrollView,
     TouchableOpacity,
     Alert,
-    Image,
     Linking,
     Platform,
     TextInput,
@@ -20,6 +19,7 @@ import { LanguageSelector } from '../../components/LanguageSelector';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { getUserRequestStats, getUserRequests } from '../../services/requestService';
+import { theme } from '../../styles/theme';
 
 interface SolicitanteProfileScreenProps {
     onNavigateToDashboard: () => void;
@@ -293,12 +293,12 @@ const styles = StyleSheet.create({
         backgroundColor: '#F5F5F5',
     },
     headerContainer: {
-        backgroundColor: '#003E85',
+        backgroundColor: theme.colors.primary,
         height: 180,
         borderBottomLeftRadius: 30,
         borderBottomRightRadius: 30,
         paddingTop: 50,
-        paddingHorizontal: 20,
+        paddingHorizontal: theme.spacing[5],
     },
     headerTop: {
         flexDirection: 'row',
@@ -307,8 +307,8 @@ const styles = StyleSheet.create({
     },
     headerTitle: {
         fontSize: 24,
-        fontWeight: 'bold',
-        color: '#FFFFFF',
+        fontWeight: '700',
+        color: theme.colors.white,
     },
     profileSection: {
         alignItems: 'center',

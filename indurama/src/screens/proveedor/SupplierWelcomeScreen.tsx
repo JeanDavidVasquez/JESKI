@@ -300,7 +300,7 @@ export const SupplierWelcomeScreen: React.FC<SupplierWelcomeScreenProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F9FB',
+    backgroundColor: theme.colors.background.secondary,
   },
   content: {
     flex: 1,
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   modalCard: {
     width: '85%',
     maxWidth: 320,
-    backgroundColor: 'white',
+    backgroundColor: theme.colors.white,
     borderRadius: 20,
     padding: 25,
     alignItems: 'center',
@@ -336,13 +336,13 @@ const styles = StyleSheet.create({
   modalTitle: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#1F2937',
+    color: theme.colors.text.primary,
     marginBottom: 8,
     textAlign: 'center',
   },
   modalMessage: {
     fontSize: 14,
-    color: '#6B7280',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     marginBottom: 20,
     lineHeight: 20,
@@ -375,7 +375,7 @@ const styles = StyleSheet.create({
   },
   welcomeMessage: {
     fontSize: 16,
-    color: '#6B7280',
+    color: theme.colors.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
     marginBottom: 24,
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
     borderRadius: 16,
     borderWidth: 0,
     shadowColor: '#000',
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   inputContainerFocused: {
     borderWidth: 2,
     borderColor: theme.colors.primary,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
     shadowColor: theme.colors.primary,
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -442,7 +442,7 @@ const styles = StyleSheet.create({
   textInput: {
     flex: 1,
     fontSize: 17,
-    color: '#1F2937',
+    color: theme.colors.text.primary,
     height: '100%',
   },
   errorContainer: {
@@ -494,7 +494,7 @@ const styles = StyleSheet.create({
   },
   notificationButton: {
     padding: 8,
-    backgroundColor: '#FFF',
+    backgroundColor: theme.colors.white,
     borderRadius: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -503,7 +503,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   quotationsButton: {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: theme.colors.white,
     borderWidth: 1.5,
     borderColor: theme.colors.primary,
     height: 52,
@@ -525,7 +525,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoutButtonText: {
-    color: '#6B7280',
+    color: theme.colors.text.secondary,
     fontSize: 15,
     fontWeight: '500',
   }

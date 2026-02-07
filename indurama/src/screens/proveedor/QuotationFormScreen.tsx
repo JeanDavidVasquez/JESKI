@@ -78,11 +78,11 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
         if (!isNaN(days) && days > 0) {
             const date = calculateBusinessDate(days);
             // Formatear: "Lunes, 12 de febrero de 2026"
-            const dateStr = date.toLocaleDateString('es-EC', { 
-                weekday: 'long', 
-                day: 'numeric', 
-                month: 'long', 
-                year: 'numeric' 
+            const dateStr = date.toLocaleDateString('es-EC', {
+                weekday: 'long',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
             });
             // Capitalizar primera letra
             setEstimatedDate(dateStr.charAt(0).toUpperCase() + dateStr.slice(1));
@@ -94,11 +94,11 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
     const calculateBusinessDate = (daysToAdd: number) => {
         let currentDate = new Date();
         let addedDays = 0;
-        
+
         while (addedDays < daysToAdd) {
             currentDate.setDate(currentDate.getDate() + 1);
             const day = currentDate.getDay(); // 0 = Domingo, 6 = Sábado
-            
+
             // Si NO es fin de semana, contamos el día
             if (day !== 0 && day !== 6) {
                 addedDays++;
@@ -199,7 +199,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
             }
 
             const successMessage = existingQuotation ? 'Oferta actualizada correctamente' : 'Cotización enviada correctamente';
-            
+
             if (Platform.OS === 'web') {
                 window.alert(`Éxito: ${successMessage}`);
                 if (onSuccess) onSuccess();
@@ -623,7 +623,7 @@ export const QuotationFormScreen: React.FC<QuotationFormScreenProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.colors.background.secondary,
     },
     loadingContainer: {
         flex: 1,
@@ -632,7 +632,7 @@ const styles = StyleSheet.create({
     },
     loadingText: {
         marginTop: 16,
-        color: '#6B7280',
+        color: theme.colors.text.secondary,
     },
     header: {
         backgroundColor: theme.colors.primary,
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
         flex: 1,
     },
     headerTitle: {
-        color: '#FFF',
+        color: theme.colors.white,
         fontSize: 18,
         fontWeight: 'bold',
     },
@@ -687,7 +687,7 @@ const styles = StyleSheet.create({
         flex: 0.6,
     },
     card: {
-        backgroundColor: '#FFF',
+        backgroundColor: theme.colors.white,
         borderRadius: 16,
         padding: 20,
         marginBottom: 16,

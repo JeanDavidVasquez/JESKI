@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   },
   headerContent: {
     width: '100%',
-    alignSelf: 'center'
+    // alignSelf: 'center' 
   },
   title: { fontSize: 24, fontWeight: '800', color: '#111827' },
   subtitle: { fontSize: 13, color: '#6B7280', marginTop: 2 },

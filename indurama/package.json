@@ -5,6 +5,7 @@
   "scripts": {
     "prestart": "npm run sync-terms",
     "prebuild": "npm run sync-terms",
+    "eas-build-pre-install": "node ./scripts/create-env.js",
     "start": "expo start",
     "android": "expo run:android",
     "ios": "expo run:ios",

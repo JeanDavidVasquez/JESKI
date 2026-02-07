@@ -8,15 +8,29 @@ import {
     ActivityIndicator,
     RefreshControl,
     TextInput,
-    Image,
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
+import { Ionicons } from '@expo/vector-icons';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { getSolicitanteNavItems } from '../../navigation/solicitanteItems';
 import { useAuth } from '../../hooks/useAuth';
 import { useLanguage } from '../../hooks/useLanguage';
 import { getUserRequests, getRelativeTime } from '../../services/requestService';
 import { Request } from '../../types';
+import { theme } from '../../styles/theme';
+import {
+    solicitanteHeaderStyles,
+    solicitanteCardStyles,
+    solicitanteInputStyles,
+    solicitanteFilterStyles,
+    solicitanteContentStyles,
+    getStatusColor,
+} from './solicitanteStyles';
+
+/**
+ * Pantalla de Historial de Solicitudes para Solicitante
+ * Refactorizada para usar estilos compartidos del Design System
+ */
 
 interface SolicitanteHistoryScreenProps {
     onNavigateToDashboard: () => void;
@@ -33,7 +47,6 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
     onNavigateToRequestDetail,
     onNavigateToNotifications,
 }) => {
-    // ... (rest of hook logic unchanged)
     const { user } = useAuth();
     const { t } = useLanguage();
     const [loading, setLoading] = useState(true);
@@ -91,53 +104,65 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
         filterRequests(requests, activeFilter, searchText);
     }, [activeFilter, searchText]);
 
-    const getStatusBadge = (status: string) => {
-        const configs = {
-            pending: { label: t('solicitante.status.pending'), color: '#FFA726' },
-            rectification_required: { label: t('solicitante.status.rectificationRequired'), color: '#FF9800' },
-            in_progress: { label: t('solicitante.status.inProgress'), color: '#2196F3' },
-            quoting: { label: t('solicitante.status.quoting'), color: '#F59E0B' },
-            cotizacion: { label: t('solicitante.status.quoting'), color: '#F59E0B' },
-            awarded: { label: t('solicitante.status.awarded'), color: '#9C27B0' },
-            adjudicado: { label: t('solicitante.status.awarded'), color: '#9C27B0' },
-            completed: { label: t('solicitante.status.completed'), color: '#4CAF50' },
-            rejected: { label: t('solicitante.status.rejected'), color: '#F44336' },
+    const getStatusLabel = (status: string) => {
+        const labels: Record<string, string> = {
+            pending: t('solicitante.status.pending'),
+            rectification_required: t('solicitante.status.rectificationRequired'),
+            in_progress: t('solicitante.status.inProgress'),
+            quoting: t('solicitante.status.quoting'),
+            cotizacion: t('solicitante.status.quoting'),
+            awarded: t('solicitante.status.awarded'),
+            adjudicado: t('solicitante.status.awarded'),
+            completed: t('solicitante.status.completed'),
+            rejected: t('solicitante.status.rejected'),
         };
-        const config = configs[status as keyof typeof configs] || configs.pending;
+        return labels[status] || status;
+    };
+
+    const renderStatusBadge = (status: string) => {
+        const color = getStatusColor(status);
         return (
-            <View style={[styles.statusBadge, { backgroundColor: config.color + '20' }]}>
-                <Text style={[styles.statusText, { color: config.color }]}>{config.label}</Text>
+            <View style={[styles.statusBadge, { borderColor: color, backgroundColor: color + '15' }]}>
+                <Text style={[styles.statusText, { color }]}>{getStatusLabel(status)}</Text>
             </View>
         );
     };
 
     const renderRequest = ({ item }: { item: Request }) => (
         <TouchableOpacity
-            style={styles.requestCard}
+            style={solicitanteCardStyles.container}
             onPress={() => onNavigateToRequestDetail?.(item.id)}
         >
-            <View style={styles.requestHeader}>
-                <Text style={styles.requestCode}>{item.code}</Text>
-                {getStatusBadge(item.status)}
+            <View style={solicitanteCardStyles.header}>
+                <Text style={solicitanteCardStyles.code}>{item.code}</Text>
+                {renderStatusBadge(item.status)}
             </View>
-            <Text style={styles.requestDescription} numberOfLines={2}>
+            <Text style={solicitanteCardStyles.title} numberOfLines={2}>
                 {item.description}
             </Text>
-            <View style={styles.requestDetails}>
+            <View style={styles.detailsRow}>
                 <Text style={styles.detailText}>📍 {item.department}</Text>
                 <Text style={styles.detailText}>📦 {item.claseBusqueda}</Text>
             </View>
-            <Text style={styles.requestDate}>{getRelativeTime(item.createdAt)}</Text>
+            <Text style={styles.dateText}>{getRelativeTime(item.createdAt)}</Text>
         </TouchableOpacity>
     );
 
-    // Navigation items for ResponsiveNavShell (using Ionicons names)
     const navItems = getSolicitanteNavItems(t, {
         onNavigateToDashboard: onNavigateToDashboard,
         onNavigateToNewRequest: onNavigateToNewRequest,
         onNavigateToHistory: () => { },
         onNavigateToProfile: onNavigateToProfile,
     });
+
+    const filters = ['all', 'pending', 'in_progress', 'completed', 'rejected'] as const;
+    const filterLabels: Record<string, string> = {
+        all: t('solicitante.history.filters.all'),
+        pending: t('solicitante.history.filters.pending'),
+        in_progress: t('solicitante.history.filters.inProgress'),
+        completed: t('solicitante.history.filters.completed'),
+        rejected: t('solicitante.history.filters.rejected'),
+    };
 
     return (
         <ResponsiveNavShell
@@ -148,172 +173,109 @@ export const SolicitanteHistoryScreen: React.FC<SolicitanteHistoryScreenProps> =
         >
             <StatusBar style="dark" />
 
-            {/* Header */}
-            <View style={styles.header}>
-                <Text style={styles.title}>{t('solicitante.history.title')}</Text>
+            {/* Header Estandarizado */}
+            <View style={solicitanteHeaderStyles.container}>
+                <Text style={solicitanteHeaderStyles.title}>{t('solicitante.history.title')}</Text>
             </View>
 
-            {/* Search */}
-            <View style={styles.searchContainer}>
-                <TextInput
-                    style={styles.searchInput}
-                    placeholder={t('solicitante.history.searchDetailedPlaceholder')}
-                    value={searchText}
-                    onChangeText={setSearchText}
-                />
+            {/* Búsqueda */}
+            <View style={styles.searchWrapper}>
+                <View style={solicitanteInputStyles.searchContainer}>
+                    <Ionicons
+                        name="search-outline"
+                        size={20}
+                        color={theme.colors.text.muted}
+                        style={solicitanteInputStyles.searchIcon}
+                    />
+                    <TextInput
+                        style={solicitanteInputStyles.searchInput}
+                        placeholder={t('solicitante.history.searchDetailedPlaceholder')}
+                        placeholderTextColor={theme.colors.text.muted}
+                        value={searchText}
+                        onChangeText={setSearchText}
+                    />
+                </View>
             </View>
 
-            {/* Filters */}
-            <View style={styles.filtersContainer}>
-                {['all', 'pending', 'in_progress', 'completed', 'rejected'].map((filter) => (
+            {/* Filtros */}
+            <View style={solicitanteFilterStyles.container}>
+                {filters.map((filter) => (
                     <TouchableOpacity
                         key={filter}
-                        style={[styles.filterButton, activeFilter === filter && styles.filterButtonActive]}
-                        onPress={() => setActiveFilter(filter as any)}
+                        style={[
+                            solicitanteFilterStyles.chip,
+                            activeFilter === filter && solicitanteFilterStyles.chipActive
+                        ]}
+                        onPress={() => setActiveFilter(filter)}
                     >
-                        <Text style={[styles.filterText, activeFilter === filter && styles.filterTextActive]}>
-                            {filter === 'all' ? t('solicitante.history.filters.all') :
-                                filter === 'pending' ? t('solicitante.history.filters.pending') :
-                                    filter === 'in_progress' ? t('solicitante.history.filters.inProgress') :
-                                        filter === 'completed' ? t('solicitante.history.filters.completed') : t('solicitante.history.filters.rejected')}
+                        <Text style={[
+                            solicitanteFilterStyles.chipText,
+                            activeFilter === filter && solicitanteFilterStyles.chipTextActive
+                        ]}>
+                            {filterLabels[filter]}
                         </Text>
                     </TouchableOpacity>
                 ))}
             </View>
 
+            {/* Lista */}
             {loading ? (
-                <ActivityIndicator size="large" color="#003E85" style={{ marginTop: 50 }} />
+                <ActivityIndicator size="large" color={theme.colors.primary} style={{ marginTop: 50 }} />
             ) : (
                 <FlatList
                     data={filteredRequests}
                     renderItem={renderRequest}
                     keyExtractor={(item) => item.id}
-                    contentContainerStyle={styles.listContent}
-                    refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); loadRequests(); }} />}
+                    contentContainerStyle={solicitanteContentStyles.container}
+                    refreshControl={
+                        <RefreshControl
+                            refreshing={refreshing}
+                            onRefresh={() => { setRefreshing(true); loadRequests(); }}
+                            colors={[theme.colors.primary]}
+                            tintColor={theme.colors.primary}
+                        />
+                    }
                     ListEmptyComponent={
-                        <View style={styles.emptyState}>
-                            <Text style={styles.emptyText}>{t('solicitante.history.empty')}</Text>
+                        <View style={solicitanteContentStyles.emptyState}>
+                            <Ionicons name="document-text-outline" size={48} color={theme.colors.text.muted} />
+                            <Text style={solicitanteContentStyles.emptyText}>{t('solicitante.history.empty')}</Text>
                         </View>
                     }
                 />
             )}
-
         </ResponsiveNavShell>
     );
 };
 
+// Estilos locales (solo los que no están en solicitanteStyles)
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F5F5',
-    },
-    header: {
-        backgroundColor: '#FFFFFF',
-        padding: 20,
-        paddingTop: 50,
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
-    },
-    title: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#003E85',
-    },
-    searchContainer: {
-        backgroundColor: '#FFFFFF',
-        padding: 16,
-    },
-    searchInput: {
-        backgroundColor: '#F5F5F5',
-        padding: 12,
-        borderRadius: 8,
-        fontSize: 14,
-    },
-    filtersContainer: {
-        flexDirection: 'row',
-        paddingHorizontal: 16,
-        paddingVertical: 12,
-        backgroundColor: '#FFFFFF',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
-        gap: 8,
-    },
-    filterButton: {
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 16,
-        backgroundColor: '#F5F5F5',
-    },
-    filterButtonActive: {
-        backgroundColor: '#003E85',
-    },
-    filterText: {
-        fontSize: 12,
-        color: '#666',
-    },
-    filterTextActive: {
-        color: '#FFFFFF',
-        fontWeight: '600',
-    },
-    listContent: {
-        padding: 16,
-    },
-    requestCard: {
-        backgroundColor: '#FFFFFF',
-        padding: 16,
-        borderRadius: 12,
-        marginBottom: 12,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    requestHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    requestCode: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#003E85',
+    searchWrapper: {
+        backgroundColor: theme.colors.white,
+        paddingHorizontal: theme.spacing[4],
+        paddingVertical: theme.spacing[3],
     },
     statusBadge: {
-        paddingHorizontal: 12,
-        paddingVertical: 4,
-        borderRadius: 12,
+        borderWidth: 1,
+        borderRadius: 20,
+        paddingHorizontal: theme.spacing[3],
+        paddingVertical: theme.spacing[1],
     },
     statusText: {
-        fontSize: 11,
-        fontWeight: '600',
+        fontSize: 10,
+        fontWeight: '700',
     },
-    requestDescription: {
-        fontSize: 14,
-        color: '#333',
-        marginBottom: 8,
-        lineHeight: 20,
-    },
-    requestDetails: {
+    detailsRow: {
         flexDirection: 'row',
-        gap: 16,
-        marginBottom: 8,
+        gap: theme.spacing[4],
+        marginTop: theme.spacing[2],
+        marginBottom: theme.spacing[2],
     },
     detailText: {
         fontSize: 12,
-        color: '#666',
+        color: theme.colors.text.secondary,
     },
-    requestDate: {
+    dateText: {
         fontSize: 12,
-        color: '#999',
-    },
-    emptyState: {
-        alignItems: 'center',
-        paddingVertical: 40,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#999',
+        color: theme.colors.text.muted,
     },
 });

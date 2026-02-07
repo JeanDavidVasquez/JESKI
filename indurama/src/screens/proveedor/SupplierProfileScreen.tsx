@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { useAuth } from '../../hooks/useAuth';
 import { theme } from '../../styles/theme';
 import { SupplierResponseService } from '../../services/supplierResponseService';
@@ -20,6 +21,14 @@ import { db } from '../../services/firebaseConfig';
 import { doc, onSnapshot } from 'firebase/firestore';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { useWindowDimensions } from 'react-native';
+import {
+    proveedorTypography,
+    proveedorProfileStyles,
+    proveedorScoreStyles,
+    proveedorContentStyles,
+    proveedorGradientHeaderStyles,
+    HEADER_GRADIENT_COLORS
+} from './proveedorStyles';
 
 interface SupplierProfileScreenProps {
     onNavigateBack: () => void;
@@ -101,11 +110,11 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
         switch (status) {
             case 'epi_approved':
             case 'active':
-                return '#4CAF50';
+                return theme.colors.success;
             case 'pending':
-                return '#FFA726';
+                return theme.colors.warning;
             default:
-                return '#999';
+                return theme.colors.text.muted;
         }
     };
 
@@ -161,75 +170,72 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
             <View style={styles.container}>
                 <StatusBar style="light" />
 
-                {/* Header - Simplified */}
-                <View style={[styles.header, !isMobile && styles.headerWeb]}>
+                {/* Header - Consistent Gradient like Dashboard */}
+                <LinearGradient
+                    colors={['#001F3F', '#003E85', '#0056B3']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[styles.header, !isMobile && styles.headerWeb]}
+                >
                     <Text style={styles.headerTitle}>{t('proveedor.profile.title')}</Text>
-                    {isMobile && (
-                        <View style={{ width: 40 }} />
-                    )}
-                </View>
+                </LinearGradient>
 
-                <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
+                <ScrollView style={proveedorContentStyles.container} contentContainerStyle={proveedorContentStyles.listContent} showsVerticalScrollIndicator={false}>
                     {/* Profile Card */}
-                    <View style={styles.profileCard}>
-                        <View style={styles.avatarContainer}>
-                            <View style={styles.avatar}>
-                                <Ionicons name="business" size={40} color="#FFF" />
-                            </View>
+                    <View style={proveedorProfileStyles.profileCard}>
+                        <View style={proveedorProfileStyles.avatar}>
+                            <Ionicons name="business" size={40} color="#FFF" />
                         </View>
-                        <Text style={styles.companyName}>{displayName}</Text>
-                        <Text style={styles.email}>{user?.email}</Text>
-                        <View style={[styles.statusBadge, { backgroundColor: getStatusColor(realStatus) }]}>
-                            <Text style={styles.statusText}>{getStatusLabel(realStatus)}</Text>
+                        <Text style={proveedorProfileStyles.profileName}>{displayName}</Text>
+                        <Text style={proveedorProfileStyles.profileEmail}>{user?.email}</Text>
+                        <View style={[proveedorProfileStyles.statusBadge, { backgroundColor: getStatusColor(realStatus) }]}>
+                            <Text style={proveedorProfileStyles.statusText}>{getStatusLabel(realStatus)}</Text>
                         </View>
                     </View>
 
                     {/* EPI Score Card */}
-                    <TouchableOpacity style={styles.epiCard} onPress={onNavigateToEPIStatus}>
-                        <View style={styles.epiCardContent}>
-                            <View>
-                                <Text style={styles.epiLabel}>{t('proveedor.dashboard.myEpiScore')}</Text>
-                                <Text style={styles.epiDescription}>{t('common.viewMore')}</Text>
-                            </View>
-                            <View style={styles.scoreCircle}>
-                                <Text style={styles.scoreValue}>{Math.round(displayScore)}</Text>
-                            </View>
+                    <TouchableOpacity style={proveedorScoreStyles.container} onPress={onNavigateToEPIStatus}>
+                        <View>
+                            <Text style={proveedorScoreStyles.label}>{t('proveedor.dashboard.myEpiScore')}</Text>
+                            <Text style={proveedorScoreStyles.sublabel}>{t('common.viewMore')}</Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={24} color="#666" />
+                        <View style={proveedorScoreStyles.scoreCircle}>
+                            <Text style={proveedorScoreStyles.scoreValue}>{Math.round(displayScore)}</Text>
+                        </View>
                     </TouchableOpacity>
 
                     {/* Menu Options */}
-                    <View style={styles.menuSection}>
-                        <Text style={styles.menuTitle}>{t('proveedor.profile.companyInfo')}</Text>
+                    <View style={proveedorProfileStyles.menuSection}>
+                        <Text style={proveedorProfileStyles.menuTitle}>{t('proveedor.profile.companyInfo')}</Text>
 
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuIcon}>
+                        <TouchableOpacity style={proveedorProfileStyles.menuItem}>
+                            <View style={proveedorProfileStyles.menuIcon}>
                                 <Ionicons name="business-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>{t('proveedor.profile.companyInfo')}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                            <Text style={proveedorProfileStyles.menuLabel}>{t('proveedor.profile.companyInfo')}</Text>
+                            <Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuIcon}>
+                        <TouchableOpacity style={proveedorProfileStyles.menuItem}>
+                            <View style={proveedorProfileStyles.menuIcon}>
                                 <Ionicons name="document-text-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>{t('requests.attachments')}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                            <Text style={proveedorProfileStyles.menuLabel}>{t('requests.attachments')}</Text>
+                            <Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
                         </TouchableOpacity>
 
-                        <TouchableOpacity style={styles.menuItem}>
-                            <View style={styles.menuIcon}>
+                        <TouchableOpacity style={proveedorProfileStyles.menuItem}>
+                            <View style={proveedorProfileStyles.menuIcon}>
                                 <Ionicons name="notifications-outline" size={22} color={theme.colors.primary} />
                             </View>
-                            <Text style={styles.menuItemText}>{t('navigation.notifications')}</Text>
-                            <Ionicons name="chevron-forward" size={20} color="#CCC" />
+                            <Text style={proveedorProfileStyles.menuLabel}>{t('navigation.notifications')}</Text>
+                            <Ionicons name="chevron-forward" size={20} color={theme.colors.text.muted} />
                         </TouchableOpacity>
                     </View>
 
                     {/* Language Selector */}
-                    <View style={[styles.menuSection, { marginTop: 16, paddingVertical: 16 }]}>
-                        <Text style={[styles.menuTitle, { marginBottom: 12 }]}>{t('profile.language')}</Text>
+                    <View style={[proveedorProfileStyles.menuSection, { marginTop: 16, paddingVertical: 16 }]}>
+                        <Text style={[proveedorProfileStyles.menuTitle, { marginBottom: 12 }]}>{t('profile.language')}</Text>
                         <LanguageSelector />
                     </View>
 
@@ -249,16 +255,17 @@ export const SupplierProfileScreen: React.FC<SupplierProfileScreenProps> = ({
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: theme.colors.background.secondary,
     },
     header: {
-        backgroundColor: theme.colors.primary,
         paddingTop: Platform.OS === 'ios' ? 50 : 40,
-        paddingBottom: 16,
+        paddingBottom: 20,
         paddingHorizontal: 16,
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'center', // Center title since back button is gone
+        justifyContent: 'center',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
     },
     headerWeb: {
         paddingTop: 20,
@@ -270,25 +277,21 @@ const styles = StyleSheet.create({
         bottom: 16,
     },
     headerTitle: {
-        color: '#FFF',
+        color: theme.colors.white,
         fontSize: 18,
-        fontWeight: 'bold',
+        fontWeight: '700' as const,
     },
     content: {
         flex: 1,
-        padding: 20,
+        padding: theme.spacing[5],
     },
     profileCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 16,
-        padding: 24,
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.borderRadius.xl,
+        padding: theme.spacing[6],
         alignItems: 'center',
-        marginBottom: 20,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 8,
-        elevation: 2,
+        marginBottom: theme.spacing[5],
+        ...theme.shadows.base,
     },
     avatarContainer: {
         marginBottom: 16,
@@ -303,33 +306,34 @@ const styles = StyleSheet.create({
     },
     companyName: {
         fontSize: 22,
-        fontWeight: 'bold',
-        color: '#333',
+        fontWeight: '700' as const,
+        color: theme.colors.text.primary,
         textAlign: 'center',
     },
     email: {
         fontSize: 14,
-        color: '#666',
-        marginTop: 4,
+        color: theme.colors.text.secondary,
+        marginTop: theme.spacing[1],
     },
+
     statusBadge: {
-        marginTop: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 6,
+        marginTop: theme.spacing[3],
+        paddingHorizontal: theme.spacing[4],
+        paddingVertical: theme.spacing[1] + 2,
         borderRadius: 20,
     },
     statusText: {
-        color: '#FFF',
+        color: theme.colors.white,
         fontSize: 13,
-        fontWeight: '600',
+        fontWeight: '600' as const,
     },
     epiCard: {
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        padding: 16,
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.borderRadius.lg,
+        padding: theme.spacing[4],
         flexDirection: 'row',
         alignItems: 'center',
-        marginBottom: 20,
+        marginBottom: theme.spacing[5],
     },
     epiCardContent: {
         flex: 1,
@@ -339,12 +343,12 @@ const styles = StyleSheet.create({
     },
     epiLabel: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
+        fontWeight: '600' as const,
+        color: theme.colors.text.primary,
     },
     epiDescription: {
         fontSize: 13,
-        color: '#666',
+        color: theme.colors.text.secondary,
         marginTop: 2,
     },
     scoreCircle: {
@@ -354,62 +358,62 @@ const styles = StyleSheet.create({
         backgroundColor: '#E8F5E9',
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: theme.spacing[3],
     },
     scoreValue: {
         fontSize: 22,
-        fontWeight: 'bold',
-        color: '#4CAF50',
+        fontWeight: '700' as const,
+        color: theme.colors.success,
     },
     menuSection: {
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        marginBottom: 20,
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.borderRadius.lg,
+        marginBottom: theme.spacing[5],
     },
     menuTitle: {
         fontSize: 12,
-        color: '#999',
-        fontWeight: '600',
-        paddingHorizontal: 16,
-        paddingTop: 16,
-        paddingBottom: 8,
+        color: theme.colors.text.muted,
+        fontWeight: '600' as const,
+        paddingHorizontal: theme.spacing[4],
+        paddingTop: theme.spacing[4],
+        paddingBottom: theme.spacing[2],
         textTransform: 'uppercase',
     },
     menuItem: {
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 14,
-        paddingHorizontal: 16,
+        paddingHorizontal: theme.spacing[4],
         borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0',
+        borderBottomColor: theme.colors.border.light,
     },
     menuIcon: {
         width: 36,
         height: 36,
         borderRadius: 18,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: theme.colors.background.secondary,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 12,
+        marginRight: theme.spacing[3],
     },
     menuItemText: {
         flex: 1,
         fontSize: 15,
-        color: '#333',
+        color: theme.colors.text.primary,
     },
     logoutButton: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FFF',
-        borderRadius: 12,
-        paddingVertical: 16,
-        gap: 8,
+        backgroundColor: theme.colors.white,
+        borderRadius: theme.borderRadius.lg,
+        paddingVertical: theme.spacing[4],
+        gap: theme.spacing[2],
     },
     logoutText: {
         fontSize: 16,
-        color: '#F44336',
-        fontWeight: '600',
+        color: theme.colors.error,
+        fontWeight: '600' as const,
     },
 });
 

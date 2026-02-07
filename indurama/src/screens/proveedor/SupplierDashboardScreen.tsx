@@ -24,6 +24,7 @@ import { SupplierResponseService } from '../../services/supplierResponseService'
 import { QuotationInvitation } from '../../types';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { useTranslation } from 'react-i18next';
+import { theme } from '../../styles/theme';
 
 interface SupplierDashboardScreenProps {
     onNavigateToQuotations: () => void;
@@ -534,25 +535,25 @@ export const SupplierDashboardScreen: React.FC<SupplierDashboardScreenProps> = (
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8FAFC',
+        backgroundColor: theme.colors.background.secondary,
     },
     loadingContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        backgroundColor: '#F8FAFC',
+        backgroundColor: theme.colors.background.secondary,
     },
     loadingText: {
-        marginTop: 16,
+        marginTop: theme.spacing[4],
         fontSize: 14,
-        color: '#64748B',
-        fontWeight: '500',
+        color: theme.colors.text.secondary,
+        fontWeight: '500' as const,
     },
     contentConstraint: {
         width: '100%',
         maxWidth: 1200,
         alignSelf: 'center',
-        paddingHorizontal: 20,
+        paddingHorizontal: theme.spacing[5],
     },
     headerGradient: {
         paddingTop: Platform.OS === 'ios' ? 50 : 40,
@@ -578,20 +579,15 @@ const styles = StyleSheet.create({
         position: 'relative',
     },
     greeting: {
-        fontSize: 15,
-        color: '#93C5FD',
-        fontWeight: '600',
-        marginBottom: 6,
-        letterSpacing: 0.3,
+        fontSize: 14,
+        color: 'rgba(255,255,255,0.8)',
+        fontWeight: '400',
+        marginBottom: 4,
     },
     userName: {
-        fontSize: 28,
-        fontWeight: '800',
+        fontSize: 24,
+        fontWeight: '700',
         color: '#FFFFFF',
-        letterSpacing: 0.5,
-        textShadowColor: 'rgba(0, 0, 0, 0.1)',
-        textShadowOffset: { width: 0, height: 2 },
-        textShadowRadius: 4,
     },
     statusDot: {
         position: 'absolute',
@@ -702,11 +698,10 @@ const styles = StyleSheet.create({
         letterSpacing: 1,
     },
     epiLabel: {
-        fontSize: 22,
-        fontWeight: '800',
-        color: '#0F172A',
+        fontSize: 18,
+        fontWeight: '700',
+        color: theme.colors.text.primary,
         marginBottom: 6,
-        letterSpacing: 0.3,
     },
     epiDescription: {
         fontSize: 14,
@@ -811,11 +806,10 @@ const styles = StyleSheet.create({
 
     // Section Title
     sectionTitle: {
-        fontSize: 20,
-        fontWeight: '800',
-        color: '#0F172A',
-        marginBottom: 18,
-        letterSpacing: 0.3,
+        fontSize: 18,
+        fontWeight: '600',
+        color: theme.colors.text.primary,
+        marginBottom: 16,
     },
     sectionSubtitle: {
         fontSize: 13,
@@ -867,11 +861,10 @@ const styles = StyleSheet.create({
         elevation: 3,
     },
     statNumber: {
-        fontSize: 32,
-        fontWeight: '900',
-        color: '#0F172A',
+        fontSize: 28,
+        fontWeight: '700',
+        color: theme.colors.text.primary,
         marginBottom: 4,
-        letterSpacing: 0.5,
     },
     statSubtitle: {
         fontSize: 13,

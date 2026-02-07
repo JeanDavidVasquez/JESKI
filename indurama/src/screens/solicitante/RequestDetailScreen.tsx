@@ -244,55 +244,62 @@ export const RequestDetailScreen: React.FC<RequestDetailScreenProps> = ({
       <StatusBar style="light" />
 
       {/* Hero Header */}
+      {/* Hero Header Optimizado */}
       <View style={styles.heroHeader}>
-        <View style={styles.heroTopRow}>
+        <View style={styles.headerRow}>
           <TouchableOpacity onPress={onBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
-          <Image
-            source={require('../../../assets/icono_indurama.png')}
-            style={{ width: 100, height: 36, tintColor: '#FFF' }}
-            resizeMode="contain"
-          />
-        </View>
 
-        <View style={styles.heroContent}>
-          <Text style={styles.heroCode}>{request.code}</Text>
-          <Text style={styles.heroDescription} numberOfLines={2}>
-            {request.description}
-          </Text>
+          <View style={styles.headerTitleContainer}>
+            <Text style={styles.heroCode}>{request.code}</Text>
+            <Text
+              style={styles.heroDescription}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.8}
+            >
+              {request.description}
+            </Text>
 
-          <View style={styles.badgeRow}>
-            <View style={[
-              styles.statusBadge,
-              (request.status === 'awarded' || (request.status as string) === 'adjudicado') && { backgroundColor: '#9C27B0' },
-              request.status === 'completed' && { backgroundColor: '#4CAF50' },
-              request.status === 'pending' && { backgroundColor: '#FFA726' },
-              (request.status === 'quoting' || (request.status as string) === 'cotizacion') && { backgroundColor: '#F59E0B' },
-              (request.status === 'in_progress') && { backgroundColor: '#2196F3' },
-              request.status === 'rejected' && { backgroundColor: '#F44336' },
-            ]}>
-              <Ionicons
-                name={(request.status === 'awarded' || (request.status as string) === 'adjudicado') ? 'ribbon' :
-                  request.status === 'completed' ? 'checkmark-circle' :
-                    request.status === 'pending' ? 'time' :
-                      request.status === 'in_progress' ? 'sync' : 'alert-circle'}
-                size={14}
-                color="#FFF"
-                style={{ marginRight: 6 }}
-              />
-              <Text style={styles.statusBadgeText}>
-                {request.status === 'awarded' || (request.status as string) === 'adjudicado' ? t('solicitante.status.awarded').toUpperCase() :
-                  request.status === 'completed' ? t('solicitante.status.completed').toUpperCase() :
-                    request.status === 'pending' ? t('solicitante.status.pending').toUpperCase() :
-                      (request.status === 'quoting' || (request.status as string) === 'cotizacion') ? t('solicitante.status.quoting').toUpperCase() :
-                        request.status === 'in_progress' ? t('solicitante.status.inProgress').toUpperCase() :
-                          request.status === 'rejected' ? t('solicitante.status.rejected').toUpperCase() :
-                            request.status === 'rectification_required' ? t('solicitante.status.rectificationRequired').toUpperCase() :
-                              request.status.toUpperCase()}
-              </Text>
+            <View style={styles.badgeRow}>
+              <View style={[
+                styles.statusBadge,
+                (request.status === 'awarded' || (request.status as string) === 'adjudicado') && { backgroundColor: '#9C27B0' },
+                request.status === 'completed' && { backgroundColor: '#4CAF50' },
+                request.status === 'pending' && { backgroundColor: '#FFA726' },
+                (request.status === 'quoting' || (request.status as string) === 'cotizacion') && { backgroundColor: '#F59E0B' },
+                (request.status === 'in_progress') && { backgroundColor: '#2196F3' },
+                request.status === 'rejected' && { backgroundColor: '#F44336' },
+              ]}>
+                <Ionicons
+                  name={(request.status === 'awarded' || (request.status as string) === 'adjudicado') ? 'ribbon' :
+                    request.status === 'completed' ? 'checkmark-circle' :
+                      request.status === 'pending' ? 'time' :
+                        request.status === 'in_progress' ? 'sync' : 'alert-circle'}
+                  size={12}
+                  color="#FFF"
+                  style={{ marginRight: 4 }}
+                />
+                <Text style={styles.statusBadgeText}>
+                  {request.status === 'awarded' || (request.status as string) === 'adjudicado' ? t('solicitante.status.awarded').toUpperCase() :
+                    request.status === 'completed' ? t('solicitante.status.completed').toUpperCase() :
+                      request.status === 'pending' ? t('solicitante.status.pending').toUpperCase() :
+                        (request.status === 'quoting' || (request.status as string) === 'cotizacion') ? t('solicitante.status.quoting').toUpperCase() :
+                          request.status === 'in_progress' ? t('solicitante.status.inProgress').toUpperCase() :
+                            request.status === 'rejected' ? t('solicitante.status.rejected').toUpperCase() :
+                              request.status === 'rectification_required' ? t('solicitante.status.rectificationRequired').toUpperCase() :
+                                request.status.toUpperCase()}
+                </Text>
+              </View>
             </View>
           </View>
+
+          <Image
+            source={require('../../../assets/icono_indurama.png')}
+            style={styles.headerLogo}
+            resizeMode="contain"
+          />
         </View>
       </View>
 
@@ -539,27 +546,34 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: -40, // Overlap effect
+    marginTop: 0, // Separación limpia, sin overlap
+    paddingTop: 10,
   },
   contentWrapper: {
     paddingHorizontal: 16,
     width: '100%',
   },
 
-  // HERO HEADER
+  // HERO HEADER OPTIMIZADO
   heroHeader: {
-    backgroundColor: theme.colors.primary, // Indurama Blue
-    paddingTop: 60,
-    paddingBottom: 60, // Extra padding for overlap
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    backgroundColor: theme.colors.primary,
+    paddingTop: Platform.OS === 'ios' ? 60 : (Platform.OS === 'web' ? 40 : 50),
+    paddingBottom: 24,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 1,
   },
-  heroTopRow: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 24,
+    justifyContent: 'space-between',
+    gap: 8,
   },
   backButton: {
     width: 40,
@@ -568,41 +582,50 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
-  heroContent: {
-    alignItems: 'flex-start',
-    maxWidth: 800,
-    alignSelf: 'center',
-    width: '100%',
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 8,
   },
   heroCode: {
-    color: 'rgba(255,255,255,0.8)',
-    fontSize: 14,
+    color: 'rgba(255,255,255,0.9)',
+    fontSize: 12,
     fontWeight: '600',
-    marginBottom: 8,
+    marginBottom: 2,
+    textAlign: 'center',
   },
   heroDescription: {
     color: '#FFFFFF',
-    fontSize: 24,
+    fontSize: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 20 : 18,
     fontWeight: 'bold',
-    lineHeight: 32,
-    marginBottom: 16,
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  headerLogo: {
+    width: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 100 : 80,
+    height: 36,
+    tintColor: '#FFF',
+    flexShrink: 0,
   },
   badgeRow: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   statusBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2196F3',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    backgroundColor: 'rgba(255,255,255,0.2)', // Fondo más sutil para el badge en el header
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
   },
   statusBadgeText: {
     color: '#FFF',
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
   },
 

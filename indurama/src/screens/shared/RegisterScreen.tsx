@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -13,8 +13,8 @@ import {
   Modal,
   FlatList,
   ActivityIndicator,
-  TouchableWithoutFeedback, // <--- 1. Importado para detectar clics fuera
-  Keyboard // <--- 1. Importado para cerrar teclado si es necesario
+  TouchableWithoutFeedback,
+  Keyboard
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
@@ -118,11 +118,28 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
   const [showTerms, setShowTerms] = useState(false);
   const [_registeredUser, setRegisteredUser] = useState<User | null>(null);
 
-  // --- 2. Lógica para cerrar Dropdowns (Clic fuera + tecla ESC) ---
+  // --- 1. REFERENCIAS PARA FOCO AUTOMÁTICO ---
+  const firstNameRef = useRef<TextInput>(null);
+  const companyNameRef = useRef<TextInput>(null);
+
+  // --- 2. EFECTO PARA ACTIVAR EL FOCO AL ENTRAR AL FORMULARIO ---
+  useEffect(() => {
+    if (step === 'form') {
+      const timer = setTimeout(() => {
+        if (isSupplier) {
+          companyNameRef.current?.focus();
+        } else {
+          firstNameRef.current?.focus();
+        }
+      }, 200); // Pequeño delay aumentado a 200ms para asegurar renderizado
+      return () => clearTimeout(timer);
+    }
+  }, [step, isSupplier]);
+
+  // --- Lógica para cerrar Dropdowns (Clic fuera + tecla ESC) ---
   const closeDropdowns = () => {
     if (showCompanyDropdown) setShowCompanyDropdown(false);
     if (showDeptDropdown) setShowDeptDropdown(false);
-    Keyboard.dismiss();
   };
 
   useEffect(() => {
@@ -622,6 +639,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   value={taxId}
                   onChangeText={setTaxId}
                   keyboardType="numeric"
+                  caretHidden={false}
+                  selectionColor={theme.colors.primary}
                 />
               </View>
 
@@ -632,6 +651,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   placeholder="Nombre legal de la empresa o persona"
                   value={companyName}
                   onChangeText={setCompanyName}
+                  caretHidden={false}
+                  selectionColor={theme.colors.primary}
                 />
               </View>
 
@@ -642,6 +663,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   placeholder="Ej: FERRETERIA CENTRAL"
                   value={searchTerm}
                   onChangeText={setSearchTerm}
+                  caretHidden={false}
+                  selectionColor={theme.colors.primary}
                 />
                 <Text style={styles.helperText}>Nombre corto para búsquedas rápidas en SAP</Text>
               </View>
@@ -656,33 +679,33 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
               <View style={styles.nameRow}>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>País</Text>
-                  <TextInput style={styles.directInput} value={country} onChangeText={setCountry} />
+                  <TextInput style={styles.directInput} value={country} onChangeText={setCountry} caretHidden={false} selectionColor={theme.colors.primary} />
                 </View>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>Región / Provincia</Text>
-                  <TextInput style={styles.directInput} value={region} onChangeText={setRegion} placeholder="Ej: Azuay" />
+                  <TextInput style={styles.directInput} value={region} onChangeText={setRegion} placeholder="Ej: Azuay" caretHidden={false} selectionColor={theme.colors.primary} />
                 </View>
               </View>
 
               <View style={styles.nameRow}>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>Ciudad</Text>
-                  <TextInput style={styles.directInput} value={city} onChangeText={setCity} />
+                  <TextInput style={styles.directInput} value={city} onChangeText={setCity} caretHidden={false} selectionColor={theme.colors.primary} />
                 </View>
                 <View style={[styles.inputContainer, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>Código Postal</Text>
-                  <TextInput style={styles.directInput} value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" />
+                  <TextInput style={styles.directInput} value={postalCode} onChangeText={setPostalCode} keyboardType="numeric" caretHidden={false} selectionColor={theme.colors.primary} />
                 </View>
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Calle Principal y Número</Text>
-                <TextInput style={styles.directInput} value={street} onChangeText={setStreet} placeholder="Av. Las Américas 12-45" />
+                <TextInput style={styles.directInput} value={street} onChangeText={setStreet} placeholder="Av. Las Américas 12-45" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Teléfono Principal</Text>
-                <TextInput style={styles.directInput} value={phone} onChangeText={setPhone} keyboardType="phone-pad" />
+                <TextInput style={styles.directInput} value={phone} onChangeText={setPhone} keyboardType="phone-pad" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
             </View>
           )}
@@ -694,12 +717,12 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Nombre del Banco</Text>
-                <TextInput style={styles.directInput} value={bankName} onChangeText={setBankName} placeholder="Ej: Banco Pichincha" />
+                <TextInput style={styles.directInput} value={bankName} onChangeText={setBankName} placeholder="Ej: Banco Pichincha" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Número de Cuenta</Text>
-                <TextInput style={styles.directInput} value={bankAccount} onChangeText={setBankAccount} keyboardType="numeric" />
+                <TextInput style={styles.directInput} value={bankAccount} onChangeText={setBankAccount} keyboardType="numeric" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
 
               <View style={styles.inputContainer}>
@@ -720,7 +743,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Clave de Banco (SAP)</Text>
-                <TextInput style={styles.directInput} value={bankKey} onChangeText={setBankKey} placeholder="Código interno bancario" />
+                <TextInput style={styles.directInput} value={bankKey} onChangeText={setBankKey} placeholder="Código interno bancario" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
             </View>
           )}
@@ -738,7 +761,7 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Condición de Pago Solicitada</Text>
-                <TextInput style={styles.directInput} value={paymentCondition} onChangeText={setPaymentCondition} placeholder="Ej: 30 días fecha factura" />
+                <TextInput style={styles.directInput} value={paymentCondition} onChangeText={setPaymentCondition} placeholder="Ej: 30 días fecha factura" caretHidden={false} selectionColor={theme.colors.primary} />
               </View>
             </View>
           )}
@@ -794,6 +817,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                   value={commercialDescription}
                   onChangeText={setCommercialDescription}
                   multiline
+                  caretHidden={false}
+                  selectionColor={theme.colors.primary}
                 />
                 <Text style={styles.helperText}>Incluya palabras clave para la búsqueda</Text>
               </View>
@@ -827,11 +852,17 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
           <View style={styles.inputContainer}>
             <Text style={styles.inputLabel}>Razón Social</Text>
             <TextInput
+              ref={companyNameRef} // REFERENCIA ASIGNADA
               style={[styles.directInput, errors.companyName ? styles.inputError : null]}
               placeholder="Indurama Ecuador S.A."
               value={companyName}
               onChangeText={(t) => { setCompanyName(t); clearFieldError('companyName'); }}
               placeholderTextColor="#999"
+              // CONFIGURACIÓN PARA FORZAR EL CURSOR
+              autoFocus={true} 
+              caretHidden={false}
+              selectionColor={theme.colors.primary}
+              autoComplete="off" // Evita que la caja de sugerencias tape la barrita al inicio
             />
             {errors.companyName ? <Text style={styles.errorText}>{errors.companyName}</Text> : null}
           </View>
@@ -846,6 +877,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 onChangeText={(t) => { setTaxId(t); clearFieldError('taxId'); }}
                 keyboardType="numeric"
                 placeholderTextColor="#999"
+                caretHidden={false}
+                selectionColor={theme.colors.primary}
               />
               {errors.taxId ? <Text style={styles.errorText}>{errors.taxId}</Text> : null}
             </View>
@@ -859,6 +892,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 onChangeText={(t) => { setPhone(t); clearFieldError('phone'); }}
                 keyboardType="phone-pad"
                 placeholderTextColor="#999"
+                caretHidden={false}
+                selectionColor={theme.colors.primary}
               />
               {errors.phone ? <Text style={styles.errorText}>{errors.phone}</Text> : null}
             </View>
@@ -877,12 +912,18 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                 <View style={[styles.inputContainer, styles.halfWidth]}>
                   <Text style={styles.inputLabel}>Nombre</Text>
                   <TextInput
+                    ref={firstNameRef} // REFERENCIA ASIGNADA
                     style={[styles.directInput, errors.firstName ? styles.inputError : null]}
                     placeholder="Nombre"
                     value={firstName}
                     onChangeText={(t) => { setFirstName(t); clearFieldError('firstName'); }}
                     autoCapitalize="words"
                     placeholderTextColor="#999"
+                    // CONFIGURACIÓN PARA FORZAR EL CURSOR
+                    autoFocus={true} 
+                    caretHidden={false}
+                    selectionColor={theme.colors.primary}
+                    autoComplete="off"
                   />
                   {errors.firstName ? <Text style={styles.errorText}>{errors.firstName}</Text> : null}
                 </View>
@@ -896,6 +937,8 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
                     onChangeText={(t) => { setSurname(t); clearFieldError('surname'); }}
                     autoCapitalize="words"
                     placeholderTextColor="#999"
+                    caretHidden={false}
+                    selectionColor={theme.colors.primary}
                   />
                   {errors.surname ? <Text style={styles.errorText}>{errors.surname}</Text> : null}
                 </View>
@@ -934,46 +977,63 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         </>
       )}
 
-      {/* --- COMMON FIELDS --- */}
-      <View style={[styles.inputContainer, { zIndex: 0 }]}>
+      {/* --- COMMON FIELDS (Con iconos como Login) --- */}
+      <View style={styles.inputWrapper}>
         <Text style={styles.inputLabel}>Correo Electrónico</Text>
-        <TextInput
-          style={[styles.directInput, errors.email ? styles.inputError : null]}
-          placeholder="ejemplo@correo.com"
-          value={email}
-          onChangeText={(t) => { setEmail(t); clearFieldError('email'); }}
-          keyboardType="email-address"
-          autoCapitalize="none"
-          autoCorrect={false}
-          placeholderTextColor="#999"
-        />
-        {errors.email ? <Text style={styles.errorText}>{errors.email}</Text> : null}
+        <View style={[styles.inputWithIcon, errors.email && styles.inputError]}>
+          <Ionicons name="mail-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInputWithIcon}
+            placeholder="ejemplo@correo.com"
+            value={email}
+            onChangeText={(t) => { setEmail(t); clearFieldError('email'); }}
+            keyboardType="email-address"
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholderTextColor="#999999"
+            // CONFIGURACIÓN EXTRA PARA EMAIL
+            caretHidden={false}
+            selectionColor={theme.colors.primary}
+            autoComplete="email" 
+          />
+        </View>
+        {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
       </View>
 
-      <View style={[styles.inputContainer, { zIndex: 0 }]}>
+      <View style={styles.inputWrapper}>
         <Text style={styles.inputLabel}>Contraseña</Text>
-        <TextInput
-          style={[styles.directInput, errors.password ? styles.inputError : null]}
-          placeholder="********"
-          value={password}
-          onChangeText={(t) => { setPassword(t); clearFieldError('password'); }}
-          secureTextEntry={true}
-          placeholderTextColor="#999"
-        />
-        {errors.password ? <Text style={styles.errorText}>{errors.password}</Text> : null}
+        <View style={[styles.inputWithIcon, errors.password && styles.inputError]}>
+          <Ionicons name="lock-closed-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInputWithIcon}
+            placeholder="Mínimo 6 caracteres"
+            value={password}
+            onChangeText={(t) => { setPassword(t); clearFieldError('password'); }}
+            secureTextEntry={true}
+            placeholderTextColor="#999999"
+            caretHidden={false}
+            selectionColor={theme.colors.primary}
+          />
+        </View>
+        {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
       </View>
 
-      <View style={[styles.inputContainer, { zIndex: 0 }]}>
+      <View style={styles.inputWrapper}>
         <Text style={styles.inputLabel}>Confirmar Contraseña</Text>
-        <TextInput
-          style={[styles.directInput, errors.confirmPassword ? styles.inputError : null]}
-          placeholder="********"
-          value={confirmPassword}
-          onChangeText={(t) => { setConfirmPassword(t); clearFieldError('confirmPassword'); }}
-          secureTextEntry={true}
-          placeholderTextColor="#999"
-        />
-        {errors.confirmPassword ? <Text style={styles.errorText}>{errors.confirmPassword}</Text> : null}
+        <View style={[styles.inputWithIcon, errors.confirmPassword && styles.inputError]}>
+          <Ionicons name="shield-checkmark-outline" size={20} color="#9CA3AF" style={styles.inputIcon} />
+          <TextInput
+            style={styles.textInputWithIcon}
+            placeholder="Repite tu contraseña"
+            value={confirmPassword}
+            onChangeText={(t) => { setConfirmPassword(t); clearFieldError('confirmPassword'); }}
+            secureTextEntry={true}
+            placeholderTextColor="#999999"
+            caretHidden={false}
+            selectionColor={theme.colors.primary}
+          />
+        </View>
+        {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
       </View>
 
       <TouchableOpacity
@@ -981,9 +1041,13 @@ export const RegisterScreen: React.FC<RegisterScreenProps> = ({
         onPress={handleRegisterButton}
         disabled={loading}
       >
-        <Text style={styles.submitButtonText}>
-          {loading ? 'Creando cuenta...' : (isSupplier ? 'Registrar Empresa' : 'Registrarme')}
-        </Text>
+        {loading ? (
+          <ActivityIndicator size="small" color="#FFF" />
+        ) : (
+          <Text style={styles.submitButtonText}>
+            {isSupplier ? 'Registrar Empresa' : 'Registrarme'}
+          </Text>
+        )}
       </TouchableOpacity>
     </View>
   );
@@ -1099,18 +1163,40 @@ const styles = StyleSheet.create({
 
   inputContainer: { marginBottom: 16, position: 'relative' },
   inputLabel: { fontSize: 14, color: '#333', fontWeight: '600', marginBottom: 6, marginLeft: 4 },
-  directInput: { backgroundColor: '#f9f9f9', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', height: 50, paddingHorizontal: 16, color: '#333' },
+  directInput: { backgroundColor: '#ffffff', borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: '#e0e0e0', height: isMobile ? 50 : 56, paddingHorizontal: 16, color: '#333', fontSize: 16, ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}) },
   inputError: { borderColor: '#e53935' },
-  errorText: { color: '#e53935', marginTop: 4, marginLeft: 6, fontSize: 12 },
+  errorText: { color: '#e53935', marginTop: 6, marginLeft: 6, fontSize: 13 },
+
+  // New icon-based input styles (matching Login)
+  inputWrapper: { marginBottom: theme.spacing[4] },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: theme.borderRadius.lg,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    height: isMobile ? 50 : 56, // Standardized Input Height
+    paddingHorizontal: theme.spacing[4],
+    // No shadows
+  },
+  inputIcon: { marginRight: 10 },
+  textInputWithIcon: {
+    flex: 1,
+    fontSize: 16, // Standardized Font Size
+    color: '#333333',
+    height: '100%',
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {})
+  },
 
   selectorButton: {
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
-    backgroundColor: '#f9f9f9', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', height: 50, paddingHorizontal: 16
+    backgroundColor: '#ffffff', borderRadius: theme.borderRadius.lg, borderWidth: 1, borderColor: '#e0e0e0', height: isMobile ? 50 : 56, paddingHorizontal: 16
   },
   selectorDisabled: {
-    backgroundColor: '#f0f0f0',
-    borderColor: '#eee',
-    opacity: 0.7
+    backgroundColor: '#f5f5f5',
+    borderColor: '#e0e0e0',
+    opacity: 1
   },
   selectorText: { color: '#333', fontSize: 16 },
   placeholderText: { color: '#999' },
@@ -1121,7 +1207,8 @@ const styles = StyleSheet.create({
     top: '100%', left: 0, right: 0, marginTop: 4,
     backgroundColor: '#fff',
     borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8,
-    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 5,
+    // Removed strong shadows, kept minimal border
+    shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2,
     maxHeight: 200,
     overflow: 'hidden'
   },
@@ -1136,11 +1223,29 @@ const styles = StyleSheet.create({
   halfWidth: { flex: 1 },
 
   submitButton: {
-    height: 56, borderRadius: 8, backgroundColor: theme.colors.primary,
-    justifyContent: 'center', alignItems: 'center', marginTop: 16, marginBottom: 16,
-    shadowColor: theme.colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
+    height: isMobile ? 50 : 60,
+    borderRadius: theme.borderRadius.lg,
+    backgroundColor: theme.colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: theme.spacing[4],
+    marginBottom: theme.spacing[4],
+    ...Platform.select({
+      ios: {
+        shadowColor: theme.colors.primary,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 4,
+      },
+      web: {
+        boxShadow: `0 4px 12px ${theme.colors.primary}30`,
+      },
+    }),
   },
-  submitButtonText: { color: '#ffffff', fontSize: 16, fontWeight: '600' },
+  submitButtonText: { color: '#ffffff', fontSize: isMobile ? 16 : 18, fontWeight: '600' },
 
   loginLink: { alignItems: 'center', paddingVertical: 16 },
   loginText: { fontSize: 14, color: '#666' },

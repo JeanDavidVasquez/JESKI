@@ -37,6 +37,29 @@
         "understood": "Understood",
         "history": "History"
     },
+    "timeline": {
+        "steps": {
+            "created": "Request Created",
+            "waitingApproval": "Waiting Approval",
+            "inReview": "In Review",
+            "approved": "Approved",
+            "rejected": "Rejected",
+            "quoting": "Quoting",
+            "awarded": "Awarded",
+            "pendingReceipt": "Pending Receipt",
+            "correctionRequired": "Correction Required",
+            "receiptConfirmed": "Receipt Confirmed"
+        },
+        "invitedProviders": "Invited Providers",
+        "process": "Purchasing Process"
+    },
+    "roles": {
+        "gestor": "Purchasing Manager",
+        "solicitante": "Requestor",
+        "admin": "Administrator",
+        "approver": "Approver",
+        "supplier": "Supplier"
+    },
     "auth": {
         "login": "Login",
         "logout": "Logout",
@@ -331,6 +354,7 @@
         "stepOf": "STEP {{current}} OF {{total}}"
     },
     "solicitante": {
+        "title": "Requestor",
         "welcome": "Welcome,",
         "companyNotAssigned": "Company not assigned",
         "departmentNotAssigned": "Department not assigned",

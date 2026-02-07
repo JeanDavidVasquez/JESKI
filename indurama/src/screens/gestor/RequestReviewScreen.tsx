@@ -12,7 +12,8 @@ import {
   ActivityIndicator,
   Modal,
   TextInput,
-  Linking
+  Linking,
+  SafeAreaView
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { useAuth } from '../../hooks/useAuth';
@@ -22,7 +23,11 @@ import { Request, RequestStatus, RequestPriority, User } from '../../types';
 import { RequestProcessStepper } from '../../components/RequestProcessStepper';
 import { useResponsive, BREAKPOINTS } from '../../styles/responsive';
 import { Ionicons } from '@expo/vector-icons';
-import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+// SE ELIMINA LA IMPORTACIÓN DE ResponsiveNavShell
+// import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
+
+// Color unificado
+const UNIFIED_BLUE = '#003E85';
 
 interface RequestReviewScreenProps {
   requestId?: string;
@@ -55,18 +60,24 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
-  const { isDesktopView } = useResponsive();
+  const { isDesktopView, isMobileView } = useResponsive();
 
   // UI States
   const [comment, setComment] = useState('');
   const [showApprovalModal, setShowApprovalModal] = useState(false);
   const [showRectificationModal, setShowRectificationModal] = useState(false);
 
-  const navItems = [
-    { key: 'Dashboard', label: 'Inicio', iconName: 'home' as const, onPress: onNavigateToDashboard || (() => { }) },
-    { key: 'Requests', label: 'Solicitudes', iconName: 'document-text' as const, onPress: onNavigateToDashboard || (() => { }) },
-    { key: 'Back', label: 'Volver', iconName: 'arrow-back' as const, onPress: onNavigateBack || (() => { }) },
-  ];
+  // Manejador seguro para volver
+  const handleBack = () => {
+    if (onNavigateBack) {
+      onNavigateBack();
+    } else if (onNavigateToDashboard) {
+      onNavigateToDashboard();
+    }
+  };
+
+  // SE ELIMINAN LOS NAV ITEMS PORQUE YA NO SE USA EL SHELL
+  /* const navItems = [ ... ]; */
 
   const loadRequest = useCallback(async () => {
     if (!requestId) return;
@@ -228,7 +239,7 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
   if (loading || authLoading) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#003E85" />
+        <ActivityIndicator size="large" color={UNIFIED_BLUE} />
       </View>
     );
   }
@@ -237,28 +248,35 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
     return (
       <View style={styles.errorContainer}>
         <Text>No se encontró la solicitud.</Text>
-        <TouchableOpacity onPress={onNavigateBack} style={{ marginTop: 20 }}>
-          <Text style={{ color: '#003E85' }}>Volver</Text>
+        <TouchableOpacity onPress={handleBack} style={{ marginTop: 20 }}>
+          <Text style={{ color: UNIFIED_BLUE }}>Volver</Text>
         </TouchableOpacity>
       </View>
     );
   }
 
+  // SE ELIMINA ResponsiveNavShell Y SE USA UN CONTENEDOR BASICO
   return (
-    <ResponsiveNavShell
-      title={request.code || "Validar Solicitud"}
-      navItems={navItems}
-      currentScreen="Requests"
-      onNavigateToNotifications={onNavigateToNotifications}
-      logo={require('../../../assets/icono_indurama.png')}
-    >
-      <View style={{ flex: 1, width: '100%', backgroundColor: '#F8F9FB' }}>
-        <StatusBar style="dark" />
-
+    <View style={styles.mainContainer}>
+      <StatusBar style="dark" />
+      
+      {/* Usamos SafeAreaView para móviles para evitar el notch */}
+      <SafeAreaView style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={[
-          styles.content,
+          styles.scrollContent,
+          // Ajuste de padding superior para que el botón no pegue con la barra de estado en móviles
+          { paddingTop: isMobileView ? Platform.OS === 'android' ? 40 : 20 : 40 },
           isDesktopView && { maxWidth: 1200, alignSelf: 'center', width: '100%' }
         ]}>
+
+          {/* --- BOTÓN DE REGRESAR CIRCULAR EXACTO --- */}
+          <View style={styles.topHeaderBar}>
+            <TouchableOpacity onPress={handleBack} style={styles.circularBackButton}>
+              {/* Se usa Ionicons, asegúrate de que el nombre del icono coincida con la referencia visual exacta */}
+              <Ionicons name="arrow-back-outline" size={24} color={UNIFIED_BLUE} />
+            </TouchableOpacity>
+          </View>
+          {/* ------------------------------------ */}
 
           <Text style={styles.mainTitle}>{request.title || 'IDENTIFICAR NECESIDAD'}</Text>
           <Text style={styles.subTitle}>Materia prima para línea de producción</Text>
@@ -358,7 +376,7 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
           {/* Sugerencia de Proveedor */}
           <View style={styles.card}>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 15 }}>
-              <Image source={require('../../../assets/icons/comment.png')} style={{ width: 22, height: 22, marginRight: 10, tintColor: '#003E85' }} resizeMode="contain" />
+              <Image source={require('../../../assets/icons/comment.png')} style={{ width: 22, height: 22, marginRight: 10, tintColor: UNIFIED_BLUE }} resizeMode="contain" />
               <Text style={[styles.cardTitle, { marginBottom: 0 }]}>Sugerencia de Proveedor</Text>
             </View>
 
@@ -396,7 +414,7 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
                     style={styles.docItem}
                     onPress={() => handleOpenDocument(doc.url)}
                   >
-                    <View style={styles.docIconContainer}><Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20, tintColor: '#003E85' }} resizeMode="contain" /></View>
+                    <View style={styles.docIconContainer}><Image source={require('../../../assets/icons/download.png')} style={{ width: 20, height: 20, tintColor: UNIFIED_BLUE }} resizeMode="contain" /></View>
                     <View style={{ flex: 1, marginLeft: 10 }}>
                       <Text style={{ fontWeight: 'bold', color: '#333' }}>{doc.name || `Documento ${index + 1}`}</Text>
                       <Text style={{ fontSize: 12, color: '#999' }}>Click para abrir</Text>
@@ -454,147 +472,176 @@ export const RequestReviewScreen: React.FC<RequestReviewScreenProps> = ({
           <View style={styles.bottomSpacing} />
 
         </ScrollView>
+      </SafeAreaView>
 
-        {/* Footer Actions */}
-        {request.status === RequestStatus.PENDING && (
-          <View style={styles.footerContainer}>
-            <View style={styles.footerContent}>
-              <TouchableOpacity
-                style={styles.rejectButton}
-                onPress={handleReject}
-                disabled={actionLoading}
-              >
-                <Image source={require('../../../assets/icons/close.png')} style={styles.rejectIcon} resizeMode="contain" />
-                <Text style={styles.rejectButtonText}>Rechazar</Text>
-              </TouchableOpacity>
+      {/* Footer Actions - Fuera del ScrollView pero dentro del contenedor principal */}
+      {request.status === RequestStatus.PENDING && (
+        <View style={styles.footerContainer}>
+          <View style={styles.footerContent}>
+            <TouchableOpacity
+              style={styles.rejectButton}
+              onPress={handleReject}
+              disabled={actionLoading}
+            >
+              <Image source={require('../../../assets/icons/close.png')} style={styles.rejectIcon} resizeMode="contain" />
+              <Text style={styles.rejectButtonText}>Rechazar</Text>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.validateButton}
-                onPress={() => setShowApprovalModal(true)}
-                disabled={actionLoading}
-              >
-                <Image source={require('../../../assets/icons/check.png')} style={styles.validateIcon} resizeMode="contain" />
-                <Text style={styles.validateButtonText}>Validar y Buscar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.validateButton}
+              onPress={() => setShowApprovalModal(true)}
+              disabled={actionLoading}
+            >
+              <Image source={require('../../../assets/icons/check.png')} style={styles.validateIcon} resizeMode="contain" />
+              <Text style={styles.validateButtonText}>Validar y Buscar</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
+      )}
 
-        {request.status === RequestStatus.IN_PROGRESS && (
-          <View style={styles.footerContainer}>
-            <View style={styles.footerContent}>
-              <TouchableOpacity
-                style={[styles.validateButton, { flex: 1, backgroundColor: '#10B981' }]}
-                onPress={() => onNavigateToProveedores?.(request.id)}
-              >
-                <Image source={require('../../../assets/icons/search.png')} style={styles.validateIcon} resizeMode="contain" />
-                <Text style={styles.validateButtonText}>Continuar a Búsqueda de Proveedores</Text>
-              </TouchableOpacity>
-            </View>
+      {request.status === RequestStatus.IN_PROGRESS && (
+        <View style={styles.footerContainer}>
+          <View style={styles.footerContent}>
+            <TouchableOpacity
+              style={[styles.validateButton, { flex: 1, backgroundColor: '#10B981' }]}
+              onPress={() => onNavigateToProveedores?.(request.id)}
+            >
+              <Image source={require('../../../assets/icons/search.png')} style={styles.validateIcon} resizeMode="contain" />
+              <Text style={styles.validateButtonText}>Continuar a Búsqueda de Proveedores</Text>
+            </TouchableOpacity>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* @ts-ignore */}
-        {request.status === RequestStatus.RECTIFICATION_REQUIRED && (
-          <View style={[styles.footerContainer, { backgroundColor: '#FFF3CD', borderTopColor: '#FFECB3' }]}>
-            <View style={[styles.footerContent, { justifyContent: 'center' }]}>
-              <Text style={{ color: '#856404', fontWeight: 'bold' }}>⚠️ Esperando corrección del solicitante...</Text>
-            </View>
+      {/* @ts-ignore */}
+      {request.status === RequestStatus.RECTIFICATION_REQUIRED && (
+        <View style={[styles.footerContainer, { backgroundColor: '#FFF3CD', borderTopColor: '#FFECB3' }]}>
+          <View style={[styles.footerContent, { justifyContent: 'center' }]}>
+            <Text style={{ color: '#856404', fontWeight: 'bold' }}>⚠️ Esperando corrección del solicitante...</Text>
           </View>
-        )}
+        </View>
+      )}
 
-        {/* Modal de Confirmación */}
-        <Modal
-          visible={showApprovalModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowApprovalModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>¿Validar Solicitud?</Text>
-              <Text style={styles.modalMessage}>
-                Esta acción validará la solicitud y procederá a la fase de búsqueda de proveedores.
-              </Text>
+      {/* Modal de Confirmación */}
+      <Modal
+        visible={showApprovalModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowApprovalModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>¿Validar Solicitud?</Text>
+            <Text style={styles.modalMessage}>
+              Esta acción validará la solicitud y procederá a la fase de búsqueda de proveedores.
+            </Text>
 
-              <TouchableOpacity
-                style={styles.modalApproveButton}
-                onPress={handleApprove}
-              >
-                {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Confirmar Validación</Text>}
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalApproveButton}
+              onPress={handleApprove}
+            >
+              {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Confirmar Validación</Text>}
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowApprovalModal(false)}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowApprovalModal(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-        {/* Modal de Rectificación */}
-        <Modal
-          visible={showRectificationModal}
-          transparent={true}
-          animationType="fade"
-          onRequestClose={() => setShowRectificationModal(false)}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>¿Solicitar Corrección?</Text>
-              <Text style={styles.modalMessage}>
-                Esta acción devolverá la solicitud al solicitante para que realice los cambios indicados en el comentario.
-              </Text>
-              <Text style={[styles.modalMessage, { fontStyle: 'italic', color: '#555', marginTop: -10 }]}>
-                "{comment}"
-              </Text>
+      {/* Modal de Rectificación */}
+      <Modal
+        visible={showRectificationModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowRectificationModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>¿Solicitar Corrección?</Text>
+            <Text style={styles.modalMessage}>
+              Esta acción devolverá la solicitud al solicitante para que realice los cambios indicados en el comentario.
+            </Text>
+            <Text style={[styles.modalMessage, { fontStyle: 'italic', color: '#555', marginTop: -10 }]}>
+              "{comment}"
+            </Text>
 
-              <TouchableOpacity
-                style={[styles.modalApproveButton, { backgroundColor: '#F59E0B' }]}
-                onPress={confirmRectification}
-              >
-                {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Solicitar Corrección</Text>}
-              </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.modalApproveButton, { backgroundColor: '#F59E0B' }]}
+              onPress={confirmRectification}
+            >
+              {actionLoading ? <ActivityIndicator color="#FFF" /> : <Text style={styles.modalApproveButtonText}>Solicitar Corrección</Text>}
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.modalCancelButton}
-                onPress={() => setShowRectificationModal(false)}
-              >
-                <Text style={styles.modalCancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.modalCancelButton}
+              onPress={() => setShowRectificationModal(false)}
+            >
+              <Text style={styles.modalCancelButtonText}>Cancelar</Text>
+            </TouchableOpacity>
           </View>
-        </Modal>
+        </View>
+      </Modal>
 
-      </View>
-    </ResponsiveNavShell>
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FB' },
+  // CONTENEDOR PRINCIPAL REEMPLAZA AL SHELL
+  mainContainer: {
+    flex: 1,
+    backgroundColor: '#F8F9FB',
+  },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  content: { padding: 20 },
+  
+  // Padding para el contenido del ScrollView
+  scrollContent: {
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    // El padding superior se maneja dinámicamente en el componente
+  },
+
+  // --- ESTILOS DEL NUEVO BOTÓN CIRCULAR ---
+  topHeaderBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 15,
+    // Asegura que el botón esté a la izquierda
+    justifyContent: 'flex-start',
+  },
+  circularBackButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    // Color de fondo azul claro exacto
+    backgroundColor: '#E0F2FE',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    // Borde azul claro exacto
+    borderColor: '#B3E5FC',
+    // Sombra sutil para que resalte
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  // ----------------------------------------
+
   mainTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 5 },
   subTitle: { fontSize: 14, color: '#666', marginBottom: 20 },
 
-  stepsContainer: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 25 },
-  stepItem: { alignItems: 'center', width: 80 },
-  stepCircle: { width: 40, height: 40, borderRadius: 20, borderWidth: 1, borderColor: '#00BFFF', justifyContent: 'center', alignItems: 'center', backgroundColor: '#FFF', marginBottom: 5 },
-  stepActive: { backgroundColor: '#E0F7FF' },
-  stepNumber: { color: '#00BFFF', fontWeight: 'bold', fontSize: 16 },
-  stepTextActive: { color: '#003E85' },
-  stepLabel: { fontSize: 10, textAlign: 'center', color: '#666' },
-  stepLabelActive: { color: '#003E85', fontWeight: 'bold' },
-  stepLine: { height: 1, backgroundColor: '#00BFFF', flex: 1, marginTop: -20 },
-
   card: {
     backgroundColor: '#FFF',
-    borderRadius: 12, // More rounded
-    padding: 24, // Wider padding
+    borderRadius: 12,
+    padding: 24,
     marginBottom: 16,
     elevation: 2,
     shadowColor: '#000',
@@ -605,34 +652,34 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#003E85', // Brand color
+    color: UNIFIED_BLUE,
     marginBottom: 20
   },
 
   userInfoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 20 },
   avatarContainer: { width: 50, height: 50, borderRadius: 25, backgroundColor: '#E0F7FF', justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-  avatarText: { fontSize: 20, fontWeight: 'bold', color: '#003E85' },
+  avatarText: { fontSize: 20, fontWeight: 'bold', color: UNIFIED_BLUE },
   userName: { fontSize: 18, fontWeight: 'bold', color: '#333' },
   userRole: { fontSize: 13, color: '#666' },
 
   infoRow: {
     flexDirection: 'row',
-    alignItems: 'center', // Align center vertically
+    alignItems: 'center',
     marginBottom: 12,
-    borderBottomWidth: 1, // Subtle separator
+    borderBottomWidth: 1,
     borderBottomColor: '#F9FAFB',
     paddingBottom: 8
   },
   infoLabel: {
     fontSize: 14,
     color: '#6B7280',
-    width: 160, // Fixed width for alignment 
+    width: 160,
     fontWeight: '600'
   },
   infoValue: {
     fontSize: 14,
     color: '#1F2937',
-    flex: 1, // Take remaining space
+    flex: 1,
     fontWeight: '500'
   },
 
@@ -643,8 +690,6 @@ const styles = StyleSheet.create({
   supplierAvatarText: { fontSize: 18, fontWeight: 'bold', color: '#555' },
   supplierName: { fontSize: 15, fontWeight: 'bold', color: '#333' },
   supplierSub: { fontSize: 12, color: '#666' },
-  viewSupplierButton: { backgroundColor: '#E0E7FF', paddingVertical: 10, paddingHorizontal: 15, alignItems: 'center', justifyContent: 'center', borderRadius: 8, flexDirection: 'row' },
-  viewSupplierText: { color: '#003E85', fontWeight: 'bold', fontSize: 13 },
 
   grayBox: { backgroundColor: '#F9FAFB', borderRadius: 8, padding: 16 },
   docItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#EFF6FF', borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: '#BFDBFE' },
@@ -654,7 +699,6 @@ const styles = StyleSheet.create({
   commentBox: { borderWidth: 1, borderColor: '#E5E7EB', borderRadius: 8, padding: 12, marginBottom: 16, backgroundColor: '#FAFAFA' },
   commentInput: { minHeight: 80, textAlignVertical: 'top', fontSize: 14 },
   sendCommentButton: { backgroundColor: '#4B5563', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 12, borderRadius: 8, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.2, shadowRadius: 2, elevation: 2 },
-
 
   bottomSpacing: { height: 100 },
   footerContainer: {
@@ -681,8 +725,8 @@ const styles = StyleSheet.create({
   rejectButtonText: { color: '#EF4444', fontWeight: '700', fontSize: 15 },
   validateButton: {
     flex: 0.48, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-    backgroundColor: '#003E85', borderRadius: 10, paddingVertical: 14,
-    shadowColor: '#003E85', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
+    backgroundColor: UNIFIED_BLUE, borderRadius: 10, paddingVertical: 14,
+    shadowColor: UNIFIED_BLUE, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 4
   },
   validateIcon: { width: 18, height: 18, tintColor: '#FFF', marginRight: 8 },
   validateButtonText: { color: '#FFF', fontWeight: '700', fontSize: 15 },
@@ -690,7 +734,7 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#FFF', width: '80%', maxWidth: 500, padding: 30, borderRadius: 20, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 5 }, shadowOpacity: 0.2, shadowRadius: 10, elevation: 20 },
   modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 12, color: '#111827' },
   modalMessage: { fontSize: 15, color: '#6B7280', textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-  modalApproveButton: { backgroundColor: '#003E85', paddingVertical: 14, paddingHorizontal: 30, borderRadius: 10, marginBottom: 12, width: '100%', alignItems: 'center' },
+  modalApproveButton: { backgroundColor: UNIFIED_BLUE, paddingVertical: 14, paddingHorizontal: 30, borderRadius: 10, marginBottom: 12, width: '100%', alignItems: 'center' },
   modalApproveButtonText: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
   modalCancelButton: { paddingVertical: 12 },
   modalCancelButtonText: { color: '#6B7280', fontWeight: '600' }

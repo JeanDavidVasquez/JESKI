@@ -24,6 +24,14 @@ import { doc, getDoc } from 'firebase/firestore';
 import { theme } from '../../styles/theme';
 import { ResponsiveNavShell } from '../../components/ResponsiveNavShell';
 import { useTranslation } from 'react-i18next';
+import {
+    proveedorTypography,
+    proveedorCardStyles,
+    proveedorGradientHeaderStyles,
+    HEADER_GRADIENT_COLORS,
+    proveedorContentStyles,
+    getQuotationStatusColor
+} from './proveedorStyles';
 
 interface ProviderQuotationsScreenProps {
     supplierId: string;
@@ -213,11 +221,15 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
             <View style={styles.container}>
                 <StatusBar style="light" />
 
-                {/* Header */}
-                <View style={[styles.header, !isMobile && styles.headerWeb]}>
-                    <Text style={styles.headerTitle}>{t('proveedor.quotations.title')}</Text>
-                    {isMobile && <View style={{ width: 40 }} />}
-                </View>
+                {/* Header - Consistent Gradient */}
+                <LinearGradient
+                    colors={HEADER_GRADIENT_COLORS}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[proveedorGradientHeaderStyles.container, !isMobile && { paddingTop: 24 }]}
+                >
+                    <Text style={proveedorGradientHeaderStyles.title}>{t('proveedor.quotations.title')}</Text>
+                </LinearGradient>
 
                 {/* Tabs */}
                 <View style={styles.tabsWrapper}>
@@ -467,7 +479,7 @@ export const ProviderQuotationsScreen: React.FC<ProviderQuotationsScreenProps> =
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F3F4F6',
+        backgroundColor: theme.colors.background.secondary,
     },
     loadingContainer: {
         flex: 1,
@@ -480,13 +492,14 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     header: {
-        backgroundColor: theme.colors.primary,
         paddingTop: Platform.OS === 'ios' ? 60 : 50,
         paddingBottom: 20,
         paddingHorizontal: 20,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
+        borderBottomLeftRadius: 30,
+        borderBottomRightRadius: 30,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
@@ -504,9 +517,9 @@ const styles = StyleSheet.create({
         letterSpacing: 0.5,
     },
     tabsWrapper: {
-        backgroundColor: '#FFF',
-        paddingVertical: 12,
-        paddingHorizontal: 16,
+        backgroundColor: theme.colors.white,
+        paddingVertical: theme.spacing[3],
+        paddingHorizontal: theme.spacing[4],
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.05,
@@ -522,9 +535,9 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         paddingVertical: 10,
-        paddingHorizontal: 16,
-        borderRadius: 20,
-        backgroundColor: '#F3F4F6',
+        paddingHorizontal: theme.spacing[4],
+        borderRadius: theme.borderRadius.xl,
+        backgroundColor: theme.colors.background.secondary,
     },
     tabActive: {
         backgroundColor: '#E8F4FF',

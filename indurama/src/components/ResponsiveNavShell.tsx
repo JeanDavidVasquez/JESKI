@@ -333,9 +333,10 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        marginBottom: 32,
-        height: 40,
+        paddingHorizontal: 24,
+        paddingTop: 16,
+        marginBottom: 40,
+        height: 64,
     },
     sidebarHeaderCollapsed: {
         justifyContent: 'center',
@@ -343,10 +344,11 @@ const styles = StyleSheet.create({
     },
     brandContainer: {
         flex: 1,
+        marginBottom: 8,
     },
     sidebarLogo: {
-        width: 120,
-        height: 32,
+        width: 180,
+        height: 54,
     },
     sidebarTitle: {
         fontSize: 20,

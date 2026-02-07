@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   StyleSheet,
@@ -40,7 +40,6 @@ type FeedbackMessage = {
 
 /**
  * LoginScreen - Pantalla de inicio de sesión
- * Diseño limpio y profesional (mismo estilo que Register)
  */
 export const LoginScreen: React.FC<LoginScreenProps> = ({
   onNavigateToRegister,
@@ -52,6 +51,19 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<FieldErrors>({});
   const [feedback, setFeedback] = useState<FeedbackMessage | null>(null);
+
+  // 1. CREAMOS LAS REFERENCIAS PARA CONTROLAR EL FOCO
+  const emailInputRef = useRef<TextInput>(null);
+  const passwordInputRef = useRef<TextInput>(null);
+
+  // 2. EFECTO PARA FORZAR QUE APAREZCA LA "BARRITA" (CURSOR) AL CARGAR
+  useEffect(() => {
+    // Un pequeño retraso asegura que el componente visual esté listo antes de pedir el foco
+    const timer = setTimeout(() => {
+      emailInputRef.current?.focus();
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []);
 
   const handleEmailChange = (value: string) => {
     setEmail(value);
@@ -218,7 +230,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
           bounces={false}
         >
           <View style={styles.mainContainer}>
-            {/* Header Section - Title only (logo goes at bottom) */}
+            {/* Header Section */}
             <View style={styles.headerSection}>
               <Text style={styles.loginTitle}>LOGIN</Text>
               <Text style={styles.subtitle}>
@@ -241,6 +253,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     style={styles.inputIcon}
                   />
                   <TextInput
+                    ref={emailInputRef} // REFERENCIA ASIGNADA
                     style={styles.directInput}
                     placeholder="Correo electrónico"
                     value={email}
@@ -249,6 +262,15 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     autoCapitalize="none"
                     autoCorrect={false}
                     placeholderTextColor="#999999"
+                    
+                    // CONFIGURACIÓN PARA EL CURSOR (BARRITA) VISIBLE
+                    autoFocus={true} 
+                    selectionColor={theme.colors.primary} // Pinta la barrita del color azul
+                    
+                    // NAVEGACIÓN
+                    returnKeyType="next"
+                    onSubmitEditing={() => passwordInputRef.current?.focus()} // Salta al siguiente
+                    blurOnSubmit={false}
                   />
                 </View>
                 {errors.email && (
@@ -269,12 +291,20 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     style={styles.inputIcon}
                   />
                   <TextInput
+                    ref={passwordInputRef} // REFERENCIA ASIGNADA
                     style={styles.directInput}
                     placeholder="Contraseña"
                     value={password}
                     onChangeText={handlePasswordChange}
                     secureTextEntry={!showPassword}
                     placeholderTextColor="#999999"
+                    
+                    // CONFIGURACIÓN CURSOR
+                    selectionColor={theme.colors.primary}
+                    
+                    // ACCIÓN FINAL
+                    returnKeyType="done"
+                    onSubmitEditing={handleLogin} // Inicia sesión al dar Enter
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
@@ -339,7 +369,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Bottom Section - Logo (Restored) */}
+            {/* Bottom Section - Logo */}
             <View style={styles.bottomSection}>
               <View style={styles.brandContainer}>
                 <Image
@@ -410,32 +440,20 @@ const styles = StyleSheet.create({
     borderRadius: theme.borderRadius.lg,
     borderWidth: 1,
     borderColor: '#e0e0e0',
-    height: isMobile ? 50 : 60, // Reduced height slightly for mobile
+    height: isMobile ? 50 : 56,
     paddingHorizontal: theme.spacing[4],
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-      },
-      android: {
-        elevation: 2,
-      },
-      web: {
-        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.05)',
-      },
-    }),
   },
   inputIcon: {
-    marginRight: 12,
+    marginRight: 10,
   },
   directInput: {
     flex: 1,
-    ...theme.typography.styles.bodyLarge,
-    fontSize: isMobile ? 16 : 18,
+    ...theme.typography.styles.body,
+    fontSize: 16,
     color: '#333333',
     height: '100%',
+    // Asegura que el input no tenga outline predeterminado en web para que no choque con tu diseño
+    ...(Platform.OS === 'web' ? ({ outlineStyle: 'none' } as any) : {}), 
   },
   eyeButton: {
     padding: 4,
@@ -452,7 +470,7 @@ const styles = StyleSheet.create({
   },
   forgotPasswordLink: {
     alignSelf: 'flex-end',
-    marginBottom: theme.spacing[4], // Reduced margin
+    marginBottom: theme.spacing[4],
     paddingVertical: theme.spacing[2],
   },
   forgotPasswordText: {
@@ -496,10 +514,10 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   submitButton: {
-    height: isMobile ? 50 : 60, // Reduced height slightly for mobile
+    height: isMobile ? 50 : 60,
     borderRadius: theme.borderRadius.lg,
     backgroundColor: theme.colors.primary,
-    marginBottom: theme.spacing[4], // Reduced margin
+    marginBottom: theme.spacing[4],
     justifyContent: 'center',
     alignItems: 'center',
     ...Platform.select({
@@ -525,8 +543,8 @@ const styles = StyleSheet.create({
   },
   loginLink: {
     alignItems: 'center',
-    paddingVertical: theme.spacing[2], // Reduced padding
-    marginBottom: theme.spacing[2], // Minimized margin to fit logo better
+    paddingVertical: theme.spacing[2],
+    marginBottom: theme.spacing[2],
   },
   bottomSection: {
     alignItems: 'center',
@@ -538,7 +556,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoImage: {
-    width: isMobile ? 260 : 350, // Slightly optimized for mobile fit
+    width: isMobile ? 260 : 350,
     height: isMobile ? 90 : 120,
   },
 });

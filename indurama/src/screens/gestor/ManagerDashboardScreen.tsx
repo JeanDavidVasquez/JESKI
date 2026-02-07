@@ -492,9 +492,6 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
             <Text style={styles.title}>DASHBOARD</Text>
             <Text style={styles.subtitle}>Bienvenido, {activeUser?.firstName || 'Gestor'}</Text>
           </View>
-          <View style={styles.logoContainer}>
-            <Image source={require('../../../assets/icono_indurama.png')} style={styles.logoImage} resizeMode="contain" />
-          </View>
         </View>
       </View>
 
@@ -586,21 +583,21 @@ const ManagerDashboardScreen: React.FC<ManagerDashboardScreenProps> = ({
         </View>
         <View style={styles.bottomSpacing} />
       </ScrollView>
-    </ResponsiveNavShell>
+    </ResponsiveNavShell >
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#F8F9FA' },
-  header: { ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 4 } }), backgroundColor: '#FFFFFF', paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingHorizontal: 20, paddingBottom: 20 },
+  container: { flex: 1, backgroundColor: theme.colors.background.secondary },
+  header: { ...Platform.select({ ios: { shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 }, android: { elevation: 4 } }), backgroundColor: theme.colors.white, paddingTop: Platform.OS === 'ios' ? 50 : 20, paddingHorizontal: theme.spacing[5], paddingBottom: theme.spacing[5] },
   headerContent: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: 28, fontWeight: '800', color: '#333333', letterSpacing: -0.5 },
-  subtitle: { fontSize: 14, color: '#888888', marginTop: 2 },
+  title: { fontSize: 28, fontWeight: '800' as const, color: theme.colors.text.primary, letterSpacing: -0.5 },
+  subtitle: { fontSize: 14, color: theme.colors.text.muted, marginTop: 2 },
   logoContainer: { justifyContent: 'center', alignItems: 'flex-end' },
   logoImage: { width: 100, height: 40 },
-  content: { flex: 1, paddingHorizontal: 20, paddingTop: 20 },
+  content: { flex: 1, paddingHorizontal: theme.spacing[5], paddingTop: theme.spacing[5] },
   scrollContent: { paddingBottom: 20 },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: '#888888', marginBottom: 16, textTransform: 'uppercase' },
+  sectionTitle: { fontSize: 16, fontWeight: '700' as const, color: theme.colors.text.muted, marginBottom: theme.spacing[4], textTransform: 'uppercase' },
   statsGrid: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', marginBottom: 24 },
   // Styles
   statCard: {

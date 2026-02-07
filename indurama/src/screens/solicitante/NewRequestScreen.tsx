@@ -368,20 +368,20 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
 
     return (
       <View style={[styles.formGroup, { zIndex: visible ? 1000 : 1 }]}>
-        
+
         {/* OVERLAY / BACKDROP PARA CERRAR AL HACER CLIC FUERA (SOLO ESCRITORIO) */}
         {isDesktopView && visible && !disabled && (
-           <TouchableOpacity
-             style={styles.desktopBackdrop} 
-             activeOpacity={1} 
-             onPress={onToggle}
-           />
+          <TouchableOpacity
+            style={styles.desktopBackdrop}
+            activeOpacity={1}
+            onPress={onToggle}
+          />
         )}
 
         <Text style={styles.label}>
           {label} <Text style={styles.required}>*</Text>
         </Text>
-        
+
         <TouchableOpacity
           style={[
             styles.selectorButton,
@@ -396,7 +396,7 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           </Text>
           {!disabled && <Ionicons name={visible ? "chevron-up" : "chevron-down"} size={20} color="#666" />}
         </TouchableOpacity>
-        
+
         {error ? <Text style={styles.errorText}>{error}</Text> : null}
 
         {/* Desktop: Render Dropdown */}
@@ -464,23 +464,30 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
       <StatusBar style="light" />
 
       <View style={styles.heroHeader}>
-        <View style={styles.heroTopRow}>
+        <View style={styles.headerRow}>
           <TouchableOpacity onPress={handleGoBack} style={styles.backButton}>
             <Ionicons name="arrow-back" size={24} color="#FFF" />
           </TouchableOpacity>
+
+          <View style={styles.headerTitleContainer}>
+            <Text
+              style={styles.headerTitleText}
+              numberOfLines={2}
+              adjustsFontSizeToFit
+              minimumFontScale={0.7}
+            >
+              {initialRequest ? t('requests.form.editTitle') : t('requests.form.title')}
+            </Text>
+            <Text style={styles.headerSubtitleText} numberOfLines={1}>
+              {t('requests.form.subtitle')}
+            </Text>
+          </View>
+
           <Image
             source={require('../../../assets/icono_indurama.png')}
-            style={{ width: 100, height: 36, tintColor: '#FFF' }}
+            style={styles.headerLogo}
             resizeMode="contain"
           />
-        </View>
-        <View style={styles.heroContent}>
-          <Text style={styles.heroTitle}>
-            {initialRequest ? t('requests.form.editTitle') : t('requests.form.title')}
-          </Text>
-          <Text style={styles.heroSubtitle}>
-            {t('requests.form.subtitle')}
-          </Text>
         </View>
       </View>
 
@@ -493,12 +500,12 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
           contentContainerStyle={{ paddingBottom: 100, flexGrow: 1 }}
           showsVerticalScrollIndicator={false}
         >
-          {/* Touchable global para resetear al hacer clic en el fondo general (backup) */}
-          <TouchableWithoutFeedback onPress={closeDropdowns}>
+          {/* Usamos disabled={Platform.OS === 'web'} para evitar que robe el foco en Web */}
+          <TouchableWithoutFeedback onPress={closeDropdowns} disabled={Platform.OS === 'web'}>
             <View style={[
               styles.contentWrapper,
-              // MODIFICACIÓN DE ANCHO: Reducido a 800px para mejor proporción
-              isDesktopView && { maxWidth: 800, alignSelf: 'center', width: '100%' },
+              // MODIFICACIÓN DE ANCHO: Aumentado a 1000px
+              isDesktopView && { maxWidth: 1000, alignSelf: 'center', width: '100%' },
               { minHeight: '100%' }
             ]}>
 
@@ -531,7 +538,6 @@ export const NewRequestScreen: React.FC<NewRequestScreenProps> = ({
                           paddingRight: 16,
                           fontSize: 15,
                           color: '#333',
-                          // --- CORRECCIÓN DEFINITIVA DE FUENTE ---
                           fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif',
                           width: '100%',
                           borderStyle: 'solid',
@@ -808,7 +814,8 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
-    marginTop: -40,
+    marginTop: 0, // Eliminado margen negativo para separar el formulario del header (ya no "pegado")
+    paddingTop: 10,
   },
   contentWrapper: {
     paddingHorizontal: 16,
@@ -816,17 +823,24 @@ const styles = StyleSheet.create({
   },
   heroHeader: {
     backgroundColor: UNIFIED_BLUE,
-    paddingTop: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 40 : 80,
-    paddingBottom: Platform.OS === 'web' && Dimensions.get('window').width < 768 ? 60 : 100,
-    paddingHorizontal: 20,
-    borderBottomLeftRadius: 30,
-    borderBottomRightRadius: 30,
+    paddingTop: Platform.OS === 'ios' ? 60 : (Platform.OS === 'web' ? 40 : 50),
+    paddingBottom: 20, // Espacio suficiente para el contenido del header
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    // Sombra para dar efecto de elevación al header sobre el fondo
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+    zIndex: 1,
   },
-  heroTopRow: {
+  headerRow: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    justifyContent: 'space-between',
+    gap: 8,
   },
   backButton: {
     width: 40,
@@ -835,21 +849,31 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255,255,255,0.2)',
     justifyContent: 'center',
     alignItems: 'center',
+    flexShrink: 0,
   },
-  heroContent: {
-    maxWidth: 800,
-    alignSelf: 'center',
-    width: '100%',
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  heroTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
+  headerTitleText: {
+    fontSize: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 26 : 20, // Reducido un poco para móvil (22 -> 20)
+    fontWeight: '700',
     color: '#FFF',
-    marginBottom: 8,
+    textAlign: 'center',
+    marginBottom: 2,
+    lineHeight: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 30 : 22, // Ajuste de altura de línea para multilinea
   },
-  heroSubtitle: {
-    fontSize: 16,
-    color: 'rgba(255,255,255,0.8)',
+  headerSubtitleText: {
+    fontSize: 12, // Reducido ligeramente
+    color: 'rgba(255,255,255,0.9)',
+    textAlign: 'center',
+  },
+  headerLogo: {
+    width: Platform.OS === 'web' && Dimensions.get('window').width > 768 ? 120 : 90, // Un poco más pequeño en móvil
+    height: 40,
+    tintColor: '#FFF',
+    flexShrink: 0,
   },
   card: {
     backgroundColor: '#FFF',
@@ -954,7 +978,7 @@ const styles = StyleSheet.create({
   placeholderText: { color: '#999' },
   inputError: { borderColor: '#e53935' },
   errorText: { color: '#e53935', marginTop: 4, marginLeft: 6, fontSize: 12 },
-  
+
   // --- ESTILOS DE DESKTOP CORREGIDOS ---
   dropdownListDesktop: {
     position: 'absolute',
@@ -969,20 +993,20 @@ const styles = StyleSheet.create({
   // Usar "as any" para propiedades web (fixed, cursor)
   desktopBackdrop: {
     position: Platform.OS === 'web' ? 'fixed' : 'absolute',
-    top: 0, 
-    left: 0, 
-    right: 0, 
+    top: 0,
+    left: 0,
+    right: 0,
     bottom: 0,
     zIndex: 998,
   } as any,
-  
+
   dropdownOption: {
     paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5',
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center'
   },
   dropdownOptionText: { fontSize: 15, color: '#333' },
   dropdownOptionTextSelected: { fontWeight: '600', color: UNIFIED_BLUE },
-  
+
   // Mobile Picker Styles
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'flex-end' },
   pickerContainer: {

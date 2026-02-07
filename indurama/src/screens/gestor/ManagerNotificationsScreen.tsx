@@ -8,6 +8,13 @@ import { AppNotification } from '../../types';
 import { auth } from '../../services';
 import { onAuthStateChanged } from 'firebase/auth';
 import { theme } from '../../styles/theme';
+import { useResponsive } from '../../styles/responsive';
+import {
+    gestorHeaderStyles,
+    gestorNotificationStyles,
+    gestorContentStyles,
+    getNotificationColor
+} from './gestorStyles';
 
 interface ManagerNotificationsScreenProps {
     onNavigateToDashboard: () => void;
@@ -30,6 +37,8 @@ export const ManagerNotificationsScreen: React.FC<ManagerNotificationsScreenProp
     const [notifications, setNotifications] = useState<AppNotification[]>([]);
     const [loading, setLoading] = useState(true);
     const [unreadCount, setUnreadCount] = useState(0);
+    const { isDesktopView } = useResponsive();
+    const containerMaxWidth = isDesktopView ? 1400 : undefined;
 
     // --- FALLBACK AUTH LOGIC ---
     // If context user is missing, try to get it directly from Firebase Auth
@@ -154,23 +163,44 @@ export const ManagerNotificationsScreen: React.FC<ManagerNotificationsScreenProp
     ];
 
     const renderNotification = ({ item }: { item: AppNotification }) => {
-        const icon = getNotificationIcon(item.type);
+        const notificationColor = getNotificationColor(item.type);
+
+        // Define specific icon based on type (optional: could be moved to helper if needed)
+        const getIconName = (t: string): any => {
+            switch (t) {
+                case 'new_request': return 'document-text';
+                case 'quotation_submitted': return 'pricetag';
+                case 'supplier_registered': return 'people';
+                case 'epi_submitted': return 'clipboard';
+                default: return 'notifications';
+            }
+        };
+
+        const iconName = getIconName(item.type);
+
         return (
             <TouchableOpacity
-                style={[styles.notificationItem, !item.read && styles.unreadItem]}
+                style={[
+                    gestorNotificationStyles.item,
+                    !item.read && gestorNotificationStyles.unreadItem,
+                    {
+                        borderLeftColor: notificationColor,
+                        borderLeftWidth: 4
+                    }
+                ]}
                 onPress={() => handleMarkAsRead(item.id)}
             >
-                <View style={[styles.iconContainer, { backgroundColor: icon.color + '20' }]}>
-                    <Ionicons name={icon.name} size={24} color={icon.color} />
+                <View style={[gestorNotificationStyles.iconContainer, { backgroundColor: notificationColor + '15' }]}>
+                    <Ionicons name={iconName} size={24} color={notificationColor} />
                 </View>
-                <View style={styles.contentContainer}>
-                    <Text style={[styles.title, !item.read && styles.unreadTitle]}>
+                <View style={gestorNotificationStyles.contentContainer}>
+                    <Text style={[gestorNotificationStyles.title, !item.read && gestorNotificationStyles.unreadTitle]}>
                         {item.title}
                     </Text>
-                    <Text style={styles.message} numberOfLines={2}>
+                    <Text style={gestorNotificationStyles.message} numberOfLines={2}>
                         {item.message}
                     </Text>
-                    <Text style={styles.timestamp}>
+                    <Text style={gestorNotificationStyles.timestamp}>
                         {(() => {
                             if (!item.createdAt) return '';
                             const date = item.createdAt.toDate ? item.createdAt.toDate() : new Date(item.createdAt);
@@ -184,7 +214,7 @@ export const ManagerNotificationsScreen: React.FC<ManagerNotificationsScreenProp
                         })()}
                     </Text>
                 </View>
-                {!item.read && <View style={styles.unreadDot} />}
+                {!item.read && <View style={[gestorNotificationStyles.unreadDot, { backgroundColor: notificationColor }]} />}
             </TouchableOpacity>
         );
     };
@@ -199,43 +229,49 @@ export const ManagerNotificationsScreen: React.FC<ManagerNotificationsScreenProp
         >
             <View style={styles.container}>
                 {/* Header */}
-                {/* Header */}
-                <View style={styles.header}>
-                    <View>
-                        <Text style={styles.headerTitle}>Notificaciones</Text>
+                <View style={[gestorHeaderStyles.container, styles.headerOverride]}>
+                    <View style={{ width: '100%', flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View>
+                            <Text style={gestorHeaderStyles.title}>NOTIFICACIONES</Text>
+                            <Text style={gestorHeaderStyles.subtitle}>Gestiona tus alertas y avisos</Text>
+                        </View>
+
                         {unreadCount > 0 && (
-                            <Text style={styles.unreadCount}>
-                                {unreadCount} sin leer
-                            </Text>
+                            <TouchableOpacity
+                                onPress={handleMarkAllAsRead}
+                                style={styles.markAllButton}
+                            >
+                                <Text style={styles.markAllText}>Marcar todas</Text>
+                            </TouchableOpacity>
                         )}
                     </View>
-                    {unreadCount > 0 && (
-                        <TouchableOpacity
-                            onPress={handleMarkAllAsRead}
-                            style={styles.markAllButton}
-                        >
-                            <Text style={styles.markAllText}>Marcar todas</Text>
-                        </TouchableOpacity>
-                    )}
                 </View>
 
                 {/* Notifications List */}
-                {loading ? (
-                    <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
-                ) : notifications.length === 0 ? (
-                    <View style={styles.emptyState}>
-                        <Ionicons name="notifications-off-outline" size={64} color="#BDBDBD" />
-                        <Text style={styles.emptyText}>No tienes notificaciones</Text>
-                    </View>
-                ) : (
-                    <FlatList
-                        data={notifications}
-                        renderItem={renderNotification}
-                        keyExtractor={(item) => item.id}
-                        contentContainerStyle={styles.listContent}
-                        showsVerticalScrollIndicator={false}
-                    />
-                )}
+                <View style={[styles.contentWrapper, { width: '100%' }]}>
+                    {unreadCount > 0 && (
+                        <Text style={styles.unreadCountLabel}>
+                            {unreadCount} {unreadCount === 1 ? 'notificación nueva' : 'notificaciones nuevas'}
+                        </Text>
+                    )}
+
+                    {loading ? (
+                        <ActivityIndicator size="large" color={theme.colors.primary} style={styles.loader} />
+                    ) : notifications.length === 0 ? (
+                        <View style={gestorContentStyles.emptyState}>
+                            <Ionicons name="notifications-off-outline" size={64} color="#BDBDBD" />
+                            <Text style={gestorContentStyles.emptyText}>No tienes notificaciones</Text>
+                        </View>
+                    ) : (
+                        <FlatList
+                            data={notifications}
+                            renderItem={renderNotification}
+                            keyExtractor={(item) => item.id}
+                            contentContainerStyle={styles.listContent}
+                            showsVerticalScrollIndicator={false}
+                        />
+                    )}
+                </View>
             </View>
         </ResponsiveNavShell>
     );
@@ -244,26 +280,22 @@ export const ManagerNotificationsScreen: React.FC<ManagerNotificationsScreenProp
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#F9FAFB', // Matches ManagerRequestsScreen
     },
-    header: {
-        backgroundColor: '#FFFFFF',
+    headerOverride: {
+        // Any specifics to override gestorHeaderStyles if needed
+    },
+    contentWrapper: {
+        flex: 1,
+        width: '100%',
+        alignSelf: 'center',
         padding: 20,
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E0E0E0',
     },
-    headerTitle: {
-        fontSize: 24,
-        fontWeight: 'bold',
-        color: '#212121',
-    },
-    unreadCount: {
-        fontSize: 14,
-        color: '#757575',
-        marginTop: 4,
+    unreadCountLabel: {
+        fontSize: 13,
+        fontWeight: '600',
+        color: theme.colors.primary,
+        marginBottom: 16,
     },
     markAllButton: {
         paddingHorizontal: 16,
@@ -273,83 +305,15 @@ const styles = StyleSheet.create({
     },
     markAllText: {
         color: '#FFFFFF',
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
     },
     loader: {
         marginTop: 40,
     },
-    emptyState: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        paddingVertical: 60,
-    },
-    emptyText: {
-        fontSize: 16,
-        color: '#9E9E9E',
-        marginTop: 16,
-    },
     listContent: {
-        padding: 16,
-    },
-    notificationItem: {
-        backgroundColor: '#FFFFFF',
-        borderRadius: 12,
-        padding: 16,
-        marginBottom: 12,
-        flexDirection: 'row',
-        alignItems: 'flex-start',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    unreadItem: {
-        backgroundColor: '#E3F2FD',
-        borderLeftWidth: 4,
-        borderLeftColor: theme.colors.primary,
-    },
-    iconContainer: {
-        width: 48,
-        height: 48,
-        borderRadius: 24,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 12,
-    },
-    contentContainer: {
-        flex: 1,
-    },
-    title: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#212121',
-        marginBottom: 4,
-    },
-    unreadTitle: {
-        fontWeight: '700',
-    },
-    message: {
-        fontSize: 14,
-        color: '#757575',
-        marginBottom: 8,
-        lineHeight: 20,
-    },
-    timestamp: {
-        fontSize: 12,
-        color: '#9E9E9E',
-    },
-    unreadDot: {
-        width: 10,
-        height: 10,
-        borderRadius: 5,
-        backgroundColor: theme.colors.primary,
-        marginLeft: 8,
-        marginTop: 4,
+        paddingBottom: 40,
     },
 });
-
 
 
